@@ -161,7 +161,7 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .analyst-clients{max-height:0;overflow:hidden;opacity:0;transform:translateY(-8px);transition:max-height .52s cubic-bezier(0.16,1,0.3,1),opacity .4s ease .05s,transform .4s cubic-bezier(0.16,1,0.3,1) .05s}
 .analyst-clients.open{max-height:4000px;opacity:1;transform:none}
 /* ── Page entrance ── */
-.page{animation:page-in .3s cubic-bezier(0.16,1,0.3,1)}
+.page{animation:page-in .3s cubic-bezier(0.16,1,0.3,1);width:100%;box-sizing:border-box}
 @keyframes page-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 /* ── Nav clean ── */
 .nav-clean{background:var(--surf);border-bottom:1px solid var(--bd);padding:0 1.25rem;height:52px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
@@ -407,7 +407,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-return sb+nav()+'<div class="page" style="padding-left:2.25rem;padding-right:1.5rem">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():adminView())))+"</div>"+(S.modal?modal():"")+undo;}
+return sb+nav()+'<div class="page" style="padding-left:2.5rem;padding-right:2.5rem;max-width:1400px;box-sizing:border-box">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():adminView())))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
