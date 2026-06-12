@@ -271,10 +271,10 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false};
 setTheme(S.theme);
-var ALLOWED_EMAILS=['pedro.ferreira@stays.net','pdroc.ferreira@gmail.com','victor.castro@stays.net','maria.oliveira@stays.net','juliana@stays.net','vivian.gomes@stays.net','caroline@stays.net','juliana.reis@stays.net','beatriz.santanna@stays.net','brunab@stays.net'];
+function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
 auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
-  if(fbUser&&!ALLOWED_EMAILS.includes(fbUser.email)){
+  if(fbUser&&!emailPermitido(fbUser.email)){
     await auth.signOut();
     S.appUser={unauthorized:true,email:fbUser.email};
     S.appReady=true;render();return;
