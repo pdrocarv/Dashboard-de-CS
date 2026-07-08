@@ -33,6 +33,8 @@ body{font-family:"Roboto",sans-serif;background:var(--bg);color:var(--t);font-si
 .metric-lbl{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
 .kpi-group{background:var(--surf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
 .kpi-group-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:10px}
+.badge-churn{display:inline-flex;align-items:center;gap:3px;background:#fde8e8;color:#b91c1c;border:1px solid #f87171;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
+.badge-inadim{display:inline-flex;align-items:center;gap:3px;background:#fff3e0;color:#c2410c;border:1px solid #fb923c;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
 .metric-val{font-size:22px;line-height:1;font-family:"Roboto Slab",serif}
 .mv-d{color:var(--t)}.mv-r{color:var(--rd600)}.mv-a{color:var(--am600)}.mv-g{color:var(--gn600)}.mv-b{color:var(--b600)}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;white-space:nowrap}
@@ -378,6 +380,9 @@ function getComparison(c){var latest=getLatestFollow(c),prev=getPrevFollow(c);if
 // ============================================================
 function catBdg(cat){var m={'Elite':'cat-elite','High Touch':'cat-ht','Core A/B':'cat-core','Long Tail':'cat-lt'};if(!cat||!m[cat])return'';return'<span class="badge '+m[cat]+'">'+e(cat)+'</span>';}
 function statusBdg(st){if(!st)return'';var cls=st==='Completed'?'st-done':'st-ongoing';return'<span class="badge '+cls+'">'+e(st)+'</span>';}
+function isChurnAlert(c){var lf=getLatestFollow(c);var hasChurnContact=(c.contacts||[]).some(function(ct){return ct.type==='churn';});var hasChurnInd=lf&&lf.indicators&&lf.indicators.churn_hist&&lf.indicators.churn_hist.status==='risk';return hasChurnContact||hasChurnInd;}
+function isInadimplente(c){var lf=getLatestFollow(c);return lf&&lf.indicators&&lf.indicators.bad_debt&&lf.indicators.bad_debt.status==='risk';}
+function clientAlertBadges(c){var b='';if(isChurnAlert(c))b+='<span class="badge-churn">⚠ Churn</span>';if(isInadimplente(c))b+='<span class="badge-inadim">$ Inadimplente</span>';return b;}
 function calcChurnAlerts(clients){return clients.filter(function(c){var lf=getLatestFollow(c);var hasChurnContact=(c.contacts||[]).some(function(ct){return ct.type==='churn';});var hasChurnInd=lf&&lf.indicators&&lf.indicators.churn_hist&&lf.indicators.churn_hist.status==='risk';return hasChurnContact||hasChurnInd;}).length;}
 function calcInadimplentes(clients){return clients.filter(function(c){var lf=getLatestFollow(c);return lf&&lf.indicators&&lf.indicators.bad_debt&&lf.indicators.bad_debt.status==='risk';}).length;}
 function toggleAnalyst(uid){S.expandedAnalysts=S.expandedAnalysts||{};S.expandedAnalysts[uid]=!S.expandedAnalysts[uid];render();}
@@ -561,7 +566,7 @@ var header=
   +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--t3);margin-top:-4px">'
   +(c.clientCountry?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'+e(c.clientCountry)+(c.clientCity?" · "+e(c.clientCity):""):"")
   +(clientTZ?'<span class="client-clock-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span id="clock-client" style="font-variant-numeric:tabular-nums">--:--:--</span><span style="font-size:9px;color:#1d9fbf;font-weight:500">horário do cliente</span></span>':"")
-  +(c.categoria?'<span style="color:var(--bd)">·</span>'+catBdg(c.categoria):"")+(c.plan?'<span style="color:var(--bd)">·</span>'+planBdg(c.plan):"")+(c.onboardingStatus?'<span style="color:var(--bd)">·</span>'+statusBdg(c.onboardingStatus):"")
+  +(c.categoria?'<span style="color:var(--bd)">·</span>'+catBdg(c.categoria):"")+(c.plan?'<span style="color:var(--bd)">·</span>'+planBdg(c.plan):"")+(c.onboardingStatus?'<span style="color:var(--bd)">·</span>'+statusBdg(c.onboardingStatus):"")+(clientAlertBadges(c)?'<span style="color:var(--bd)">·</span>'+clientAlertBadges(c):"")
   +'</div>'
   // Row 3: 3 KPI cards
   +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
