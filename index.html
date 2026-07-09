@@ -742,7 +742,7 @@ if(existing){
       +'<div class="form-row" style="margin-bottom:8px"><label class="form-lbl">Link do Salesforce</label><input id="ec-link" type="text" value="'+e(c.churnCase.sfLink||'')+'"></div>'
       +'<div class="form-row" style="margin-bottom:8px"><label class="form-lbl">Anotação</label><textarea id="ec-note" rows="2">'+e(c.churnCase.note||'')+'</textarea></div>'
       +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">'
-      +'<button class="btn btn-sm" onclick="S.churnEditMode=false;openM(\'churn-alert\','+ci+')">Cancelar</button>'
+      +'<button class="btn btn-sm" onclick="S.churnEditMode=false;S.modal=\'churn-alert\';S.modalArg='+ci+';render()">Descartar alterações</button>'
       +'<button class="btn-save btn-sm" onclick="saveChurnCaseEdit('+ci+')">Salvar edição</button>'
       +'</div>'
       +'<div style="font-size:10px;color:var(--t3);margin-top:8px">Criado em '+e(c.churnCase.date||'—')+'</div>'
@@ -800,9 +800,11 @@ if(!num){alert('Informe o número do caso.');return;}
 S.clients[ci].churnCase.caseNumber=num;
 S.clients[ci].churnCase.sfLink=link;
 S.clients[ci].churnCase.note=note;
-saveState();
 S.churnEditMode=false;
-openM('churn-alert',ci);
+saveState();
+S.modal='churn-alert';
+S.modalArg=ci;
+render();
 }
 
 function showRecoveryOptions(ci){
