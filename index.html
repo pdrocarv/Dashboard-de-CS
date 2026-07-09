@@ -283,7 +283,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -732,28 +732,34 @@ function mChurnAlert(ci){
 var c=S.clients[ci];
 var existing=c.churnCase&&c.churnCase.active;
 if(existing){
+  var editing=S.churnEditMode;
+  var caseSection=editing
+    ?'<div class="alert-section" style="margin-bottom:1.25rem">'
+      +'<div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Caso aberto</div>'
+      +'<div class="form-row" style="margin-bottom:8px"><label class="form-lbl">Número do caso</label><input id="ec-num" type="text" value="'+e(c.churnCase.caseNumber||'')+'"></div>'
+      +'<div class="form-row" style="margin-bottom:8px"><label class="form-lbl">Link do Salesforce</label><input id="ec-link" type="text" value="'+e(c.churnCase.sfLink||'')+'"></div>'
+      +'<div class="form-row" style="margin-bottom:8px"><label class="form-lbl">Anotação</label><textarea id="ec-note" rows="2">'+e(c.churnCase.note||'')+'</textarea></div>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">'
+      +'<button class="btn btn-sm" onclick="S.churnEditMode=false;openM(\'churn-alert\','+ci+')">Cancelar</button>'
+      +'<button class="btn-save btn-sm" onclick="saveChurnCaseEdit('+ci+')">Salvar edição</button>'
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:8px">Criado em '+e(c.churnCase.date||'—')+'</div>'
+      +'</div>'
+    :'<div class="alert-section" style="margin-bottom:1.25rem;cursor:pointer" onclick="S.churnEditMode=true;openM(\'churn-alert\','+ci+')" title="Clique para editar">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +'<div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.05em">Caso aberto</div>'
+      +'<span style="font-size:10px;color:var(--b600);font-weight:500">✏ Editar</span>'
+      +'</div>'
+      +'<div style="font-weight:600;font-size:15px;margin-bottom:4px">Caso #'+e(c.churnCase.caseNumber||'—')+'</div>'
+      +(c.churnCase.sfLink?'<a href="'+e(c.churnCase.sfLink)+'" target="_blank" style="font-size:12px;color:var(--b600)" onclick="event.stopPropagation()">Abrir no Salesforce →</a><br>':'')
+      +'<div style="font-size:12px;color:var(--t2);margin-top:6px">'+e(c.churnCase.note||'Sem anotação')+'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:6px">Criado em '+e(c.churnCase.date||'—')+'</div>'
+      +'</div>';
   return'<div class="modal-box" style="max-width:480px">'
     +'<div class="modal-hdr" style="margin-bottom:1rem">'
     +'<h2 class="modal-title">⚠ Caso de Churn Ativo</h2>'
-    +'<button class="modal-x" onclick="closeM()">×</button>'
     +'</div>'
-    +'<div class="alert-section" style="margin-bottom:1.25rem">'
-    +'<div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Caso aberto</div>'
-    +'<div class="form-row" style="margin-bottom:8px">'
-    +'<label class="form-lbl">Número do caso</label>'
-    +'<input id="ec-num" type="text" value="'+e(c.churnCase.caseNumber||'')+'" placeholder="Ex: CASO-1234">'
-    +'</div>'
-    +'<div class="form-row" style="margin-bottom:8px">'
-    +'<label class="form-lbl">Link do Salesforce</label>'
-    +'<input id="ec-link" type="text" value="'+e(c.churnCase.sfLink||'')+'" placeholder="https://stays.salesforce.com/...">'
-    +'</div>'
-    +'<div class="form-row" style="margin-bottom:4px">'
-    +'<label class="form-lbl">Anotação</label>'
-    +'<textarea id="ec-note" rows="2">'+e(c.churnCase.note||'')+'</textarea>'
-    +'</div>'
-    +'<button class="btn btn-sm" style="margin-top:6px" onclick="saveChurnCaseEdit('+ci+')">Salvar edição</button>'
-    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">Criado em '+e(c.churnCase.date||'—')+'</div>'
-    +'</div>'
+    +caseSection
     +'<div style="font-weight:600;font-size:13px;margin-bottom:10px">Como fechar este caso?</div>'
     +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem">'
     +'<button class="btn" style="text-align:left;padding:12px 14px;border-radius:8px;background:var(--surf2)" onclick="closeChurnResolved('+ci+')">'
@@ -770,20 +776,20 @@ if(existing){
     +'</button>'
     +'</div>'
     +'<div class="modal-ftr" style="justify-content:flex-end">'
-    +'<button class="btn" onclick="closeM()">Fechar</button>'
+    +'<button class="btn" onclick="S.churnEditMode=false;closeM()">Fechar</button>'
     +'</div>'
     +'</div>';
 }
 return'<div class="modal-box" style="max-width:460px">'
   +'<div class="modal-hdr" style="margin-bottom:1rem">'
   +'<h2 class="modal-title">Marcar Alerta de Churn</h2>'
-  +'<button class="modal-x" onclick="closeM()">×</button>'
   +'</div>'
   +'<div class="form-row"><label class="form-lbl">Número do caso <span style="color:var(--rd)">*</span></label><input id="cc-num" type="text" placeholder="Ex: CASO-1234"></div>'
   +'<div class="form-row"><label class="form-lbl">Link do Salesforce</label><input id="cc-link" type="text" placeholder="https://stays.salesforce.com/..."></div>'
   +'<div class="form-row"><label class="form-lbl">Anotação</label><textarea id="cc-note" rows="3" placeholder="Descreva o motivo do alerta..."></textarea></div>'
   +'<div class="modal-ftr" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-churn" onclick="saveChurnAlert('+ci+')">⚠ Confirmar Alerta de Churn</button></div>'
   +'</div>';}
+
 function saveChurnCaseEdit(ci){
 var num=document.getElementById('ec-num').value.trim();
 var link=document.getElementById('ec-link').value.trim();
@@ -857,7 +863,7 @@ function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers(
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function openFollow(fi){S.hasUnsavedChanges=false;S.selFollow=fi;S.view="follow";S.genText="";S.importMsg="";render();}
 function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);render();}
-function closeM(){S.modal=null;render();}
+function closeM(){S.modal=null;S.churnEditMode=false;render();}
 function toggleCitiesPanel(){S.citiesOpen=!S.citiesOpen;render();}
 
 function addClient(){
