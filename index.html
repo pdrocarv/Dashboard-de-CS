@@ -426,7 +426,9 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +'<button class="sb-item'+(S.view==="dashboard"&&!S.adminMode?" sb-act":"")+'" onclick="goBack()">Contas</button>'
   +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="S.view=\'dashboard\';S.adminMode=true;loadAllUsers().then(function(){render();})">Visão Geral</button>':"")
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
-  +'<button class="sb-item'+(S.view==="archived"?' sb-act':'')+'" onclick="S.view=\'archived\';render()">Arquivados</button>'+(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?' sb-act':'')+'" onclick="loadAdminLog().then(function(){S.view=\'adminlog\';render();})">Log de auditoria</button>':"")+'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
+  +'<button class="sb-item'+(S.view==="archived"?" sb-act":"")+'" onclick="goArchived()">Arquivados</button>'
+  +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
+  +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
 return sb+nav()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView())))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
@@ -731,16 +733,29 @@ var c=S.clients[ci];
 var existing=c.churnCase&&c.churnCase.active;
 if(existing){
   return'<div class="modal-box" style="max-width:480px">'
-    +'<div class="modal-hdr"><h2 class="modal-title">⚠ Caso de Churn Ativo</h2><button class="modal-x" onclick="closeM()">×</button></div>'
-    +'<div class="alert-section" style="margin-bottom:14px">'
-    +'<div style="font-size:12px;color:var(--t3);margin-bottom:6px">CASO ABERTO</div>'
-    +'<div style="font-weight:600;font-size:15px;margin-bottom:4px">Caso #'+e(c.churnCase.caseNumber||'—')+'</div>'
-    +(c.churnCase.sfLink?'<a href="'+e(c.churnCase.sfLink)+'" target="_blank" style="font-size:12px;color:var(--b600)">Abrir no Salesforce →</a><br>':'')
-    +'<div style="font-size:12px;color:var(--t2);margin-top:6px">'+e(c.churnCase.note||'Sem anotação')+'</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:4px">Criado em '+e(c.churnCase.date||'—')+'</div>'
+    +'<div class="modal-hdr" style="margin-bottom:1rem">'
+    +'<h2 class="modal-title">⚠ Caso de Churn Ativo</h2>'
+    +'<button class="modal-x" onclick="closeM()">×</button>'
+    +'</div>'
+    +'<div class="alert-section" style="margin-bottom:1.25rem">'
+    +'<div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Caso aberto</div>'
+    +'<div class="form-row" style="margin-bottom:8px">'
+    +'<label class="form-lbl">Número do caso</label>'
+    +'<input id="ec-num" type="text" value="'+e(c.churnCase.caseNumber||'')+'" placeholder="Ex: CASO-1234">'
+    +'</div>'
+    +'<div class="form-row" style="margin-bottom:8px">'
+    +'<label class="form-lbl">Link do Salesforce</label>'
+    +'<input id="ec-link" type="text" value="'+e(c.churnCase.sfLink||'')+'" placeholder="https://stays.salesforce.com/...">'
+    +'</div>'
+    +'<div class="form-row" style="margin-bottom:4px">'
+    +'<label class="form-lbl">Anotação</label>'
+    +'<textarea id="ec-note" rows="2">'+e(c.churnCase.note||'')+'</textarea>'
+    +'</div>'
+    +'<button class="btn btn-sm" style="margin-top:6px" onclick="saveChurnCaseEdit('+ci+')">Salvar edição</button>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">Criado em '+e(c.churnCase.date||'—')+'</div>'
     +'</div>'
     +'<div style="font-weight:600;font-size:13px;margin-bottom:10px">Como fechar este caso?</div>'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem">'
     +'<button class="btn" style="text-align:left;padding:12px 14px;border-radius:8px;background:var(--surf2)" onclick="closeChurnResolved('+ci+')">'
     +'<div style="font-weight:600;margin-bottom:2px">✅ Cliente ficou — Resolvido</div>'
     +'<div style="font-size:11px;color:var(--t3)">Remove o alerta. Cliente volta ao score normal.</div>'
@@ -754,16 +769,34 @@ if(existing){
     +'<div style="font-size:11px;color:var(--t3)">Arquiva o cliente. Some da carteira do analista.</div>'
     +'</button>'
     +'</div>'
-    +'<div class="modal-ftr"><button class="btn" onclick="closeM()">Cancelar</button></div>'
+    +'<div class="modal-ftr" style="justify-content:flex-end">'
+    +'<button class="btn" onclick="closeM()">Fechar</button>'
+    +'</div>'
     +'</div>';
 }
 return'<div class="modal-box" style="max-width:460px">'
-  +'<div class="modal-hdr"><h2 class="modal-title">Marcar Alerta de Churn</h2><button class="modal-x" onclick="closeM()">×</button></div>'
+  +'<div class="modal-hdr" style="margin-bottom:1rem">'
+  +'<h2 class="modal-title">Marcar Alerta de Churn</h2>'
+  +'<button class="modal-x" onclick="closeM()">×</button>'
+  +'</div>'
   +'<div class="form-row"><label class="form-lbl">Número do caso <span style="color:var(--rd)">*</span></label><input id="cc-num" type="text" placeholder="Ex: CASO-1234"></div>'
   +'<div class="form-row"><label class="form-lbl">Link do Salesforce</label><input id="cc-link" type="text" placeholder="https://stays.salesforce.com/..."></div>'
   +'<div class="form-row"><label class="form-lbl">Anotação</label><textarea id="cc-note" rows="3" placeholder="Descreva o motivo do alerta..."></textarea></div>'
-  +'<div class="modal-ftr"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-churn" onclick="saveChurnAlert('+ci+')">⚠ Confirmar Alerta de Churn</button></div>'
+  +'<div class="modal-ftr" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-churn" onclick="saveChurnAlert('+ci+')">⚠ Confirmar Alerta de Churn</button></div>'
   +'</div>';}
+function saveChurnCaseEdit(ci){
+var num=document.getElementById('ec-num').value.trim();
+var link=document.getElementById('ec-link').value.trim();
+var note=document.getElementById('ec-note').value.trim();
+if(!num){alert('Informe o número do caso.');return;}
+S.clients[ci].churnCase.caseNumber=num;
+S.clients[ci].churnCase.sfLink=link;
+S.clients[ci].churnCase.note=note;
+saveState();
+var btn=document.querySelector('#ec-num').closest('.alert-section').querySelector('button');
+if(btn){btn.textContent='✓ Salvo!';setTimeout(function(){btn.textContent='Salvar edição';},1500);}
+}
+
 function showRecoveryOptions(ci){
 var c=S.clients[ci];
 document.querySelector('.modal-box').innerHTML='<div class="modal-hdr"><h2 class="modal-title">🟡 Em recuperação</h2><button class="modal-x" onclick="closeM()">×</button></div>'
@@ -817,6 +850,8 @@ function openClientFollows(i){S.sel=i;S.view="client";S.clientTab="follows";S.ge
 function toggleDropdown(id,ev){ev.stopPropagation();var el=document.getElementById(id);if(!el)return;var isOpen=el.style.display==="block";document.querySelectorAll(".dd-menu").forEach(function(d){d.style.display="none";});if(!isOpen){el.style.display="block";setTimeout(function(){document.addEventListener("click",function h(){el.style.display="none";document.removeEventListener("click",h);},{once:true});},0);}}
 function goBack(){S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";S.adminMode=false;render();}
 function goBackToClient(){if(S.hasUnsavedChanges&&!confirm("Tem alteracoes nao salvas. Sair sem salvar?"))return;S.hasUnsavedChanges=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
+function goArchived(){S.view="archived";render();}
+function goAdminLog(){loadAdminLog().then(function(){S.view="adminlog";render();});}
 function goAdmin(){S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
 function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
