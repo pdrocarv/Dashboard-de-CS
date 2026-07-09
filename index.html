@@ -801,8 +801,8 @@ S.clients[ci].churnCase.caseNumber=num;
 S.clients[ci].churnCase.sfLink=link;
 S.clients[ci].churnCase.note=note;
 saveState();
-var btn=document.querySelector('#ec-num').closest('.alert-section').querySelector('button');
-if(btn){btn.textContent='✓ Salvo!';setTimeout(function(){btn.textContent='Salvar edição';},1500);}
+S.churnEditMode=false;
+openM('churn-alert',ci);
 }
 
 function showRecoveryOptions(ci){
