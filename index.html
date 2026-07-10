@@ -47,6 +47,46 @@ body{font-family:"Roboto",sans-serif;background:var(--bg);color:var(--t);font-si
 .badge-recovery{display:inline-flex;align-items:center;gap:3px;background:#fefce8;color:#854d0e;border:1px solid #fbbf24;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
 .archived-card{background:var(--surf);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;opacity:.8}
 .archived-card:hover{opacity:1}
+.wiz-wrap{max-width:640px;margin:0 auto;padding:.5rem 0}
+.wiz-progress{height:3px;background:var(--bd);border-radius:2px;margin-bottom:1.5rem;overflow:hidden}
+.wiz-progress-fill{height:100%;background:var(--b600);border-radius:2px;transition:width .4s ease}
+.wiz-step-lbl{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1.25rem;display:flex;align-items:center;gap:6px}
+.wiz-card{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:1.5rem;margin-bottom:1rem}
+.wiz-hint{font-size:11px;color:var(--t3);margin-bottom:.5rem;display:flex;align-items:center;gap:5px}
+.wiz-q{font-size:17px;font-weight:500;color:var(--t);margin-bottom:.4rem;line-height:1.4}
+.wiz-q-sub{font-size:13px;color:var(--t2);margin-bottom:1.25rem;line-height:1.6}
+.wiz-opts{display:flex;flex-direction:column;gap:8px}
+.wiz-opt{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--bd);border-radius:8px;cursor:pointer;transition:all .18s;background:var(--surf2)}
+.wiz-opt:hover{border-color:var(--b600);background:var(--b50)}
+.wiz-opt.sel{border-color:var(--b600);background:var(--b50)}
+.wiz-opt-ico{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.wiz-opt-lbl{font-size:14px;color:var(--t)}
+.wiz-humor{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--bd)}
+.wiz-humor-lbl{font-size:11px;color:var(--t2);font-weight:500;margin-bottom:.6rem}
+.wiz-faces{display:flex;gap:6px;flex-wrap:wrap}
+.wiz-face-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;border:1.5px solid var(--bd);cursor:pointer;font-size:12px;font-weight:500;background:var(--surf);transition:all .15s;white-space:nowrap}
+.wiz-face-btn:hover{border-color:var(--b600)}
+.wiz-face-btn.wf-auto{outline:2px dashed var(--bd);outline-offset:2px}
+.wiz-nav{display:flex;align-items:center;justify-content:space-between;margin-top:1rem}
+.wiz-counter{font-size:12px;color:var(--t3)}
+.wiz-input{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:8px;font-size:14px;font-family:"Roboto",sans-serif;color:var(--t);background:var(--surf);transition:border .1s}
+.wiz-input:focus{outline:none;border-color:var(--b600)}
+.wiz-input-sm{width:140px}
+.wiz-note{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:8px;font-size:13px;font-family:"Roboto",sans-serif;color:var(--t);background:var(--surf2);resize:none;margin-top:.75rem}
+.wiz-note:focus{outline:none;border-color:var(--b600)}
+.wiz-sub-section{margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--bd)}
+.wiz-sub-q{font-size:14px;font-weight:500;color:var(--t);margin-bottom:.75rem}
+.wiz-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wiz-alert{background:var(--am50);border:1px solid var(--am600);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--am600);line-height:1.6;margin-top:.75rem}
+.wiz-ch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:.75rem}
+.wiz-ch{text-align:center;padding:10px 6px;border:1.5px solid var(--bd);border-radius:8px;cursor:pointer;transition:all .18s;background:var(--surf2);opacity:.45}
+.wiz-ch.active{opacity:1;border-color:var(--b600);background:var(--b50)}
+.wiz-ch-logo{width:36px;height:36px;border-radius:50%;margin:0 auto 5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.wiz-ch-name{font-size:10px;color:var(--t3);margin-bottom:4px}
+.wiz-ch-qty{margin-top:4px}
+.wiz-city-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--b50);border:1px solid var(--b600);border-radius:20px;margin:3px;font-size:12px;color:var(--b600)}
+.wiz-summary-card{background:var(--surf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.wiz-info-banner{background:var(--surf2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:1rem;font-size:13px;color:var(--t2);line-height:1.6}
 /* ── Slide Panel ── */
 .slide-panel{position:fixed;right:-400px;top:52px;bottom:0;width:380px;background:var(--surf);border-left:1px solid var(--bd);z-index:90;transition:right .38s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.12)}
 .slide-panel.open{right:0}
@@ -317,7 +357,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},prevAnswers:null}};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -447,6 +487,759 @@ function openSlidePanel(ci,tab){S.slidePanel=ci;S.slidePanelTab=tab||'activities
 function closeSlidePanel(){S.slidePanel=null;S.slideAddOpen=false;render();}
 function toggleSlidePanelTab(tab){S.slidePanelTab=tab;S.slideAddOpen=false;render();}
 function toggleSlideAdd(){S.slideAddOpen=!S.slideAddOpen;render();}
+
+var FACES={
+  pessimo:'<svg width="VAR" height="VAR" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/><ellipse cx="19" cy="22" rx="2.5" ry="3" fill="#ef4444"/><ellipse cx="33" cy="22" rx="2.5" ry="3" fill="#ef4444"/><path d="M16 36 Q26 28 36 36" stroke="#ef4444" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M16 14 Q19 11 22 14" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M30 14 Q33 11 36 14" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>',
+  ruim:'<svg width="VAR" height="VAR" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" fill="#ffedd5" stroke="#f97316" stroke-width="1.5"/><ellipse cx="19" cy="22" rx="2.5" ry="3" fill="#f97316"/><ellipse cx="33" cy="22" rx="2.5" ry="3" fill="#f97316"/><path d="M17 35 Q26 29 35 35" stroke="#f97316" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M16 17 Q19 14 22 17" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M30 17 Q33 14 36 17" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>',
+  neutro:'<svg width="VAR" height="VAR" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" fill="#fef9c3" stroke="#eab308" stroke-width="1.5"/><ellipse cx="19" cy="22" rx="2.5" ry="3" fill="#eab308"/><ellipse cx="33" cy="22" rx="2.5" ry="3" fill="#eab308"/><path d="M18 34 H34" stroke="#eab308" stroke-width="2" stroke-linecap="round"/></svg>',
+  bom:'<svg width="VAR" height="VAR" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/><ellipse cx="19" cy="22" rx="2.5" ry="3" fill="#22c55e"/><ellipse cx="33" cy="22" rx="2.5" ry="3" fill="#22c55e"/><path d="M17 30 Q26 38 35 30" stroke="#22c55e" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+  otimo:'<svg width="VAR" height="VAR" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" fill="#bbf7d0" stroke="#16a34a" stroke-width="1.5"/><ellipse cx="19" cy="21" rx="2.5" ry="3" fill="#16a34a"/><ellipse cx="33" cy="21" rx="2.5" ry="3" fill="#16a34a"/><path d="M15 29 Q26 42 37 29" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>'
+};
+var FKEYS=['pessimo','ruim','neutro','bom','otimo'];
+var FLABELS=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
+var FCOLORS={pessimo:{bg:'#fee2e2',bd:'#ef4444',tx:'#7f1d1d'},ruim:{bg:'#ffedd5',bd:'#f97316',tx:'#9a3412'},neutro:{bg:'#fef9c3',bd:'#eab308',tx:'#854d0e'},bom:{bg:'#dcfce7',bd:'#22c55e',tx:'#166534'},otimo:{bg:'#bbf7d0',bd:'#16a34a',tx:'#14532d'}};
+function face(key,sz){return FACES[key].replace(/VAR/g,sz||20);}
+function wizFaces(qkey,auto,score){
+  if(!score)return '';
+  var cur=S.wiz.humors[qkey];
+  var hasOverride=(cur!==undefined&&cur!==null);
+  var active=hasOverride?cur:auto;
+  var html='<div class="wiz-humor"><div class="wiz-humor-lbl">Humor desta pergunta <span style="color:var(--t3);font-weight:400">(automático · clique para alterar)</span></div><div class="wiz-faces">';
+  FKEYS.forEach(function(k,i){
+    var fc=FCOLORS[k];
+    var isActive=active===i;
+    var isAuto=!hasOverride&&auto===i;
+    var style='background:'+fc.bg+';border-color:'+fc.bd+';color:'+fc.tx+';'+(isActive?'border-width:2px':'');
+    var cls='wiz-face-btn'+(isAuto?' wf-auto':'');
+    html+='<div class="'+cls+'" style="'+style+'" onclick="wizSetH(\''+qkey+'\','+i+')">'+face(k,18)+' '+FLABELS[i]+(isAuto?'<span style="font-size:9px;opacity:.6;margin-left:3px;border:1px dashed currentColor;padding:0 4px;border-radius:3px">auto</span>':'')+'</div>';
+  });
+  return html+'</div></div>';
+}
+function wizSetH(key,level){
+  S.wiz.humors[key]=level;
+  render();
+}
+function wizA(key,val){
+  S.wiz.answers[key]=val;
+  render();
+}
+function wizNav(step,total){
+  var pct=Math.round((step/total)*100);
+  return '<div class="wiz-progress"><div class="wiz-progress-fill" style="width:'+pct+'%"></div></div>';
+}
+function wizBtnNav(step,total,canNext){
+  var isFirst=step===0;
+  var isLast=step===total-1;
+  return '<div class="wiz-nav">'
+    +(isFirst?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
+    +'<span class="wiz-counter">'+( step+1)+' / '+total+'</span>'
+    +(isLast?'<button class="btn-primary btn-sm" onclick="wizFinish()">Concluir ✓</button>':'<button class="btn-primary btn-sm" onclick="wizGo('+(step+1)+')" '+(canNext===false?'disabled':'')+'>Próxima →</button>')
+    +'</div>';
+}
+function wizGo(step){S.wiz.step=step;render();}
+function wizLbl(n,total,hint,icon){
+  return '<div class="wiz-step-lbl"><span style="font-size:18px">'+icon+'</span>Pergunta '+(n+1)+' de '+total+'</div>'
+    +(hint?'<div class="wiz-hint">📍 Verificar: '+hint+'</div>':'');
+}
+
+var WIZ_CHANNELS=[
+  {key:'airbnb',name:'Airbnb',color:'#FF385C',abbr:'Ai',main:true},
+  {key:'booking',name:'Booking',color:'#003580',abbr:'Bk',main:true},
+  {key:'decolar',name:'Decolar',color:'#7B2FFF',abbr:'De',main:true},
+  {key:'expedia',name:'Expedia',color:'#FFC72C',abbr:'Ex',textColor:'#1D2F6F',main:true},
+  {key:'vrbo',name:'VRBO',color:'#1B2A6B',abbr:'VR',main:false},
+  {key:'website',name:'Website',color:'#1c383d',abbr:'We',main:false},
+  {key:'googlevr',name:'Google VR',color:'#34A853',abbr:'GV',main:false},
+  {key:'homesvillas',name:'H&Villas',color:'#c084fc',abbr:'HV',textColor:'#4c1d95',main:false}
+];
+
+function wizQ1(){
+  var a=S.wiz.answers;
+  var auto=2; // neutro default
+  if(a.units_changed==='ganhou'){auto=(a.units_delta&&a.units_count&&a.units_delta/a.units_count>0.2)?4:3;}
+  if(a.units_changed==='perdeu'){auto=(a.units_delta&&a.units_count&&a.units_delta/a.units_count>0.2)?0:1;}
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Quantas unidades o cliente tem atualmente?</div>';
+  html+='<div class="wiz-q-sub">Registre o número atual. Serve como referência para os próximos follows.</div>';
+  html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizA(\'units_count\',+this.value)" style="margin-bottom:1.25rem">';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">As unidades aumentaram ou diminuíram recentemente?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(a.units_changed==='nao'?' sel':'')+'" onclick="wizA(\'units_changed\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não, manteve igual</span></div>';
+  html+='<div class="wiz-opt'+(a.units_changed==='ganhou'?' sel':'')+'" onclick="wizA(\'units_changed\',\'ganhou\')"><span class="wiz-opt-ico">📈</span><span class="wiz-opt-lbl">Sim, ganhou unidades</span></div>';
+  html+='<div class="wiz-opt'+(a.units_changed==='perdeu'?' sel':'')+'" onclick="wizA(\'units_changed\',\'perdeu\')"><span class="wiz-opt-ico">📉</span><span class="wiz-opt-lbl">Sim, perdeu unidades</span></div>';
+  html+='</div>';
+  if(a.units_changed==='ganhou'||a.units_changed==='perdeu'){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quantas unidades '+(a.units_changed==='ganhou'?'ganhou':'perdeu')+'?</label><br><input class="wiz-input wiz-input-sm" type="number" style="margin-top:4px" placeholder="Qtd" value="'+(a.units_delta||'')+'" oninput="wizA(\'units_delta\',+this.value)"></div>';
+  }
+  html+='</div>';
+  html+=wizFaces('units',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ2(){
+  var a=S.wiz.answers;
+  var cities=a.cities||[];
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Em quais cidades/regiões o cliente anuncia?</div>';
+  html+='<div class="wiz-q-sub">Para cada cidade, defina os períodos de temporada alta e baixa. Sem score — só informativo.</div>';
+  if(cities.length){
+    html+='<div style="margin-bottom:.75rem">'+cities.map(function(c,i){
+      return '<div class="wiz-city-chip">📍 '+e(c.name)+(c.season_high_start?' · 🌞 '+c.season_high_start+'-'+c.season_high_end:'')+'<button style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:14px;margin-left:4px" onclick="wizRemCity('+i+')">×</button></div>';
+    }).join('')+'</div>';
+  }
+  html+='<div class="wiz-row" style="margin-bottom:.75rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Nome da cidade..." style="flex:1"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar</button></div>';
+  var lastCity=cities[cities.length-1];
+  if(lastCity&&(!lastCity.season_high_start)){
+    var months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    var mOpts=months.map(function(m,i){return '<option value="'+m+'">'+m+'</option>';}).join('');
+    html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Temporada de '+e(lastCity.name)+'</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    html+='<div><div style="font-size:12px;color:var(--t2);margin-bottom:4px">🌞 Alta temporada</div><div class="wiz-row"><select class="wiz-input" style="flex:1;font-size:12px" onchange="wizCityS(\'season_high_start\',this.value)"><option value="">Início</option>'+mOpts+'</select><select class="wiz-input" style="flex:1;font-size:12px" onchange="wizCityS(\'season_high_end\',this.value)"><option value="">Fim</option>'+mOpts+'</select></div></div>';
+    html+='<div><div style="font-size:12px;color:var(--t2);margin-bottom:4px">❄️ Baixa temporada</div><div class="wiz-row"><select class="wiz-input" style="flex:1;font-size:12px" onchange="wizCityS(\'season_low_start\',this.value)"><option value="">Início</option>'+mOpts+'</select><select class="wiz-input" style="flex:1;font-size:12px" onchange="wizCityS(\'season_low_end\',this.value)"><option value="">Fim</option>'+mOpts+'</select></div></div>';
+    html+='</div><button class="btn-primary btn-sm" style="margin-top:.75rem" onclick="wizConfirmCity()">Confirmar temporada</button></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function wizAddCity(){var v=document.getElementById('wiz-city-inp').value.trim();if(!v)return;var a=S.wiz.answers;if(!a.cities)a.cities=[];a.cities.push({name:v,season_high_start:'',season_high_end:'',season_low_start:'',season_low_end:''});render();}
+function wizRemCity(i){var a=S.wiz.answers;if(a.cities)a.cities.splice(i,1);render();}
+function wizCityS(field,val){var a=S.wiz.answers;var cities=a.cities||[];var last=cities[cities.length-1];if(last)last[field]=val;}
+function wizConfirmCity(){render();}
+
+function wizQ3(){
+  var a=S.wiz.answers;
+  var model=a.pricing_model;
+  var curSeason=wizCurrentSeason();
+  var alert='';
+  if(model==='fixo'&&curSeason==='low') alert='<div class="wiz-alert">⚠ Este cliente está em <strong>temporada baixa</strong>. Que tal recomendar a troca para o modelo <strong>Flexível</strong>? <button class="btn btn-sm" style="margin-left:8px" onclick="wizCreateReminderPricing()">Criar lembrete (2 dias)</button> <button class="btn btn-sm" style="margin-left:4px" onclick="wizA(\'pricing_alert_ignored\',true)">Ignorar</button></div>';
+  if(model==='flexivel'&&curSeason==='high') alert='<div class="wiz-alert">⚠ Este cliente está em <strong>temporada alta</strong>. Que tal recomendar a troca para o modelo <strong>Fixo</strong>? <button class="btn btn-sm" style="margin-left:8px" onclick="wizCreateReminderPricing()">Criar lembrete (2 dias)</button> <button class="btn btn-sm" style="margin-left:4px" onclick="wizA(\'pricing_alert_ignored\',true)">Ignorar</button></div>';
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Modelo de precificação</div>';
+  html+='<div class="wiz-q-sub">Qual o modelo atual? Sem score — mas o sistema avisa se estiver desalinhado com a temporada.</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(model==='fixo'?' sel':'')+'" onclick="wizA(\'pricing_model\',\'fixo\')"><span class="wiz-opt-ico">🔒</span><span class="wiz-opt-lbl">Fixo (per listing)</span></div>';
+  html+='<div class="wiz-opt'+(model==='flexivel'?' sel':'')+'" onclick="wizA(\'pricing_model\',\'flexivel\')"><span class="wiz-opt-ico">📊</span><span class="wiz-opt-lbl">Flexível</span></div>';
+  html+='</div>';
+  if(alert&&!a.pricing_alert_ignored)html+=alert;
+  html+='</div>';
+  return html;
+}
+
+function wizCurrentSeason(){
+  var cities=S.wiz.answers.cities||[];
+  if(!cities.length||!cities[0].season_high_start)return null;
+  var months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var now=new Date().getMonth();
+  var c=cities[0];
+  var hs=months.indexOf(c.season_high_start);
+  var he=months.indexOf(c.season_high_end);
+  if(hs<0||he<0)return null;
+  var inHigh=hs<=he?(now>=hs&&now<=he):(now>=hs||now<=he);
+  return inHigh?'high':'low';
+}
+
+function wizCreateReminderPricing(){
+  var ci=S.sel;
+  var dueDate=new Date(Date.now()+2*24*60*60*1000).toISOString().split('T')[0];
+  if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
+  S.clients[ci].reminders.push({id:uid(),type:'proativo',title:'Recomendar mudança de modelo de precificação',dueDate:dueDate,note:'Verificar no follow-up se faz sentido trocar o modelo.',done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
+  saveState();
+  wizA('pricing_alert_ignored',true);
+}
+
+function wizQ4(){
+  var a=S.wiz.answers;
+  var chs=a.channels||[];
+  function chActive(key){return chs.some(function(c){return c.key===key&&c.active;});}
+  function chQty(key){var c=chs.find(function(c){return c.key===key;});return c?c.qty:'';}
+  var mainActive=WIZ_CHANNELS.filter(function(c){return c.main&&chActive(c.key);}).length;
+  var auto=mainActive>=3?4:(mainActive===2?3:(mainActive===1?1:0));
+  var showMore=a.channels_show_more||false;
+  var toShow=WIZ_CHANNELS.filter(function(c){return c.main||showMore;});
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Listings e canais conectados</div>';
+  html+='<div class="wiz-q-sub">Clique nos canais ativos. Informe quantos anúncios estão conectados em cada um.</div>';
+  html+='<div class="wiz-ch-grid">';
+  WIZ_CHANNELS.filter(function(c){return c.main;}).forEach(function(ch){
+    var active=chActive(ch.key);
+    var qty=chQty(ch.key);
+    var u=S.clients[S.sel]?S.clients[S.sel].units:'';
+    html+='<div class="wiz-ch'+(active?' active':'')+'" onclick="wizToggleCh(\''+ch.key+'\')"><div class="wiz-ch-logo" style="background:'+ch.color+';color:'+(ch.textColor||'#fff')+'">'+ch.abbr+'</div><div class="wiz-ch-name">'+ch.name+'</div>'+(active?'<div class="wiz-ch-qty"><input type="number" min="1" max="'+u+'" placeholder="Qtd" value="'+qty+'" onclick="event.stopPropagation()" oninput="wizChQty(\''+ch.key+'\',+this.value)" style="width:55px;padding:2px 5px;font-size:11px;border:1px solid var(--bd);border-radius:4px;background:var(--surf);color:var(--t)"><br><span style="font-size:10px;color:var(--b600);cursor:pointer" onclick="event.stopPropagation();wizChAll(\''+ch.key+'\')">Todos</span></div>':'')+'</div>';
+  });
+  html+='</div>';
+  if(showMore){
+    html+='<div class="wiz-ch-grid">';
+    WIZ_CHANNELS.filter(function(c){return !c.main;}).forEach(function(ch){
+      var active=chActive(ch.key);var qty=chQty(ch.key);var u=S.clients[S.sel]?S.clients[S.sel].units:'';
+      html+='<div class="wiz-ch'+(active?' active':'')+'" onclick="wizToggleCh(\''+ch.key+'\')"><div class="wiz-ch-logo" style="background:'+ch.color+';color:'+(ch.textColor||'#fff')+'">'+ch.abbr+'</div><div class="wiz-ch-name">'+ch.name+'</div>'+(active?'<div class="wiz-ch-qty"><input type="number" min="1" max="'+u+'" placeholder="Qtd" value="'+qty+'" onclick="event.stopPropagation()" oninput="wizChQty(\''+ch.key+'\',+this.value)" style="width:55px;padding:2px 5px;font-size:11px;border:1px solid var(--bd);border-radius:4px;background:var(--surf);color:var(--t)"><br><span style="font-size:10px;color:var(--b600);cursor:pointer" onclick="event.stopPropagation();wizChAll(\''+ch.key+'\')">Todos</span></div>':'')+'</div>';
+    });
+    html+='</div>';
+  }
+  html+='<button class="btn btn-sm" style="font-size:11px;margin-bottom:.75rem" onclick="wizA(\'channels_show_more\','+(showMore?'false':'true')+')">'+(showMore?'− Ocultar outros canais':'+ Ver outros canais')+'</button>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre os canais (opcional)..." oninput="wizA(\'channels_note\',this.value)">'+(a.channels_note||'')+'</textarea>';
+  html+=wizFaces('channels',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizToggleCh(key){
+  var a=S.wiz.answers;if(!a.channels)a.channels=[];
+  var idx=a.channels.findIndex(function(c){return c.key===key;});
+  if(idx>=0){a.channels[idx].active=!a.channels[idx].active;}
+  else{a.channels.push({key:key,active:true,qty:0,all:false});}
+  render();
+}
+function wizChQty(key,qty){
+  var a=S.wiz.answers;if(!a.channels)a.channels=[];
+  var c=a.channels.find(function(c){return c.key===key;});
+  if(c)c.qty=qty;
+}
+function wizChAll(key){
+  var a=S.wiz.answers;if(!a.channels)a.channels=[];
+  var c=a.channels.find(function(c){return c.key===key;});
+  var units=S.clients[S.sel]?+(S.clients[S.sel].units)||0:0;
+  if(c){c.qty=units;c.all=true;}
+}
+
+function wizQ5(){
+  var a=S.wiz.answers;
+  var val=a.domain_migration;
+  var auto=val==='sim'?4:(val==='nao'?1:2);
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Migração de domínio</div>';
+  html+='<div class="wiz-q-sub">O cliente tem domínio próprio ativo no site da Stays?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'domain_migration\',\'sim\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Sim, tem domínio próprio ativo</span></div>';
+  html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'domain_migration\',\'nao\')"><span class="wiz-opt-ico">❌</span><span class="wiz-opt-lbl">Não tem domínio próprio</span></div>';
+  html+='</div>';
+  html+=wizFaces('domain',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ6(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Site bem personalizado (fotos, cores, textos próprios)',auto:4,ico:'🌟'},
+    {label:'Personalização básica feita',auto:3,ico:'✅'},
+    {label:'Tem site mas sem personalização',auto:1,ico:'⚠️'},
+    {label:'Não tem site / não usa',auto:0,ico:'❌'},
+    {label:'Outro (usa site externo ou situação diferente)',auto:-1,ico:'📝'}
+  ];
+  var sel=a.site_option;
+  var auto=sel!==undefined&&sel!==null&&sel>=0?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Personalização de site</div>';
+  html+='<div class="wiz-q-sub">Como está o nível de personalização do site do cliente?</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){
+    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'site_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
+  });
+  html+='</div>';
+  if(sel===4){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação:</label><textarea class="wiz-note" rows="2" oninput="wizA(\'site_other\',this.value)" placeholder="Ex: Cliente usa WordPress próprio bem personalizado...">'+(a.site_other||'')+'</textarea></div>';
+  }
+  html+=wizFaces('site',sel===4?2:auto,sel!==4);
+  if(sel===4){html+='<div style="margin-top:.5rem;font-size:12px;color:var(--t3)">⚠ Humor obrigatório para esta opção — selecione acima.</div>';}
+  html+='</div>';
+  return html;
+}
+
+function wizQ7(){
+  var a=S.wiz.answers;
+  var season=wizCurrentSeason();
+  var isHigh=season==='high';
+  var opts_high=[
+    {label:'Alta ocupação (acima de 65%)',auto:4,ico:'🔥'},
+    {label:'Boa ocupação (entre 40% e 65%)',auto:3,ico:'✅'},
+    {label:'Ocupação baixa (abaixo de 40%)',auto:1,ico:'⚠️'},
+    {label:'Sem dados / não consegui verificar',auto:2,ico:'❓'}
+  ];
+  var opts_low=[
+    {label:'Ótima ocupação para a baixa temporada (acima de 45%)',auto:4,ico:'🔥'},
+    {label:'Boa ocupação para a época (entre 25% e 45%)',auto:3,ico:'✅'},
+    {label:'Ocupação baixa mesmo para a baixa temporada (abaixo de 25%)',auto:1,ico:'⚠️'},
+    {label:'Sem dados / não consegui verificar',auto:2,ico:'❓'}
+  ];
+  var opts=isHigh||!season?opts_high:opts_low;
+  var sel=a.occupation_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Boa ocupação?</div>';
+  if(season)html+='<div class="wiz-info-banner">📅 Temporada atual: <strong>'+(isHigh?'Alta':'Baixa')+'</strong> — os percentuais de referência foram ajustados automaticamente.</div>';
+  html+='<div class="wiz-q-sub">Avalie a taxa de ocupação atual das unidades.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){
+    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'occupation_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
+  });
+  html+='</div>';
+  html+=wizFaces('occupation',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ8(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Preço competitivo e bem posicionado',auto:4,ico:'💚'},
+    {label:'Preço na média do mercado',auto:3,ico:'👍'},
+    {label:'Preço um pouco fora do ideal',auto:1,ico:'⚠️'},
+    {label:'Preço muito fora do mercado',auto:0,ico:'🔴'},
+    {label:'Sem dados suficientes',auto:2,ico:'❓'}
+  ];
+  var sel=a.price_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Preço competitivo?</div>';
+  html+='<div class="wiz-q-sub">Compare o posicionamento de preço com os concorrentes na região.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'price_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+=wizFaces('price',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ9(){
+  var a=S.wiz.answers;
+  var val=a.lastminute;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Last minute padrão</div>';
+  html+='<div class="wiz-q-sub">Só informativo, sem score. Verifique se o cliente tem limite configurado para reservas de última hora.</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'lastminute\',\'sim\')"><span class="wiz-opt-ico">⏰</span><span class="wiz-opt-lbl">Sim, tem last minute configurado</span></div>';
+  html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'lastminute\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não tem / não usa</span></div>';
+  html+='</div>';
+  if(val==='sim'){
+    html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Qual o horário limite?</div>';
+    var hours=[];for(var h=0;h<24;h++){var hh=String(h).padStart(2,'0');hours.push(hh+':00');}
+    html+='<select class="wiz-input" style="width:140px" onchange="wizA(\'lastminute_time\',this.value)"><option value="">Selecionar...</option>'+hours.map(function(hr){return'<option value="'+hr+'"'+(a.lastminute_time===hr?' selected':'')+'>'+hr+'</option>';}).join('')+'</select></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function wizQ10(){
+  var a=S.wiz.answers;
+  var pOpts=[
+    {label:'Fotos excelentes, profissionais',auto:4,ico:'📸'},
+    {label:'Fotos boas mas podem melhorar',auto:3,ico:'👍'},
+    {label:'Fotos fracas ou desatualizadas',auto:1,ico:'⚠️'},
+    {label:'Sem fotos',auto:0,ico:'❌'}
+  ];
+  var dOpts=[
+    {label:'Descrição completa e atrativa',auto:4,ico:'✍️'},
+    {label:'Descrição básica',auto:3,ico:'👍'},
+    {label:'Descrição fraca ou incompleta',auto:1,ico:'⚠️'},
+    {label:'Sem descrição',auto:0,ico:'❌'}
+  ];
+  var sp=a.photos_option,sd=a.description_option;
+  var autoP=sp!==undefined&&sp!==null?pOpts[sp].auto:2;
+  var autoD=sd!==undefined&&sd!==null?dOpts[sd].auto:2;
+  var avgAuto=(sp!==undefined&&sp!==null&&sd!==undefined&&sd!==null)?Math.round((autoP+autoD)/2):2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Boas fotos? Boa descrição?</div>';
+  html+='<div class="wiz-q-sub">Avalie separadamente a qualidade visual e textual dos anúncios. O humor final é a média das duas avaliações.</div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">📸 Fotos dos anúncios</div><div class="wiz-opts">';
+  pOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sp===i?' sel':'')+'" onclick="wizA(\'photos_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div></div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">✍️ Descrição dos anúncios</div><div class="wiz-opts">';
+  dOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sd===i?' sel':'')+'" onclick="wizA(\'description_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div></div>';
+  html+=wizFaces('photos_desc',avgAuto,(sp!==undefined&&sp!==null&&sd!==undefined&&sd!==null));
+  html+='</div>';
+  return html;
+}
+
+function wizQ11(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Sim, utiliza ativamente',auto:4,ico:'✅'},
+    {label:'Sim, mas usa pouco',auto:3,ico:'👍'},
+    {label:'Não utiliza',auto:1,ico:'❌'},
+    {label:'Não tem acesso / plano não inclui',auto:2,ico:'➖'}
+  ];
+  var sel=a.financial_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Utiliza módulo financeiro?</div>';
+  html+='<div class="wiz-q-sub">Centraliza a gestão de prestação de contas aos proprietários. Quanto mais usa, maior o engajamento com a plataforma.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'financial_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+=wizFaces('financial',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ12(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Sim, utiliza ativamente',auto:4,ico:'✅'},
+    {label:'Sim, mas usa pouco',auto:3,ico:'👍'},
+    {label:'Não utiliza',auto:1,ico:'❌'},
+    {label:'Não tem acesso / plano não inclui',auto:2,ico:'➖'}
+  ];
+  var sel=a.operational_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Utiliza módulo operacional ou alguma integração?</div>';
+  html+='<div class="wiz-q-sub">Limpeza, manutenção, controle de tarefas. Aumenta a dependência e engajamento com a plataforma.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'operational_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+=wizFaces('operational',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ13(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Sim, tem 2 ou mais integrações ativas',auto:4,ico:'🔗'},
+    {label:'Sim, tem 1 integração ativa',auto:3,ico:'✅'},
+    {label:'Não tem nenhuma',auto:1,ico:'❌'}
+  ];
+  var sel=a.appcenter_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Tem alguma integração ativa no App Center?</div>';
+  html+='<div class="wiz-q-sub">Amplia funcionalidades e aumenta a dificuldade de churn.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'appcenter_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  if(sel===0||sel===1){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quais integrações?</label><textarea class="wiz-note" rows="2" placeholder="Ex: Guesty, PriceLabs..." oninput="wizA(\'appcenter_detail\',this.value)">'+(a.appcenter_detail||'')+'</textarea></div>';
+  }
+  html+=wizFaces('appcenter',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ14(){
+  var a=S.wiz.answers;
+  var val=a.openapi;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Utiliza Open API?</div>';
+  html+='<div class="wiz-q-sub">Só informativo, sem score. Permite automações e integrações avançadas.</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'openapi\',\'sim\')"><span class="wiz-opt-ico">🔌</span><span class="wiz-opt-lbl">Sim, utiliza Open API</span></div>';
+  html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'openapi\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não utiliza</span></div>';
+  html+='</div>';
+  if(val==='sim'){
+    html+='<div class="wiz-sub-section"><div class="wiz-sub-q">O que consome / quais funcionalidades?</div>';
+    html+='<textarea class="wiz-note" rows="3" placeholder="Descreva o que o cliente consome via API..." oninput="wizA(\'openapi_detail\',this.value)">'+(a.openapi_detail||'')+'</textarea>';
+    html+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="wizA(\'openapi_detail\',\'Não consegui identificar\')">Não consegui identificar</button>';
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function wizQ15(){
+  var a=S.wiz.answers;
+  var val=a.payment;
+  var auto=val==='sim'?3:(val==='nao'?1:2);
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Canal de pagamento</div>';
+  html+='<div class="wiz-q-sub">O cliente tem canal de pagamento configurado para receber reservas diretas pelo site?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'payment\',\'sim\')"><span class="wiz-opt-ico">💳</span><span class="wiz-opt-lbl">Tem canal de pagamento configurado</span></div>';
+  html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'payment\',\'nao\')"><span class="wiz-opt-ico">❌</span><span class="wiz-opt-lbl">Não tem canal de pagamento</span></div>';
+  html+='</div>';
+  html+=wizFaces('payment',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ16(){
+  var a=S.wiz.answers;
+  var ci=S.sel;var c=S.clients[ci];
+  var hasInad=isInadimplente(c);
+  var inadCount=(c.inadimplencia||[]).filter(function(m){return!m.paid;}).length;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Costuma ficar inadimplente?</div>';
+  html+='<div class="wiz-q-sub">Só informativo. O sistema já puxa o histórico de inadimplência do dashboard.</div>';
+  if(hasInad){html+='<div class="wiz-info-banner" style="border-color:#f97316;background:#fff3e0;color:#9a3412">⚠ Este cliente tem <strong>'+inadCount+' fatura(s)</strong> em aberto registradas.</div>';}
+  else{html+='<div class="wiz-info-banner" style="border-color:#1f943c;background:#e8f5ec;color:#145f27">✅ Sem histórico de inadimplência registrado.</div>';}
+  html+='<textarea class="wiz-note" rows="2" placeholder="Anotação sobre inadimplência (opcional)..." oninput="wizA(\'inadimplencia_note\',this.value)">'+(a.inadimplencia_note||'')+'</textarea>';
+  html+='</div>';
+  return html;
+}
+
+function wizQ17(){
+  var a=S.wiz.answers;
+  var ci=S.sel;var c=S.clients[ci];
+  var hasChurn=isChurnAlert(c);
+  var npsAval=a.nps_avaliou;
+  var npsScore=a.nps_score;
+  var npsAuto=npsScore?([0,1,1,2,3,4][npsScore]):2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Cancelamento, NPS e Reclame Aqui</div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">⚠️ Já pediu cancelamento?</div>';
+  if(hasChurn){html+='<div class="wiz-info-banner" style="border-color:#ef4444;background:#fee2e2;color:#7f1d1d">🔴 Este cliente tem alerta de churn ativo no dashboard.</div>';}
+  else{html+='<div class="wiz-info-banner" style="border-color:#1f943c;background:#e8f5ec;color:#145f27">✅ Sem alerta de churn ativo.</div>';}
+  html+='<textarea class="wiz-note" rows="2" placeholder="Contexto sobre churn / histórico (opcional)..." oninput="wizA(\'churn_note\',this.value)">'+(a.churn_note||'')+'</textarea></div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">⭐ NPS — o cliente já avaliou?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(npsAval==='sim'?' sel':'')+'" onclick="wizA(\'nps_avaliou\',\'sim\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Sim, já avaliou</span></div>';
+  html+='<div class="wiz-opt'+(npsAval==='nao'?' sel':'')+'" onclick="wizA(\'nps_avaliou\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não avaliou ainda</span></div>';
+  html+='</div>';
+  if(npsAval==='sim'){
+    html+='<div style="margin-top:.75rem"><div class="wiz-sub-q" style="font-size:13px">Qual foi a última avaliação? (1 a 5)</div><div class="wiz-row">';
+    for(var i=1;i<=5;i++){
+      html+='<div style="width:44px;height:44px;border-radius:50%;border:2px solid '+(npsScore===i?'var(--b600)':'var(--bd)')+';background:'+(npsScore===i?'var(--b50)':'var(--surf)')+';display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:500;color:'+(npsScore===i?'var(--b600)':'var(--t2)')+'" onclick="wizA(\'nps_score\','+i+')">'+i+'</div>';
+    }
+    html+='</div></div>';
+    html+=wizFaces('nps',npsAuto,true);
+  }
+  html+='</div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">🌐 Tem reclamação no Reclame Aqui?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(a.reclame_aqui==='sim'?' sel':'')+'" onclick="wizA(\'reclame_aqui\',\'sim\')"><span class="wiz-opt-ico">⚠️</span><span class="wiz-opt-lbl">Sim, tem reclamação</span></div>';
+  html+='<div class="wiz-opt'+(a.reclame_aqui==='nao'?' sel':'')+'" onclick="wizA(\'reclame_aqui\',\'nao\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Não tem reclamação</span></div>';
+  html+='</div></div>';
+  html+='</div>';
+  return html;
+}
+
+function wizQ18(){
+  var a=S.wiz.answers;
+  var caseOpts=[
+    {label:'Sem casos abertos',auto:4,ico:'✅'},
+    {label:'Poucos casos, nada crítico',auto:3,ico:'👍'},
+    {label:'Muitos casos abertos',auto:1,ico:'⚠️'},
+    {label:'Casos críticos sem resolução',auto:0,ico:'🔴'}
+  ];
+  var sel=a.cases_option;
+  var hasN2=a.cases_n2==='sim';
+  var auto=sel!==undefined&&sel!==null?caseOpts[sel].auto:2;
+  if(hasN2)auto=0;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Como está a abertura de casos?</div>';
+  html+='<div class="wiz-q-sub">Verifica volume e criticidade dos chamados. Casos N2 ou Website são mais críticos e puxam o humor para Péssimo automaticamente.</div>';
+  html+='<div class="wiz-opts">';
+  caseOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'cases_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Tem casos N2 ou casos de Website em aberto?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(hasN2?' sel':'')+'" onclick="wizA(\'cases_n2\',\'sim\')"><span class="wiz-opt-ico">🔴</span><span class="wiz-opt-lbl">Sim, tem N2 ou Website em aberto</span></div>';
+  html+='<div class="wiz-opt'+(!hasN2&&a.cases_n2==='nao'?' sel':'')+'" onclick="wizA(\'cases_n2\',\'nao\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Não tem</span></div>';
+  html+='</div>';
+  if(hasN2){
+    html+='<textarea class="wiz-note" rows="2" placeholder="Descreva os casos N2/Website em aberto..." oninput="wizA(\'cases_n2_detail\',this.value)">'+(a.cases_n2_detail||'')+'</textarea>';
+  }
+  html+='</div>';
+  html+=wizFaces('cases',auto,true);
+  html+='</div>';
+  return html;
+}
+
+function wizQ19(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Cliente está bem no plano atual, sem limitações',ico:'✅'},
+    {label:'Cliente tem limitações mas não demonstra interesse',ico:'➖'},
+    {label:'Oportunidade clara de upgrade — vale abordar',ico:'⬆️'},
+    {label:'Cliente não conhece os planos superiores',ico:'❓'}
+  ];
+  var sel=a.upgrade_option;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Oportunidade de upgrade?</div>';
+  html+='<div class="wiz-q-sub">Sem score — apenas identifique se há oportunidade comercial. O contexto fica salvo para a reunião.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'upgrade_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre upgrade (opcional)..." oninput="wizA(\'upgrade_note\',this.value)">'+(a.upgrade_note||'')+'</textarea>';
+  html+='</div>';
+  return html;
+}
+
+var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
+var WIZ_TOTAL_FIRST=19;
+
+function wizView(){
+  var step=S.wiz.step;
+  var total=WIZ_TOTAL_FIRST;
+  var pct=Math.round(((step+1)/total)*100);
+  var stepKey=WIZ_STEPS_FIRST[step];
+  var renderers=[wizQ1,wizQ2,wizQ3,wizQ4,wizQ5,wizQ6,wizQ7,wizQ8,wizQ9,wizQ10,wizQ11,wizQ12,wizQ13,wizQ14,wizQ15,wizQ16,wizQ17,wizQ18,wizQ19];
+  var hints=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','SMS da Stays','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano'];
+  var icons=['🏢','📍','💰','🌐','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','💳','💰','⭐','🎫','⬆️'];
+  var c=S.clients[S.sel];
+  var html='<div class="wiz-wrap">';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
+  html+='<button class="btn btn-sm" onclick="goBackToClient()">← Voltar</button>';
+  html+='<div style="font-size:15px;font-weight:500;color:var(--t)">Follow-up — '+e(c?c.name:'')+'</div>';
+  html+='</div>';
+  html+='<div class="wiz-progress"><div class="wiz-progress-fill" style="width:'+pct+'%"></div></div>';
+  html+='<div class="wiz-step-lbl"><span style="font-size:18px">'+icons[step]+'</span>Pergunta '+(step+1)+' de '+total+' &nbsp;·&nbsp; <span style="color:var(--t3);font-size:10px">'+hints[step]+'</span></div>';
+  html+=renderers[step]();
+  var isLast=step===total-1;
+  html+='<div class="wiz-nav">'
+    +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
+    +'<span class="wiz-counter" style="font-size:13px;color:var(--t3)">'+(step+1)+' / '+total+'</span>'
+    +(isLast?'<button class="btn-primary" onclick="wizGoSummary()">Ver resumo →</button>':'<button class="btn-primary" onclick="wizGo('+(step+1)+')">Próxima →</button>')
+    +'</div>';
+  html+='</div>';
+  return html;
+}
+
+function wizGoSummary(){S.wiz.step=WIZ_TOTAL_FIRST;render();}
+
+function wizSummaryView(){
+  var a=S.wiz.answers;
+  var h=S.wiz.humors;
+  var c=S.clients[S.sel];
+  var HUMOR_LABELS=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
+  var HUMOR_COLORS=['#fee2e2','#ffedd5','#fef9c3','#dcfce7','#bbf7d0'];
+  var HUMOR_BORDERS=['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
+  var HUMOR_TEXT=['#7f1d1d','#9a3412','#854d0e','#166534','#14532d'];
+  var questions=[
+    {key:'units',label:'Unidades'},
+    {key:'channels',label:'Canais conectados'},
+    {key:'domain',label:'Migração de domínio'},
+    {key:'site',label:'Personalização do site'},
+    {key:'occupation',label:'Ocupação'},
+    {key:'price',label:'Preço competitivo'},
+    {key:'photos_desc',label:'Fotos e descrição'},
+    {key:'financial',label:'Módulo financeiro'},
+    {key:'operational',label:'Módulo operacional'},
+    {key:'appcenter',label:'App Center'},
+    {key:'payment',label:'Canal de pagamento'},
+    {key:'nps',label:'NPS'},
+    {key:'cases',label:'Casos de suporte'}
+  ];
+  var html='<div class="wiz-wrap">';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
+  html+='<button class="btn btn-sm" onclick="wizGo('+(WIZ_TOTAL_FIRST-1)+')">← Voltar</button>';
+  html+='<div style="font-size:15px;font-weight:500;color:var(--t)">Resumo do follow-up</div>';
+  html+='</div>';
+  html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
+  html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📊 Humores por pergunta</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  questions.forEach(function(q){
+    var level=h[q.key]!==undefined?h[q.key]:2;
+    var bg=HUMOR_COLORS[level];var bd=HUMOR_BORDERS[level];var tx=HUMOR_TEXT[level];
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:'+bg+';border:1px solid '+bd+'">';
+    html+=face(FKEYS[level],16);
+    html+='<div><div style="font-size:11px;font-weight:600;color:'+tx+'">'+q.label+'</div><div style="font-size:10px;color:'+tx+'">'+HUMOR_LABELS[level]+'</div></div>';
+    html+='</div>';
+  });
+  html+='</div></div>';
+  html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
+  html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📝 Próximos passos e observações</div>';
+  html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem">Pontos positivos para destacar na reunião:</div>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Boa ocupação, todos os canais conectados..." oninput="wizA(\'positive_points\',this.value)">'+(a.positive_points||'')+'</textarea>';
+  html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Pontos de atenção para abordar:</div>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Falta módulo financeiro, last minute não configurado..." oninput="wizA(\'attention_points\',this.value)">'+(a.attention_points||wizAutoAttention())+'</textarea>';
+  html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Próximos passos com o cliente:</div>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Marcar reunião para configurar módulo financeiro..." oninput="wizA(\'next_steps\',this.value)">'+(a.next_steps||'')+'</textarea>';
+  html+='</div>';
+  html+='<div style="display:flex;gap:10px;justify-content:flex-end">';
+  html+='<button class="btn" onclick="wizGenSF()">📋 Gerar texto Salesforce</button>';
+  html+='<button class="btn-primary" onclick="wizFinish()">✓ Salvar follow-up</button>';
+  html+='</div>';
+  if(a.sf_text){
+    html+='<div class="card" style="margin-top:1rem;padding:1.25rem">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600;color:var(--t)">Texto para o Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.wiz.answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div>';
+    html+='<pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre>';
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function wizAutoAttention(){
+  var a=S.wiz.answers;var h=S.wiz.humors;
+  var pts=[];
+  if(h.channels===0||h.channels===1)pts.push('Poucos canais conectados');
+  if(h.domain===0||h.domain===1)pts.push('Sem domínio próprio');
+  if(h.site===0||h.site===1)pts.push('Site sem personalização');
+  if(h.occupation===0||h.occupation===1)pts.push('Ocupação baixa');
+  if(h.financial===0||h.financial===1)pts.push('Não utiliza módulo financeiro');
+  if(h.payment===0||h.payment===1)pts.push('Sem canal de pagamento');
+  if(h.cases===0)pts.push('Casos críticos em aberto');
+  if(h.nps===0||h.nps===1)pts.push('NPS baixo');
+  return pts.join('\n');
+}
+
+function wizGenSF(){
+  var a=S.wiz.answers;
+  var c=S.clients[S.sel];
+  var CHAN_NAMES={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'Homes & Villas'};
+  var activeChs=((a.channels||[]).filter(function(c){return c.active;}).map(function(c){return CHAN_NAMES[c.key]||c.key;})).join(', ')||'Não informado';
+  var cityNames=((a.cities||[]).map(function(c){return c.name;})).join(', ')||'Não informado';
+  var HUMOR_LABELS=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
+  function hLabel(key){return HUMOR_LABELS[S.wiz.humors[key]!==undefined?S.wiz.humors[key]:2];}
+  var SF_OPTS_SITE=['Site bem personalizado','Personalização básica','Tem site sem personalização','Não tem site','Outro'];
+  var SF_OPTS_OCC_HIGH=['Alta (acima de 65%)','Boa (entre 40-65%)','Baixa (abaixo de 40%)','Sem dados'];
+  var SF_OPTS_OCC_LOW=['Ótima para baixa temporada (acima 45%)','Boa para época (25-45%)','Baixa mesmo na low (abaixo 25%)','Sem dados'];
+  var SF_OPTS_PRICE=['Competitivo e bem posicionado','Na média do mercado','Um pouco fora do ideal','Muito fora do mercado','Sem dados'];
+  var SF_OPTS_FIN=['Utiliza ativamente','Utiliza pouco','Não utiliza','Não tem acesso'];
+  var SF_OPTS_OPE=['Utiliza ativamente','Utiliza pouco','Não utiliza','Não tem acesso'];
+  var SF_OPTS_APP=['2+ integrações ativas','1 integração ativa','Nenhuma'];
+  var SF_OPTS_CASES=['Sem casos abertos','Poucos casos, nada crítico','Muitos casos abertos','Casos críticos'];
+  var season=wizCurrentSeason();
+  var occOpts=season==='low'?SF_OPTS_OCC_LOW:SF_OPTS_OCC_HIGH;
+  var lines=[];
+  lines.push('Follow up:');
+  lines.push('');
+  lines.push('1. Diminuiu/aumentou unidades? - '+(a.units_changed==='nao'?'Não. Total: '+(a.units_count||'?'):(a.units_changed==='ganhou'?'Aumentou '+a.units_delta+' unidade(s). Total atual: '+(a.units_count||'?'):'Perdeu '+a.units_delta+' unidade(s). Total atual: '+(a.units_count||'?'))));
+  lines.push('2. Localização das unidades - '+cityNames);
+  lines.push('3. Modelo de precificação - '+(a.pricing_model==='fixo'?'Fixo (per listing)':'Flexível')||'Não informado');
+  lines.push('4. Listings e canais conectados - '+activeChs+(a.channels_note?' | '+a.channels_note:''));
+  lines.push('5. Migração de domínio - '+(a.domain_migration==='sim'?'Sim':'Não'));
+  lines.push('6. Personalização de site - '+(a.site_option!==undefined&&a.site_option!==null?SF_OPTS_SITE[a.site_option]+(a.site_other?' — '+a.site_other:''):'Não informado'));
+  lines.push('7. Boa ocupação? - '+(a.occupation_option!==undefined&&a.occupation_option!==null?occOpts[a.occupation_option]:'Não informado'));
+  lines.push('8. Preço competitivo? - '+(a.price_option!==undefined&&a.price_option!==null?SF_OPTS_PRICE[a.price_option]:'Não informado'));
+  lines.push('9. Last minute padrão - '+(a.lastminute==='sim'?'Sim — '+( a.lastminute_time||'horário não informado'):'Não'));
+  lines.push('10. Boas fotos? Boa descrição? - '+(a.photos_option!==undefined?['Excelentes','Boas, podem melhorar','Fracas','Sem fotos'][a.photos_option]:'Não avaliado')+' / '+(a.description_option!==undefined?['Completa e atrativa','Básica','Fraca/incompleta','Sem descrição'][a.description_option]:'Não avaliado'));
+  lines.push('11. Utiliza módulo financeiro? - '+(a.financial_option!==undefined&&a.financial_option!==null?SF_OPTS_FIN[a.financial_option]:'Não informado'));
+  lines.push('12. Utiliza módulo operacional ou integração? - '+(a.operational_option!==undefined&&a.operational_option!==null?SF_OPTS_OPE[a.operational_option]:'Não informado'));
+  lines.push('13. Tem integração ativa no App Center? - '+(a.appcenter_option!==undefined&&a.appcenter_option!==null?SF_OPTS_APP[a.appcenter_option]+(a.appcenter_detail?' — '+a.appcenter_detail:''):'Não informado'));
+  lines.push('14. Utiliza Open API? - '+(a.openapi==='sim'?'Sim — '+(a.openapi_detail||'detalhe não informado'):'Não'));
+  lines.push('15. Canal de pagamento - '+(a.payment==='sim'?'Tem canal configurado':'Não tem canal'));
+  lines.push('16. Costuma ficar inadimplente? - '+(isInadimplente(S.clients[S.sel])?'Sim, tem faturas em aberto':'Não')+(a.inadimplencia_note?' — '+a.inadimplencia_note:''));
+  lines.push('17. Cancelamento/NPS/Reclame Aqui - '+(isChurnAlert(S.clients[S.sel])?'Alerta de churn ativo':'Sem churn')+(a.churn_note?' — '+a.churn_note:'')+' | NPS: '+(a.nps_avaliou==='sim'?a.nps_score+'/5':'Não avaliou')+' | Reclame Aqui: '+(a.reclame_aqui==='sim'?'Sim':'Não'));
+  lines.push('18. Abertura de casos - '+(a.cases_option!==undefined&&a.cases_option!==null?SF_OPTS_CASES[a.cases_option]:'Não informado')+(a.cases_n2==='sim'?' — Tem N2/Website em aberto'+(a.cases_n2_detail?' ('+a.cases_n2_detail+')':''):''));
+  lines.push('19. Oportunidade de upgrade - '+(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano atual','Tem limitações, sem interesse','Oportunidade clara de upgrade','Não conhece planos superiores'][a.upgrade_option]:'Não avaliado')+(a.upgrade_note?' — '+a.upgrade_note:''));
+  if(a.attention_points||a.next_steps){
+    lines.push('');
+    if(a.attention_points)lines.push('Pontos de atenção: '+a.attention_points);
+    if(a.next_steps)lines.push('Próximos passos: '+a.next_steps);
+  }
+  S.wiz.answers.sf_text=lines.join('\n');
+  render();
+}
+
+function wizFinish(){
+  var ci=S.sel;
+  var c=S.clients[ci];
+  var newFollow={
+    id:uid(),
+    date:new Date().toISOString().split('T')[0],
+    type:S.wiz.type,
+    wizard:true,
+    answers:Object.assign({},S.wiz.answers),
+    humors:Object.assign({},S.wiz.humors),
+    indicators:{}
+  };
+  if(!c.follows)c.follows=[];
+  c.follows.push(newFollow);
+  saveState();
+  S.wiz={step:0,type:'first',answers:{},humors:{},prevAnswers:null};
+  S.view='client';S.clientTab='follows';
+  render();
+}
+
+function openWizard(type){
+  S.wiz={step:0,type:type||'first',answers:{},humors:{},prevAnswers:null};
+  S.view='follow-wizard';
+  render();
+}
 function toggleAnalyst(uid){S.expandedAnalysts=S.expandedAnalysts||{};S.expandedAnalysts[uid]=!S.expandedAnalysts[uid];render();}
 function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}var app=document.getElementById("app");if(!app)return;app.innerHTML=buildHTML();if(S.view==="client"||S.view==="follow")startClocks();}
 function getChannelData(c){var f=getLatestFollow(c);if(!f||!f.indicators||!f.indicators.channels)return[];var raw=f.indicators.channels.channels;return Array.isArray(raw)?raw:[];}
@@ -476,7 +1269,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView())))))+"</div>"+(S.modal?modal():"")+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-wizard"?(S.wiz.step>=WIZ_TOTAL_FIRST?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView()))))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
