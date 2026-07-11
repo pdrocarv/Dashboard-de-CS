@@ -560,13 +560,24 @@ var WIZ_CHANNELS=[
 
 function wizQ1(){
   var a=S.wiz.answers;
+  var isRec=S.wiz.type==='recurring';
+  var prevBanner=(isRec&&S.wiz.prevAnswers&&S.wiz.prevAnswers.units_count)?'<div class="wiz-info-banner">📊 No último follow ('+formatDate(S.wiz.prevFollowDate||'')+'): <strong>'+S.wiz.prevAnswers.units_count+' unidades</strong></div>':'';
   var auto=2; // neutro default
-  if(a.units_changed==='ganhou'){auto=(a.units_delta&&a.units_count&&a.units_delta/a.units_count>0.2)?4:3;}
-  if(a.units_changed==='perdeu'){auto=(a.units_delta&&a.units_count&&a.units_delta/a.units_count>0.2)?0:1;}
+  if(a.units_changed==='ganhou'&&a.units_delta){
+    var prevG=(+a.units_count||0)-(+a.units_delta||0);
+    var pctG=prevG>0?(+a.units_delta/prevG):1;
+    auto=pctG>0.2?4:3;
+  }
+  if(a.units_changed==='perdeu'&&a.units_delta){
+    var prevP=(+a.units_count||0)+(+a.units_delta||0);
+    var pctP=prevP>0?(+a.units_delta/prevP):1;
+    auto=pctP>0.2?0:1;
+  }
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Quantas unidades o cliente tem atualmente?</div>';
   html+='<div class="wiz-q-sub">Registre o número atual. Serve como referência para os próximos follows.</div>';
-  html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizAText(\'units_count\',+this.value)" style="margin-bottom:1.25rem">';
+  html+=prevBanner;
+  html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizAText(\'units_count\',+this.value)" onchange="render()" style="margin-bottom:1.25rem">';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">As unidades aumentaram ou diminuíram recentemente?</div>';
   html+='<div class="wiz-opts">';
   html+='<div class="wiz-opt'+(a.units_changed==='nao'?' sel':'')+'" onclick="wizA(\'units_changed\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não, manteve igual</span></div>';
@@ -574,7 +585,7 @@ function wizQ1(){
   html+='<div class="wiz-opt'+(a.units_changed==='perdeu'?' sel':'')+'" onclick="wizA(\'units_changed\',\'perdeu\')"><span class="wiz-opt-ico">📉</span><span class="wiz-opt-lbl">Sim, perdeu unidades</span></div>';
   html+='</div>';
   if(a.units_changed==='ganhou'||a.units_changed==='perdeu'){
-    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quantas unidades '+(a.units_changed==='ganhou'?'ganhou':'perdeu')+'?</label><br><input class="wiz-input wiz-input-sm" type="number" style="margin-top:4px" placeholder="Qtd" value="'+(a.units_delta||'')+'" oninput="wizAText(\'units_delta\',+this.value)"></div>';
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quantas unidades '+(a.units_changed==='ganhou'?'ganhou':'perdeu')+'?</label><br><input class="wiz-input wiz-input-sm" type="number" style="margin-top:4px" placeholder="Qtd" value="'+(a.units_delta||'')+'" oninput="wizAText(\'units_delta\',+this.value)" onchange="render()"></div></div>';
   }
   html+='</div>';
   html+=wizFaces('units',auto,true);
@@ -666,18 +677,19 @@ function wizQ4(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Listings e canais conectados</div>';
   html+='<div class="wiz-q-sub">Clique nos canais ativos. Informe quantos anúncios estão conectados em cada um.</div>';
+  if(S.wiz.type==='recurring'&&S.wiz.prevAnswers&&S.wiz.prevAnswers.channels){var CN={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'H&Villas'};var prevChs=(S.wiz.prevAnswers.channels.filter(function(x){return x.active;}).map(function(x){return CN[x.key]+(x.qty?' ('+x.qty+')':'');})).join(', ');if(prevChs)html+='<div class="wiz-info-banner">📊 No último follow: <strong>'+prevChs+'</strong> — os dados abaixo já vêm pré-preenchidos, ajuste conforme mudou.</div>';}
   html+='<div class="wiz-ch-grid">';
   WIZ_CHANNELS.filter(function(c){return c.main;}).forEach(function(ch){
     var active=chActive(ch.key);
     var qty=chQty(ch.key);
-    var u=S.clients[S.sel]?S.clients[S.sel].units:'';
+    var u=+(a.units_count)||999;
     html+='<div class="wiz-ch'+(active?' active':'')+'" onclick="wizToggleCh(\''+ch.key+'\')"><div class="wiz-ch-logo" style="background:'+ch.color+';color:'+(ch.textColor||'#fff')+'">'+ch.abbr+'</div><div class="wiz-ch-name">'+ch.name+'</div>'+(active?'<div class="wiz-ch-qty"><input type="number" min="1" max="'+u+'" placeholder="Qtd" value="'+qty+'" onclick="event.stopPropagation()" oninput="wizChQty(\''+ch.key+'\',+this.value)" style="width:55px;padding:2px 5px;font-size:11px;border:1px solid var(--bd);border-radius:4px;background:var(--surf);color:var(--t)"><br><span style="font-size:10px;color:var(--b600);cursor:pointer" onclick="event.stopPropagation();wizChAll(\''+ch.key+'\')">Todos</span></div>':'')+'</div>';
   });
   html+='</div>';
   if(showMore){
     html+='<div class="wiz-ch-grid">';
     WIZ_CHANNELS.filter(function(c){return !c.main;}).forEach(function(ch){
-      var active=chActive(ch.key);var qty=chQty(ch.key);var u=S.clients[S.sel]?S.clients[S.sel].units:'';
+      var active=chActive(ch.key);var qty=chQty(ch.key);var u=+(a.units_count)||999;
       html+='<div class="wiz-ch'+(active?' active':'')+'" onclick="wizToggleCh(\''+ch.key+'\')"><div class="wiz-ch-logo" style="background:'+ch.color+';color:'+(ch.textColor||'#fff')+'">'+ch.abbr+'</div><div class="wiz-ch-name">'+ch.name+'</div>'+(active?'<div class="wiz-ch-qty"><input type="number" min="1" max="'+u+'" placeholder="Qtd" value="'+qty+'" onclick="event.stopPropagation()" oninput="wizChQty(\''+ch.key+'\',+this.value)" style="width:55px;padding:2px 5px;font-size:11px;border:1px solid var(--bd);border-radius:4px;background:var(--surf);color:var(--t)"><br><span style="font-size:10px;color:var(--b600);cursor:pointer" onclick="event.stopPropagation();wizChAll(\''+ch.key+'\')">Todos</span></div>':'')+'</div>';
     });
     html+='</div>';
@@ -704,8 +716,9 @@ function wizChQty(key,qty){
 function wizChAll(key){
   var a=S.wiz.answers;if(!a.channels)a.channels=[];
   var c=a.channels.find(function(c){return c.key===key;});
-  var units=S.clients[S.sel]?+(S.clients[S.sel].units)||0:0;
+  var units=+(a.units_count)||0;
   if(c){c.qty=units;c.all=true;}
+  render();
 }
 
 function wizQ5(){
@@ -773,6 +786,7 @@ function wizQ7(){
   var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Boa ocupação?</div>';
+  if(S.wiz.type==='recurring'&&S.wiz.prevAnswers&&S.wiz.prevAnswers.occupation_option!==undefined&&S.wiz.prevAnswers.occupation_option!==null){var prevOccLbls=['Alta/Ótima','Boa','Baixa','Sem dados'];html+='<div class="wiz-info-banner">📊 Ocupação no último follow: <strong>'+prevOccLbls[S.wiz.prevAnswers.occupation_option]+'</strong></div>';}
   if(season)html+='<div class="wiz-info-banner">📅 Temporada atual: <strong>'+(isHigh?'Alta':'Baixa')+'</strong> — os percentuais de referência foram ajustados automaticamente.</div>';
   html+='<div class="wiz-q-sub">Avalie a taxa de ocupação atual das unidades.</div>';
   html+='<div class="wiz-opts">';
@@ -1180,6 +1194,41 @@ function wizSaveProgress(){
 }
 function wizGoSummary(){S.wiz.step=WIZ_TOTAL_FIRST;render();}
 
+function wizEvolutionCard(){
+  if(S.wiz.type!=='recurring'||!S.wiz.prevAnswers)return '';
+  var a=S.wiz.answers;var p=S.wiz.prevAnswers;
+  var rows=[];
+  // Units evolution
+  if(p.units_count!==undefined&&a.units_count!==undefined){
+    var diff=(+a.units_count)-(+p.units_count);
+    var arrow=diff>0?'<span style="color:#16a34a">▲ +'+diff+'</span>':(diff<0?'<span style="color:#dc2626">▼ '+diff+'</span>':'<span style="color:var(--t3)">= igual</span>');
+    rows.push({label:'Unidades',prev:p.units_count,cur:a.units_count,change:arrow});
+  }
+  // Channels count evolution
+  var prevChCount=(p.channels||[]).filter(function(x){return x.active;}).length;
+  var curChCount=(a.channels||[]).filter(function(x){return x.active;}).length;
+  if(prevChCount||curChCount){
+    var chDiff=curChCount-prevChCount;
+    var chArrow=chDiff>0?'<span style="color:#16a34a">▲ +'+chDiff+'</span>':(chDiff<0?'<span style="color:#dc2626">▼ '+chDiff+'</span>':'<span style="color:var(--t3)">= igual</span>');
+    rows.push({label:'Canais conectados',prev:prevChCount,cur:curChCount,change:chArrow});
+  }
+  // Occupation evolution
+  if(p.occupation_option!==undefined&&p.occupation_option!==null&&a.occupation_option!==undefined&&a.occupation_option!==null){
+    var occLbls=['Alta/Ótima','Boa','Baixa','Sem dados'];
+    var occDiff=a.occupation_option-p.occupation_option;
+    var occArrow=occDiff<0?'<span style="color:#16a34a">▲ melhorou</span>':(occDiff>0?'<span style="color:#dc2626">▼ piorou</span>':'<span style="color:var(--t3)">= igual</span>');
+    rows.push({label:'Ocupação',prev:occLbls[p.occupation_option],cur:occLbls[a.occupation_option],change:occArrow});
+  }
+  if(!rows.length)return '';
+  var html='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
+  html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📈 Evolução desde o último follow ('+formatDate(S.wiz.prevFollowDate||'')+')</div>';
+  html+='<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--bd)"><th style="text-align:left;font-size:11px;color:var(--t3);padding:6px 0;font-weight:600">Indicador</th><th style="text-align:center;font-size:11px;color:var(--t3);padding:6px;font-weight:600">Antes</th><th style="text-align:center;font-size:11px;color:var(--t3);padding:6px;font-weight:600">Agora</th><th style="text-align:right;font-size:11px;color:var(--t3);padding:6px 0;font-weight:600">Mudança</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html+='<tr style="border-bottom:1px solid var(--bd)"><td style="font-size:13px;color:var(--t);padding:8px 0">'+r.label+'</td><td style="text-align:center;font-size:13px;color:var(--t2);padding:8px">'+r.prev+'</td><td style="text-align:center;font-size:13px;color:var(--t);font-weight:600;padding:8px">'+r.cur+'</td><td style="text-align:right;font-size:12px;font-weight:600;padding:8px 0">'+r.change+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
 function wizSummaryView(){
   var a=S.wiz.answers;
   var h=S.wiz.humors;
@@ -1220,6 +1269,7 @@ function wizSummaryView(){
     html+='</div>';
   });
   html+='</div></div>';
+  html+=wizEvolutionCard();
   html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
   html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📝 Próximos passos e observações</div>';
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem">Pontos positivos para destacar na reunião:</div>';
@@ -1340,11 +1390,35 @@ function openWizard(type,resumeDraft){
   var c=S.clients[S.sel];
   if(resumeDraft&&c&&c.wizDraft){
     S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',answers:Object.assign({},c.wizDraft.answers),humors:Object.assign({},c.wizDraft.humors),autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),prevAnswers:null};
+  }else if(type==='recurring'){
+    var prevFollow=getLastWizardFollow(c);
+    if(!prevFollow){alert('Não há follow-up anterior para basear a análise recorrente. Faça uma primeira análise antes.');return;}
+    var prevA=prevFollow.answers||{};
+    var carried={};
+    // Carry forward reference data
+    carried.units_count=prevA.units_count;
+    carried.prev_units_count=prevA.units_count;
+    carried.cities=JSON.parse(JSON.stringify(prevA.cities||[]));
+    carried.pricing_model=prevA.pricing_model;
+    carried.channels=JSON.parse(JSON.stringify(prevA.channels||[]));
+    carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
+    carried.domain_migration=prevA.domain_migration;
+    carried.site_option=prevA.site_option;
+    carried.lastminute=prevA.lastminute;
+    carried.lastminute_time=prevA.lastminute_time;
+    carried.prev_occupation_option=prevA.occupation_option;
+    carried.prev_price_option=prevA.price_option;
+    S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow.date};
   }else{
     S.wiz={step:0,type:type||'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
   }
   S.view='follow-wizard';
   render();
+}
+function getLastWizardFollow(c){
+  if(!c||!c.follows)return null;
+  var wizFollows=c.follows.filter(function(f){return f.wizard;}).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  return wizFollows[0]||null;
 }
 function toggleAnalyst(uid){S.expandedAnalysts=S.expandedAnalysts||{};S.expandedAnalysts[uid]=!S.expandedAnalysts[uid];render();}
 function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}var app=document.getElementById("app");if(!app)return;app.innerHTML=buildHTML();if(S.view==="client"||S.view==="follow")startClocks();}
@@ -1635,7 +1709,7 @@ function infoTab(c,ci){var html="";html+='<div class="section-hdr"><span>Princip
 var cmp=getComparison(c);if(cmp){var better=cmp.changes.filter(function(x){return x.improved;}),worse=cmp.changes.filter(function(x){return x.worsened&&!x.expected;}),expected=cmp.changes.filter(function(x){return x.expected;});html+='<div class="section-hdr"><span>Comparacao vs. Follow anterior</span></div><div class="card" style="padding:1rem;margin-bottom:1.5rem"><div class="muted" style="margin-bottom:10px">'+formatDate(cmp.prev.date)+' → '+formatDate(cmp.latest.date)+'</div><div class="flex" style="margin-bottom:12px"><span class="cmp-pill cmp-better">+'+better.length+' melhoraram</span><span class="cmp-pill cmp-worse">-'+worse.length+' pioraram</span><span class="cmp-pill cmp-expected">'+expected.length+' esperados</span></div>'+(better.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--gn600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Melhoraram</div><div>'+better.map(function(x){return'<span class="cmp-pill cmp-better">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( worse.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--rd600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Pioraram</div><div>'+worse.map(function(x){return'<span class="cmp-pill cmp-worse">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( expected.length?'<div><div style="font-size:11px;font-weight:700;color:var(--am600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Esperado (sazonalidade)</div><div>'+expected.map(function(x){return'<span class="cmp-pill cmp-expected">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+'</div>';}
 var cts=[...(c.contacts||[])].reverse();html+='<div class="section-hdr"><span>Contatos externos</span><button class="btn btn-sm" onclick="openM(\'add-contact\')">+ Registrar</button></div>';if(!cts.length){html+='<p class="muted">Nenhum contato registrado ainda.</p>';}else{cts.forEach(function(ct,idx){var ri=(c.contacts.length-1)-idx;var tl={meeting:"Reuniao",whatsapp:"WhatsApp",email:"E-mail",churn:"Churn Alert"}[ct.type];var il={positive:"+ Positivo",neutral:"Neutro",negative:"- Negativo"}[ct.impact];html+='<div class="contact-entry"><div class="ce-hdr"><span class="ctb ctb-'+ct.type+'">'+tl+'</span><span class="ct-date">'+formatDate(ct.date)+'</span><span class="impb imp-'+ct.impact+'">'+il+'</span><button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="delContact('+ci+','+ri+')">Remover</button></div><div class="ct-summary">'+e(ct.summary)+'</div></div>';});}return html;}
 
-function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">📝 Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/19)</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var html=draftBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="openM(\'add-follow\')">+ Follow clássico</button><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">📋</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openM(\'add-follow\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex">'+(rc>0?'<span class="badge b-risk">'+rc+' risco</span>':"")+( wc>0?'<span class="badge b-warn">'+wc+' atencao</span>':'')+'<span class="badge b-ok">'+oc+' OK</span><span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
+function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">📝 Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/19)</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var html=draftBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">📋</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openM(\'add-follow\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex">'+(rc>0?'<span class="badge b-risk">'+rc+' risco</span>':"")+( wc>0?'<span class="badge b-warn">'+wc+' atencao</span>':'')+'<span class="badge b-ok">'+oc+' OK</span><span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
 // ============================================================
 // FOLLOW VIEW
 // ============================================================
