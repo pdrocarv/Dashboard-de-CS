@@ -357,7 +357,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},prevAnswers:null}};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null}};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -501,6 +501,8 @@ var FCOLORS={pessimo:{bg:'#fee2e2',bd:'#ef4444',tx:'#7f1d1d'},ruim:{bg:'#ffedd5'
 function face(key,sz){return FACES[key].replace(/VAR/g,sz||20);}
 function wizFaces(qkey,auto,score){
   if(!score)return '';
+  if(!S.wiz.autoHumors)S.wiz.autoHumors={};
+  S.wiz.autoHumors[qkey]=auto;
   var cur=S.wiz.humors[qkey];
   var hasOverride=(cur!==undefined&&cur!==null);
   var active=hasOverride?cur:auto;
@@ -522,6 +524,9 @@ function wizSetH(key,level){
 function wizA(key,val){
   S.wiz.answers[key]=val;
   render();
+}
+function wizAText(key,val){
+  S.wiz.answers[key]=val;
 }
 function wizNav(step,total){
   var pct=Math.round((step/total)*100);
@@ -561,7 +566,7 @@ function wizQ1(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Quantas unidades o cliente tem atualmente?</div>';
   html+='<div class="wiz-q-sub">Registre o número atual. Serve como referência para os próximos follows.</div>';
-  html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizA(\'units_count\',+this.value)" style="margin-bottom:1.25rem">';
+  html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizAText(\'units_count\',+this.value)" style="margin-bottom:1.25rem">';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">As unidades aumentaram ou diminuíram recentemente?</div>';
   html+='<div class="wiz-opts">';
   html+='<div class="wiz-opt'+(a.units_changed==='nao'?' sel':'')+'" onclick="wizA(\'units_changed\',\'nao\')"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não, manteve igual</span></div>';
@@ -569,7 +574,7 @@ function wizQ1(){
   html+='<div class="wiz-opt'+(a.units_changed==='perdeu'?' sel':'')+'" onclick="wizA(\'units_changed\',\'perdeu\')"><span class="wiz-opt-ico">📉</span><span class="wiz-opt-lbl">Sim, perdeu unidades</span></div>';
   html+='</div>';
   if(a.units_changed==='ganhou'||a.units_changed==='perdeu'){
-    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quantas unidades '+(a.units_changed==='ganhou'?'ganhou':'perdeu')+'?</label><br><input class="wiz-input wiz-input-sm" type="number" style="margin-top:4px" placeholder="Qtd" value="'+(a.units_delta||'')+'" oninput="wizA(\'units_delta\',+this.value)"></div>';
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quantas unidades '+(a.units_changed==='ganhou'?'ganhou':'perdeu')+'?</label><br><input class="wiz-input wiz-input-sm" type="number" style="margin-top:4px" placeholder="Qtd" value="'+(a.units_delta||'')+'" oninput="wizAText(\'units_delta\',+this.value)"></div>';
   }
   html+='</div>';
   html+=wizFaces('units',auto,true);
@@ -644,7 +649,7 @@ function wizCreateReminderPricing(){
   var ci=S.sel;
   var dueDate=new Date(Date.now()+2*24*60*60*1000).toISOString().split('T')[0];
   if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
-  S.clients[ci].reminders.push({id:uid(),type:'proativo',title:'Recomendar mudança de modelo de precificação',dueDate:dueDate,note:'Verificar no follow-up se faz sentido trocar o modelo.',done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
+  S.clients[ci].reminders.push({id:uid(),type:'proativo',title:'Recomendar mudança de modelo de precificação',dueDate:dueDate,note:'Verificar com o cliente se faz sentido trocar o modelo de precificação.',done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
   saveState();
   wizA('pricing_alert_ignored',true);
 }
@@ -678,7 +683,7 @@ function wizQ4(){
     html+='</div>';
   }
   html+='<button class="btn btn-sm" style="font-size:11px;margin-bottom:.75rem" onclick="wizA(\'channels_show_more\','+(showMore?'false':'true')+')">'+(showMore?'− Ocultar outros canais':'+ Ver outros canais')+'</button>';
-  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre os canais (opcional)..." oninput="wizA(\'channels_note\',this.value)">'+(a.channels_note||'')+'</textarea>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre os canais (opcional)..." oninput="wizAText(\'channels_note\',this.value)">'+(a.channels_note||'')+'</textarea>';
   html+=wizFaces('channels',auto,true);
   html+='</div>';
   return html;
@@ -739,7 +744,7 @@ function wizQ6(){
   });
   html+='</div>';
   if(sel===4){
-    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação:</label><textarea class="wiz-note" rows="2" oninput="wizA(\'site_other\',this.value)" placeholder="Ex: Cliente usa WordPress próprio bem personalizado...">'+(a.site_other||'')+'</textarea></div>';
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação:</label><textarea class="wiz-note" rows="2" oninput="wizAText(\'site_other\',this.value)" placeholder="Ex: Cliente usa WordPress próprio bem personalizado...">'+(a.site_other||'')+'</textarea></div>';
   }
   html+=wizFaces('site',sel===4?2:auto,sel!==4);
   if(sel===4){html+='<div style="margin-top:.5rem;font-size:12px;color:var(--t3)">⚠ Humor obrigatório para esta opção — selecione acima.</div>';}
@@ -911,7 +916,7 @@ function wizQ13(){
   opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'appcenter_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   if(sel===0||sel===1){
-    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quais integrações?</label><textarea class="wiz-note" rows="2" placeholder="Ex: Guesty, PriceLabs..." oninput="wizA(\'appcenter_detail\',this.value)">'+(a.appcenter_detail||'')+'</textarea></div>';
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quais integrações?</label><textarea class="wiz-note" rows="2" placeholder="Ex: Guesty, PriceLabs..." oninput="wizAText(\'appcenter_detail\',this.value)">'+(a.appcenter_detail||'')+'</textarea></div>';
   }
   html+=wizFaces('appcenter',auto,true);
   html+='</div>';
@@ -930,7 +935,7 @@ function wizQ14(){
   html+='</div>';
   if(val==='sim'){
     html+='<div class="wiz-sub-section"><div class="wiz-sub-q">O que consome / quais funcionalidades?</div>';
-    html+='<textarea class="wiz-note" rows="3" placeholder="Descreva o que o cliente consome via API..." oninput="wizA(\'openapi_detail\',this.value)">'+(a.openapi_detail||'')+'</textarea>';
+    html+='<textarea class="wiz-note" rows="3" placeholder="Descreva o que o cliente consome via API..." oninput="wizAText(\'openapi_detail\',this.value)">'+(a.openapi_detail||'')+'</textarea>';
     html+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="wizA(\'openapi_detail\',\'Não consegui identificar\')">Não consegui identificar</button>';
     html+='</div>';
   }
@@ -964,7 +969,7 @@ function wizQ16(){
   html+='<div class="wiz-q-sub">Só informativo. O sistema já puxa o histórico de inadimplência do dashboard.</div>';
   if(hasInad){html+='<div class="wiz-info-banner" style="border-color:#f97316;background:#fff3e0;color:#9a3412">⚠ Este cliente tem <strong>'+inadCount+' fatura(s)</strong> em aberto registradas.</div>';}
   else{html+='<div class="wiz-info-banner" style="border-color:#1f943c;background:#e8f5ec;color:#145f27">✅ Sem histórico de inadimplência registrado.</div>';}
-  html+='<textarea class="wiz-note" rows="2" placeholder="Anotação sobre inadimplência (opcional)..." oninput="wizA(\'inadimplencia_note\',this.value)">'+(a.inadimplencia_note||'')+'</textarea>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Anotação sobre inadimplência (opcional)..." oninput="wizAText(\'inadimplencia_note\',this.value)">'+(a.inadimplencia_note||'')+'</textarea>';
   html+='</div>';
   return html;
 }
@@ -981,7 +986,7 @@ function wizQ17(){
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">⚠️ Já pediu cancelamento?</div>';
   if(hasChurn){html+='<div class="wiz-info-banner" style="border-color:#ef4444;background:#fee2e2;color:#7f1d1d">🔴 Este cliente tem alerta de churn ativo no dashboard.</div>';}
   else{html+='<div class="wiz-info-banner" style="border-color:#1f943c;background:#e8f5ec;color:#145f27">✅ Sem alerta de churn ativo.</div>';}
-  html+='<textarea class="wiz-note" rows="2" placeholder="Contexto sobre churn / histórico (opcional)..." oninput="wizA(\'churn_note\',this.value)">'+(a.churn_note||'')+'</textarea></div>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Contexto sobre churn / histórico (opcional)..." oninput="wizAText(\'churn_note\',this.value)">'+(a.churn_note||'')+'</textarea></div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">⭐ NPS — o cliente já avaliou?</div>';
   html+='<div class="wiz-opts">';
   html+='<div class="wiz-opt'+(npsAval==='sim'?' sel':'')+'" onclick="wizA(\'nps_avaliou\',\'sim\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Sim, já avaliou</span></div>';
@@ -1029,7 +1034,7 @@ function wizQ18(){
   html+='<div class="wiz-opt'+(!hasN2&&a.cases_n2==='nao'?' sel':'')+'" onclick="wizA(\'cases_n2\',\'nao\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Não tem</span></div>';
   html+='</div>';
   if(hasN2){
-    html+='<textarea class="wiz-note" rows="2" placeholder="Descreva os casos N2/Website em aberto..." oninput="wizA(\'cases_n2_detail\',this.value)">'+(a.cases_n2_detail||'')+'</textarea>';
+    html+='<textarea class="wiz-note" rows="2" placeholder="Descreva os casos N2/Website em aberto..." oninput="wizAText(\'cases_n2_detail\',this.value)">'+(a.cases_n2_detail||'')+'</textarea>';
   }
   html+='</div>';
   html+=wizFaces('cases',auto,true);
@@ -1052,7 +1057,7 @@ function wizQ19(){
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'upgrade_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
-  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre upgrade (opcional)..." oninput="wizA(\'upgrade_note\',this.value)">'+(a.upgrade_note||'')+'</textarea>';
+  html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre upgrade (opcional)..." oninput="wizAText(\'upgrade_note\',this.value)">'+(a.upgrade_note||'')+'</textarea>';
   html+='</div>';
   return html;
 }
@@ -1060,6 +1065,82 @@ function wizQ19(){
 var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
 var WIZ_TOTAL_FIRST=19;
 
+function followWizardView(){
+  var c=S.clients[S.sel],ci=S.sel,fi=S.selFollow,f=c.follows[fi];
+  if(!f){goBackToClient();return"";}
+  var a=f.answers||{};
+  var h=f.humors||{};
+  var HL=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
+  var HC=['#fee2e2','#ffedd5','#fef9c3','#dcfce7','#bbf7d0'];
+  var HB=['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
+  var HT=['#7f1d1d','#9a3412','#854d0e','#166534','#14532d'];
+  function humorPill(key){
+    if(h[key]===undefined||h[key]===null)return'';
+    var lv=h[key];
+    return'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:'+HC[lv]+';border:1px solid '+HB[lv]+';color:'+HT[lv]+'">'+face(FKEYS[lv],14)+' '+HL[lv]+'</span>';
+  }
+  var CHAN_NAMES={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'Homes & Villas'};
+  function row(num,label,answer,humorKey){
+    return'<div style="padding:12px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:3px">'+num+'. '+label+'</div><div style="font-size:13px;color:var(--t2);line-height:1.5">'+(answer||'<span style="color:var(--t3)">Não respondido</span>')+'</div></div>'+(humorKey?humorPill(humorKey):'')+'</div></div>';
+  }
+  var cities=((a.cities||[]).map(function(c){return c.name;})).join(', ')||'—';
+  var activeChs=((a.channels||[]).filter(function(x){return x.active;}).map(function(x){return CHAN_NAMES[x.key]+(x.all?' (todos)':(x.qty?' ('+x.qty+')':''));})).join(', ')||'—';
+  var SITE=['Bem personalizado','Personalização básica','Sem personalização','Não tem site','Outro'];
+  var OCC_H=['Alta (>65%)','Boa (40-65%)','Baixa (<40%)','Sem dados'];
+  var OCC_L=['Ótima p/ baixa (>45%)','Boa p/ época (25-45%)','Baixa (<25%)','Sem dados'];
+  var PRICE=['Competitivo','Na média','Um pouco fora','Muito fora','Sem dados'];
+  var FIN=['Utiliza ativamente','Utiliza pouco','Não utiliza','Sem acesso'];
+  var APP=['2+ integrações','1 integração','Nenhuma'];
+  var CASES=['Sem casos','Poucos casos','Muitos casos','Casos críticos'];
+  var PHOTOS=['Excelentes','Boas','Fracas','Sem fotos'];
+  var DESC=['Completa','Básica','Fraca','Sem descrição'];
+  var html='<div class="wiz-wrap">';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem"><button class="btn btn-sm" onclick="goBackToClient()">← Voltar</button><div style="font-size:15px;font-weight:500">Follow-up de '+formatDate(f.date)+'</div><span style="font-size:11px;background:var(--b50);color:var(--b600);border:1px solid var(--b600);border-radius:4px;padding:2px 8px">'+(f.type==='recurring'?'Recorrente':'Primeira análise')+'</span></div>';
+  html+='<div class="card" style="padding:1.5rem">';
+  html+=row('1','Unidades',(a.units_changed==='nao'?'Manteve igual. Total: '+(a.units_count||'?'):(a.units_changed==='ganhou'?'Ganhou '+a.units_delta+'. Total: '+(a.units_count||'?'):(a.units_changed==='perdeu'?'Perdeu '+a.units_delta+'. Total: '+(a.units_count||'?'):'Total: '+(a.units_count||'?')))),'units');
+  html+=row('2','Localização',cities,null);
+  html+=row('3','Modelo de precificação',(a.pricing_model==='fixo'?'Fixo':(a.pricing_model==='flexivel'?'Flexível':'—')),null);
+  html+=row('4','Canais conectados',activeChs+(a.channels_note?' — '+e(a.channels_note):''),'channels');
+  html+=row('5','Migração de domínio',(a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—')),'domain');
+  html+=row('6','Personalização de site',(a.site_option!==undefined&&a.site_option!==null?SITE[a.site_option]+(a.site_other?' — '+e(a.site_other):''):'—'),'site');
+  var occArr=wizFollowSeason(a)==='low'?OCC_L:OCC_H;
+  html+=row('7','Ocupação',(a.occupation_option!==undefined&&a.occupation_option!==null?occArr[a.occupation_option]:'—'),'occupation');
+  html+=row('8','Preço competitivo',(a.price_option!==undefined&&a.price_option!==null?PRICE[a.price_option]:'—'),'price');
+  html+=row('9','Last minute',(a.lastminute==='sim'?'Sim — '+(a.lastminute_time||'?'):(a.lastminute==='nao'?'Não':'—')),null);
+  html+=row('10','Fotos e descrição',(a.photos_option!==undefined?PHOTOS[a.photos_option]:'—')+' / '+(a.description_option!==undefined?DESC[a.description_option]:'—'),'photos_desc');
+  html+=row('11','Módulo financeiro',(a.financial_option!==undefined&&a.financial_option!==null?FIN[a.financial_option]:'—'),'financial');
+  html+=row('12','Módulo operacional',(a.operational_option!==undefined&&a.operational_option!==null?FIN[a.operational_option]:'—'),'operational');
+  html+=row('13','App Center',(a.appcenter_option!==undefined&&a.appcenter_option!==null?APP[a.appcenter_option]+(a.appcenter_detail?' — '+e(a.appcenter_detail):''):'—'),'appcenter');
+  html+=row('14','Open API',(a.openapi==='sim'?'Sim — '+e(a.openapi_detail||'?'):(a.openapi==='nao'?'Não':'—')),null);
+  html+=row('15','Canal de pagamento',(a.payment==='sim'?'Tem canal':(a.payment==='nao'?'Não tem':'—')),'payment');
+  html+=row('16','Inadimplência',(a.inadimplencia_note?e(a.inadimplencia_note):'Ver histórico do cliente'),null);
+  html+=row('17','Churn / NPS / Reclame Aqui',(a.churn_note?'Churn: '+e(a.churn_note)+'. ':'')+'NPS: '+(a.nps_avaliou==='sim'?a.nps_score+'/5':'Não avaliou')+'. Reclame Aqui: '+(a.reclame_aqui==='sim'?'Sim':'Não'),'nps');
+  html+=row('18','Abertura de casos',(a.cases_option!==undefined&&a.cases_option!==null?CASES[a.cases_option]:'—')+(a.cases_n2==='sim'?' — N2/Website em aberto'+(a.cases_n2_detail?': '+e(a.cases_n2_detail):''):''),'cases');
+  html+=row('19','Oportunidade de upgrade',(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano','Tem limitações, sem interesse','Oportunidade clara','Não conhece planos'][a.upgrade_option]:'—')+(a.upgrade_note?' — '+e(a.upgrade_note):''),null);
+  html+='</div>';
+  if(a.positive_points||a.attention_points||a.next_steps){
+    html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="font-size:13px;font-weight:600;margin-bottom:.75rem">📝 Observações e próximos passos</div>';
+    if(a.positive_points)html+='<div style="margin-bottom:.75rem"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase">Pontos positivos</div><div style="font-size:13px;color:var(--t2);white-space:pre-wrap">'+e(a.positive_points)+'</div></div>';
+    if(a.attention_points)html+='<div style="margin-bottom:.75rem"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase">Pontos de atenção</div><div style="font-size:13px;color:var(--t2);white-space:pre-wrap">'+e(a.attention_points)+'</div></div>';
+    if(a.next_steps)html+='<div><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase">Próximos passos</div><div style="font-size:13px;color:var(--t2);white-space:pre-wrap">'+e(a.next_steps)+'</div></div>';
+    html+='</div>';
+  }
+  if(a.sf_text){
+    html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">Texto do Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div><pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre></div>';
+  }
+  html+='</div>';
+  return html;
+}
+function wizFollowSeason(a){
+  var cities=a.cities||[];
+  if(!cities.length||!cities[0].season_high_start)return null;
+  var months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var now=new Date().getMonth();var c=cities[0];
+  var hs=months.indexOf(c.season_high_start);var he=months.indexOf(c.season_high_end);
+  if(hs<0||he<0)return null;
+  var inHigh=hs<=he?(now>=hs&&now<=he):(now>=hs||now<=he);
+  return inHigh?'high':'low';
+}
 function wizView(){
   var step=S.wiz.step;
   var total=WIZ_TOTAL_FIRST;
@@ -1080,13 +1161,23 @@ function wizView(){
   var isLast=step===total-1;
   html+='<div class="wiz-nav">'
     +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
-    +'<span class="wiz-counter" style="font-size:13px;color:var(--t3)">'+(step+1)+' / '+total+'</span>'
+    +'<div style="display:flex;gap:8px;align-items:center"><button class="btn btn-sm" onclick="wizSaveProgress()" title="Salvar e terminar depois">💾 Salvar até aqui</button>'
+    +'<span class="wiz-counter" style="font-size:13px;color:var(--t3)">'+(step+1)+' / '+total+'</span></div>'
     +(isLast?'<button class="btn-primary" onclick="wizGoSummary()">Ver resumo →</button>':'<button class="btn-primary" onclick="wizGo('+(step+1)+')">Próxima →</button>')
     +'</div>';
   html+='</div>';
   return html;
 }
 
+function wizSaveProgress(){
+  var ci=S.sel;var c=S.clients[ci];
+  if(!c.wizDraft)c.wizDraft={};
+  c.wizDraft={step:S.wiz.step,type:S.wiz.type,answers:Object.assign({},S.wiz.answers),humors:Object.assign({},S.wiz.humors),autoHumors:Object.assign({},S.wiz.autoHumors||{}),savedAt:new Date().toISOString()};
+  saveState();
+  alert('Follow-up salvo! Você pode continuar de onde parou depois, abrindo novamente na aba Follow-Ups.');
+  S.view='client';S.clientTab='follows';
+  render();
+}
 function wizGoSummary(){S.wiz.step=WIZ_TOTAL_FIRST;render();}
 
 function wizSummaryView(){
@@ -1121,7 +1212,7 @@ function wizSummaryView(){
   html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📊 Humores por pergunta</div>';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   questions.forEach(function(q){
-    var level=h[q.key]!==undefined?h[q.key]:2;
+    var level=(h[q.key]!==undefined&&h[q.key]!==null)?h[q.key]:((S.wiz.autoHumors&&S.wiz.autoHumors[q.key]!==undefined)?S.wiz.autoHumors[q.key]:2);
     var bg=HUMOR_COLORS[level];var bd=HUMOR_BORDERS[level];var tx=HUMOR_TEXT[level];
     html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:'+bg+';border:1px solid '+bd+'">';
     html+=face(FKEYS[level],16);
@@ -1132,11 +1223,11 @@ function wizSummaryView(){
   html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
   html+='<div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:1rem">📝 Próximos passos e observações</div>';
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem">Pontos positivos para destacar na reunião:</div>';
-  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Boa ocupação, todos os canais conectados..." oninput="wizA(\'positive_points\',this.value)">'+(a.positive_points||'')+'</textarea>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Boa ocupação, todos os canais conectados..." oninput="wizAText(\'positive_points\',this.value)">'+(a.positive_points||'')+'</textarea>';
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Pontos de atenção para abordar:</div>';
-  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Falta módulo financeiro, last minute não configurado..." oninput="wizA(\'attention_points\',this.value)">'+(a.attention_points||wizAutoAttention())+'</textarea>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Falta módulo financeiro, last minute não configurado..." oninput="wizAText(\'attention_points\',this.value)">'+(a.attention_points||wizAutoAttention())+'</textarea>';
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Próximos passos com o cliente:</div>';
-  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Marcar reunião para configurar módulo financeiro..." oninput="wizA(\'next_steps\',this.value)">'+(a.next_steps||'')+'</textarea>';
+  html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Marcar reunião para configurar módulo financeiro..." oninput="wizAText(\'next_steps\',this.value)">'+(a.next_steps||'')+'</textarea>';
   html+='</div>';
   html+='<div style="display:flex;gap:10px;justify-content:flex-end">';
   html+='<button class="btn" onclick="wizGenSF()">📋 Gerar texto Salesforce</button>';
@@ -1215,6 +1306,14 @@ function wizGenSF(){
   render();
 }
 
+function wizEffectiveHumors(){
+  var result={};
+  var auto=S.wiz.autoHumors||{};
+  var over=S.wiz.humors||{};
+  Object.keys(auto).forEach(function(k){result[k]=auto[k];});
+  Object.keys(over).forEach(function(k){if(over[k]!==undefined&&over[k]!==null)result[k]=over[k];});
+  return result;
+}
 function wizFinish(){
   var ci=S.sel;
   var c=S.clients[ci];
@@ -1224,19 +1323,26 @@ function wizFinish(){
     type:S.wiz.type,
     wizard:true,
     answers:Object.assign({},S.wiz.answers),
-    humors:Object.assign({},S.wiz.humors),
+    humors:wizEffectiveHumors(),
     indicators:{}
   };
   if(!c.follows)c.follows=[];
   c.follows.push(newFollow);
+  c.wizDraft=null;
   saveState();
-  S.wiz={step:0,type:'first',answers:{},humors:{},prevAnswers:null};
+  S.wiz={step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
   S.view='client';S.clientTab='follows';
   render();
 }
 
-function openWizard(type){
-  S.wiz={step:0,type:type||'first',answers:{},humors:{},prevAnswers:null};
+function resumeDraft(ci){S.sel=ci;var c=S.clients[ci];openWizard(c.wizDraft?c.wizDraft.type:'first',true);}
+function openWizard(type,resumeDraft){
+  var c=S.clients[S.sel];
+  if(resumeDraft&&c&&c.wizDraft){
+    S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',answers:Object.assign({},c.wizDraft.answers),humors:Object.assign({},c.wizDraft.humors),autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),prevAnswers:null};
+  }else{
+    S.wiz={step:0,type:type||'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
+  }
   S.view='follow-wizard';
   render();
 }
@@ -1269,7 +1375,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-wizard"?(S.wiz.step>=WIZ_TOTAL_FIRST?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView()))))))+"</div>"+(S.modal?modal():"")+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=WIZ_TOTAL_FIRST?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView())))))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
@@ -1529,7 +1635,7 @@ function infoTab(c,ci){var html="";html+='<div class="section-hdr"><span>Princip
 var cmp=getComparison(c);if(cmp){var better=cmp.changes.filter(function(x){return x.improved;}),worse=cmp.changes.filter(function(x){return x.worsened&&!x.expected;}),expected=cmp.changes.filter(function(x){return x.expected;});html+='<div class="section-hdr"><span>Comparacao vs. Follow anterior</span></div><div class="card" style="padding:1rem;margin-bottom:1.5rem"><div class="muted" style="margin-bottom:10px">'+formatDate(cmp.prev.date)+' → '+formatDate(cmp.latest.date)+'</div><div class="flex" style="margin-bottom:12px"><span class="cmp-pill cmp-better">+'+better.length+' melhoraram</span><span class="cmp-pill cmp-worse">-'+worse.length+' pioraram</span><span class="cmp-pill cmp-expected">'+expected.length+' esperados</span></div>'+(better.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--gn600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Melhoraram</div><div>'+better.map(function(x){return'<span class="cmp-pill cmp-better">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( worse.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--rd600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Pioraram</div><div>'+worse.map(function(x){return'<span class="cmp-pill cmp-worse">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( expected.length?'<div><div style="font-size:11px;font-weight:700;color:var(--am600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Esperado (sazonalidade)</div><div>'+expected.map(function(x){return'<span class="cmp-pill cmp-expected">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+'</div>';}
 var cts=[...(c.contacts||[])].reverse();html+='<div class="section-hdr"><span>Contatos externos</span><button class="btn btn-sm" onclick="openM(\'add-contact\')">+ Registrar</button></div>';if(!cts.length){html+='<p class="muted">Nenhum contato registrado ainda.</p>';}else{cts.forEach(function(ct,idx){var ri=(c.contacts.length-1)-idx;var tl={meeting:"Reuniao",whatsapp:"WhatsApp",email:"E-mail",churn:"Churn Alert"}[ct.type];var il={positive:"+ Positivo",neutral:"Neutro",negative:"- Negativo"}[ct.impact];html+='<div class="contact-entry"><div class="ce-hdr"><span class="ctb ctb-'+ct.type+'">'+tl+'</span><span class="ct-date">'+formatDate(ct.date)+'</span><span class="impb imp-'+ct.impact+'">'+il+'</span><button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="delContact('+ci+','+ri+')">Remover</button></div><div class="ct-summary">'+e(ct.summary)+'</div></div>';});}return html;}
 
-function followsTab(c,ci){var sorted=getFollowsSorted(c);var html='<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="openM(\'add-follow\')">+ Follow clássico</button><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">📋</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openM(\'add-follow\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex">'+(rc>0?'<span class="badge b-risk">'+rc+' risco</span>':"")+( wc>0?'<span class="badge b-warn">'+wc+' atencao</span>':'')+'<span class="badge b-ok">'+oc+' OK</span><span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
+function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">📝 Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/19)</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var html=draftBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="openM(\'add-follow\')">+ Follow clássico</button><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">📋</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openM(\'add-follow\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex">'+(rc>0?'<span class="badge b-risk">'+rc+' risco</span>':"")+( wc>0?'<span class="badge b-warn">'+wc+' atencao</span>':'')+'<span class="badge b-ok">'+oc+' OK</span><span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
 // ============================================================
 // FOLLOW VIEW
 // ============================================================
@@ -1702,6 +1808,13 @@ if(!confirm((type==='retorno'?'Registrar lembrete de RETORNO':'Registrar lembret
 if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
 S.clients[ci].reminders.push({id:uid(),type:type,title:title,dueDate:dueDate,note:note,done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
 saveState();S.slideAddOpen=false;render();}
+function deleteReminder(ci,rid){
+  var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
+  if(rem&&rem.type==='retorno'){alert('Lembretes de retorno não podem ser excluídos, apenas arquivados.');return;}
+  if(!confirm('Excluir este lembrete proativo permanentemente?'))return;
+  S.clients[ci].reminders=S.clients[ci].reminders.filter(function(r){return r.id!==rid;});
+  saveState();render();
+}
 function completeReminder(ci,rid){
 if(!confirm('Marcar lembrete como concluído?'))return;
 var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
@@ -1713,7 +1826,7 @@ var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
 if(rem)rem.archived=true;
 saveState();render();}
 /* ── SLIDE PANEL HTML ── */
-function spAct(btn){var ci=+btn.getAttribute('data-ci'),id=btn.getAttribute('data-id'),ac=btn.getAttribute('data-ac');if(ac==='archAct')archiveActivity(ci,id);else if(ac==='archRem')archiveReminder(ci,id);else if(ac==='doneRem')completeReminder(ci,id);}
+function spAct(btn){var ci=+btn.getAttribute('data-ci'),id=btn.getAttribute('data-id'),ac=btn.getAttribute('data-ac');if(ac==='archAct')archiveActivity(ci,id);else if(ac==='archRem')archiveReminder(ci,id);else if(ac==='doneRem')completeReminder(ci,id);else if(ac==='delRem')deleteReminder(ci,id);}
 function slidePanelHTML(){
 if(S.slidePanel===null)return'';
 var ci=S.slidePanel,c=S.clients[ci];if(!c)return'';
@@ -1747,7 +1860,7 @@ if(tabActs){
   html+='<div class="sp-body">';
   if(!rems.length&&!doneRems.length){html+='<div style="text-align:center;padding:2rem 0;color:var(--t3)"><div style="font-size:28px;margin-bottom:8px">🔔</div><div style="font-size:13px">Nenhum lembrete ativo.</div></div>';}
   else{
-    rems.forEach(function(r){var ov=r.dueDate&&r.dueDate<today;html+='<div class="rem-item rem-'+r.type+'" style="'+(ov?'border-color:#dc2626':'')+'"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div style="font-size:12px;font-weight:600;margin-bottom:2px">'+(r.type==='retorno'?'🔴':'🔵')+' '+e(r.title)+'</div>'+(r.note?'<div style="font-size:11px;color:var(--t2);margin-bottom:4px">'+e(r.note)+'</div>':'')+'<div style="font-size:10px;color:var(--t3)">'+(ov?'<span style="color:#dc2626;font-weight:600">Vencido: </span>':'Vence em ')+formatDate(r.dueDate)+'</div></div><button class="btn btn-sm" style="flex-shrink:0;font-size:10px;padding:2px 8px;background:#e8f5ec;color:#145f27;border-color:#1f943c" data-ci="'+ci+'" data-id="'+r.id+'" data-ac="doneRem" onclick="spAct(this)">✓</button></div></div>';});
+    rems.forEach(function(r){var ov=r.dueDate&&r.dueDate<today;html+='<div class="rem-item rem-'+r.type+'" style="'+(ov?'border-color:#dc2626':'')+'"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div style="font-size:12px;font-weight:600;margin-bottom:2px">'+(r.type==='retorno'?'🔴':'🔵')+' '+e(r.title)+'</div>'+(r.note?'<div style="font-size:11px;color:var(--t2);margin-bottom:4px">'+e(r.note)+'</div>':'')+'<div style="font-size:10px;color:var(--t3)">'+(ov?'<span style="color:#dc2626;font-weight:600">Vencido: </span>':'Vence em ')+formatDate(r.dueDate)+'</div></div><button class="btn btn-sm" style="flex-shrink:0;font-size:10px;padding:2px 8px;background:#e8f5ec;color:#145f27;border-color:#1f943c" data-ci="'+ci+'" data-id="'+r.id+'" data-ac="doneRem" onclick="spAct(this)">✓</button>'+(r.type==='proativo'?'<button class="btn btn-sm" style="flex-shrink:0;font-size:10px;padding:2px 8px;background:#fee2e2;color:#b91c1c;border-color:#f87171;margin-top:4px" data-ci="'+ci+'" data-id="'+r.id+'" data-ac="delRem" onclick="spAct(this)">🗑</button>':'')+'</div></div>';});
     if(doneRems.length){html+='<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;margin:12px 0 6px">Concluídos</div>';doneRems.forEach(function(r){html+='<div class="rem-item rem-'+r.type+' rem-done"><div style="font-size:12px">'+(r.type==='retorno'?'🔴':'🔵')+' '+e(r.title)+'</div><div style="font-size:10px;color:var(--t3)">'+formatDate(r.dueDate)+'<button class="btn btn-sm" style="margin-left:8px;font-size:10px;padding:1px 6px" data-ci="'+ci+'" data-id="'+r.id+'" data-ac="archRem" onclick="spAct(this)">Arquivar</button></div></div>';});}
   }
   html+='</div>';
@@ -1800,7 +1913,7 @@ function goAdminLog(){loadAdminLog().then(function(){S.view="adminlog";render();
 function goAdmin(){S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
 function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
-function openFollow(fi){S.hasUnsavedChanges=false;S.selFollow=fi;S.view="follow";S.genText="";S.importMsg="";render();}
+function openFollow(fi){S.hasUnsavedChanges=false;S.selFollow=fi;var c=S.clients[S.sel];var f=c.follows[fi];S.view=(f&&f.wizard)?"follow-view":"follow";S.genText="";S.importMsg="";render();}
 function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);render();}
 function closeM(){S.modal=null;S.churnEditMode=false;render();}
 function toggleCitiesPanel(){S.citiesOpen=!S.citiesOpen;render();}
