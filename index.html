@@ -35,6 +35,7 @@ body{font-family:"Roboto",sans-serif;background:var(--bg);color:var(--t);font-si
 .kpi-group-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:10px}
 .badge-churn{display:inline-flex;align-items:center;gap:3px;background:#fde8e8;color:#b91c1c;border:1px solid #f87171;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
 .badge-inadim{display:inline-flex;align-items:center;gap:3px;background:#fff3e0;color:#c2410c;border:1px solid #fb923c;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
+.badge-suggest{display:inline-flex;align-items:center;gap:3px;background:#e8f7fb;color:#0f5a6e;border:1px solid #1d9fbf;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
 .badge-recovery{display:inline-flex;align-items:center;gap:3px;background:#fefce8;color:#854d0e;border:1px solid #fbbf24;border-radius:5px;font-size:9px;font-weight:700;padding:1px 6px;white-space:nowrap}
 .inad-month-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);margin-bottom:6px}
 .inad-month-row.paid{opacity:.5;text-decoration:line-through}
@@ -282,6 +283,17 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .sb-item.sb-act{color:#1d9fbf;background:rgba(29,159,191,.13);font-weight:600}
 .sb-item.sb-out{color:rgba(240,96,144,.7);margin-top:auto;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;padding-bottom:14px}
 .sb-item.sb-out:hover{color:#f06090;background:rgba(240,96,144,.09)}
+.wiz-prev-note{background:var(--b50);border:1px solid var(--b600);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--b600);margin-bottom:12px;line-height:1.5}
+.wiz-usab-item{border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surf2)}
+.wiz-usab-lbl{font-size:13px;font-weight:600;color:var(--t);margin-bottom:8px}
+.wiz-usab-faces{display:flex;gap:6px;flex-wrap:wrap}
+.wiz-usab-face{width:40px;height:40px;border-radius:10px;border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .16s ease}
+.wiz-usab-face:hover{transform:translateY(-2px)}
+.wiz-usab-desc{font-size:12px;font-weight:600;margin-top:8px;padding:6px 10px;border-radius:6px;background:var(--surf3)}
+.wiz-suggest{font-size:12px;border-radius:8px;padding:8px 12px;margin:6px 0;line-height:1.5}
+.wiz-suggest ul{margin:4px 0 0;padding-left:18px}
+.wiz-suggest-pos{background:var(--gn50);color:var(--gn700);border:1px solid var(--gn600)}
+.wiz-suggest-att{background:var(--am50);color:var(--am700);border:1px solid var(--am600)}
 </style>
 </head>
 <body>
@@ -472,7 +484,8 @@ function isInadimplente(c){var lf=getLatestFollow(c);var hasIndInad=lf&&lf.indic
 function checkRecoveryExpiry(c){if(c.recoveryMode&&c.recoveryMode.active&&Date.now()>c.recoveryMode.endDate){c.recoveryMode=null;saveState();}}
 function isInRecovery(c){checkRecoveryExpiry(c);return !!(c.recoveryMode&&c.recoveryMode.active);}
 function recoveryDaysLeft(c){if(!isInRecovery(c))return 0;return Math.max(0,Math.ceil((c.recoveryMode.endDate-Date.now())/(1000*60*60*24)));}
-function clientAlertBadges(c){var b='';if(isChurnAlert(c))b+='<span class="badge-churn">⚠ Churn</span>';if(isInRecovery(c))b+='<span class="badge-recovery">🟡 Em recuperação ('+recoveryDaysLeft(c)+'d)</span>';if(isInadimplente(c))b+='<span class="badge-inadim">$ Inadimplente</span>';return b;}
+function pendingSuggestion(c){var fs=(c.follows||[]).filter(function(f){return f.wizard&&f.type==='recurring';});if(!fs.length)return null;fs.sort(function(a,b){return new Date(b.date)-new Date(a.date);});var lf=fs[0];if(lf.answers&&lf.answers.prodsug_has===true)return lf.answers.prodsug_note||'Sugestão de produto pendente';return null;}
+function clientAlertBadges(c){var b='';if(isChurnAlert(c))b+='<span class="badge-churn">⚠ Churn</span>';if(isInRecovery(c))b+='<span class="badge-recovery">🟡 Em recuperação ('+recoveryDaysLeft(c)+'d)</span>';if(isInadimplente(c))b+='<span class="badge-inadim">$ Inadimplente</span>';var ps=pendingSuggestion(c);if(ps)b+='<span class="badge-suggest" title="'+e(ps)+'">🔵 Sugestão pendente</span>';return b;}
 function calcChurnAlerts(clients){return clients.filter(function(c){var lf=getLatestFollow(c);var hasChurnContact=(c.contacts||[]).some(function(ct){return ct.type==='churn';});var hasChurnInd=lf&&lf.indicators&&lf.indicators.churn_hist&&lf.indicators.churn_hist.status==='risk';return hasChurnContact||hasChurnInd;}).length;}
 function calcInadimplentes(clients){return clients.filter(function(c){var lf=getLatestFollow(c);return lf&&lf.indicators&&lf.indicators.bad_debt&&lf.indicators.bad_debt.status==='risk';}).length;}
 var ACT_TYPES={meeting:{label:'Reunião',icon:'🤝'},whatsapp:{label:'WhatsApp',icon:'💬'},email:{label:'E-mail',icon:'📧'},nps:{label:'NPS',icon:'⭐'},support:{label:'Suporte',icon:'🎫'},onboarding:{label:'Onboarding',icon:'🚀'},other:{label:'Outro',icon:'📌'}};
@@ -1102,6 +1115,11 @@ function wizQ19(){
 
 var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
 var WIZ_TOTAL_FIRST=19;
+// ── RECORRENTE: 19 perguntas existentes + 6 novas exclusivas (wizR1..wizR6) ──
+var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
+var WIZ_TOTAL_REC=25;
+var WIZ_REC_HINTS=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays / Painel','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','Análise do analista','SMS da Stays','Salesforce','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano','Plano de contas / Salesforce'];
+var WIZ_REC_ICONS=['🏢','📍','💰','🌐','🔔','📈','🧩','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','🔵','💳','💰','🤝','⭐','🎫','⬆️','📋'];
 
 function genSFForFollow(ci,fi){
   var f=S.clients[ci].follows[fi];
@@ -1312,14 +1330,194 @@ function followBarsCharts(follows){
   html+='</svg></div>';
   return html;
 }
+
+// ══════════════════════════════════════════════════
+// PERGUNTAS EXCLUSIVAS DO RECORRENTE (wizR1..wizR6)
+// ══════════════════════════════════════════════════
+// wizR1 — Notificações do painel inicial (entra no humor)
+function wizR1(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Painel limpo, sem pendências',auto:4,ico:'✨'},
+    {label:'Poucas notificações, nada crítico',auto:2,ico:'🟡'},
+    {label:'Muitas pendências sem acompanhamento',auto:1,ico:'⚠️'},
+    {label:'Alertas críticos (overbooking, sem preço)',auto:0,ico:'🔴'}
+  ];
+  var sel=a.notifs_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Como estão as notificações do painel inicial?</div>';
+  html+='<div class="wiz-q-sub">Olhe o painel inicial do cliente: alertas, pendências e avisos dos canais.</div>';
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'notifs_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Observações (opcional)</label><textarea class="wiz-note" rows="2" placeholder="Ex: 3 mensagens não respondidas no Airbnb..." oninput="wizAText(\'notifs_note\',this.value)">'+(a.notifs_note||'')+'</textarea></div>';
+  html+=wizFaces('notifs',auto,true);
+  html+='</div>';
+  return html;
+}
+// wizR2 — Performance nos canais (entra no humor, mostra follow anterior)
+function wizR2(){
+  var a=S.wiz.answers;
+  var opts=[
+    {label:'Boa performance em múltiplos canais',auto:4,ico:'🚀'},
+    {label:'Razoável, concentrada em poucos canais',auto:3,ico:'👍'},
+    {label:'Fraca ou dependência de um único canal',auto:1,ico:'📉'},
+    {label:'Queda significativa vs. período anterior',auto:0,ico:'🔻'},
+    {label:'Sem dados suficientes',auto:2,ico:'❔'}
+  ];
+  var sel=a.chperf_option;
+  var auto=sel!==undefined&&sel!==null?opts[sel].auto:2;
+  var prev=S.wiz.prevAnswers;
+  var prevNote=(prev&&prev.chperf_note)?prev.chperf_note:'';
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Como está a performance nos canais?</div>';
+  html+='<div class="wiz-q-sub">Compare o desempenho atual dos canais com o período anterior.</div>';
+  if(prevNote){html+='<div class="wiz-prev-note">📊 No último follow: '+e(prevNote)+'</div>';}
+  html+='<div class="wiz-opts">';
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'chperf_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  html+='</div>';
+  html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Detalhes por canal (opcional)</label><textarea class="wiz-note" rows="3" placeholder="Ex: Airbnb forte, Booking caiu 20%, Decolar estável..." oninput="wizAText(\'chperf_note\',this.value)">'+(a.chperf_note||'')+'</textarea></div>';
+  html+=wizFaces('chperf',auto,true);
+  html+='</div>';
+  return html;
+}
+// wizR3 — Usabilidade dos canais (5 sub-itens, humor por maioria, peso baixo)
+var WIZ_USAB_ITEMS=[
+  {key:'tarifarios',label:'Planos tarifários',opts:['Sem planos configurados ou totalmente incoerentes','Planos incompletos ou desatualizados','Configuração básica, dá pra otimizar','Planos configurados, pequenos ajustes possíveis','Todos os planos bem configurados e coerentes']},
+  {key:'pagbooking',label:'Pagamentos via Booking',opts:['Não configurado / pagamentos travados','Configuração incompleta ou com falhas','Configurado, mas pouco utilizado','Configurado, sem pendências relevantes','Recebimento configurado e funcionando bem']},
+  {key:'cancelamento',label:'Política de cancelamento',opts:['Sem política ou gerando conflitos','Política pouco adequada ao negócio','Política padrão, sem personalização','Definida, com espaço para ajuste fino','Política clara, adequada ao perfil do cliente']},
+  {key:'disponibilidade',label:'Período de disponibilidade',opts:['Calendário fechado ou quase sem disponibilidade','Janela curta, restringindo reservas','Disponibilidade limitada, mas aceitável','Disponibilidade boa, com pequenas lacunas','Calendário aberto e bem projetado à frente']},
+  {key:'promocoes',label:'Promoções ativas',opts:['Nenhuma estratégia promocional em temporada crítica','Falta promoção em período que pediria','Sem promoções, mas sem necessidade no momento','Alguma promoção ativa, boa direção','Promoções ativas e bem alinhadas à temporada']}
+];
+function wizUsabMajority(){
+  var a=S.wiz.answers;
+  var counts=[0,0,0,0,0];var answered=0;
+  WIZ_USAB_ITEMS.forEach(function(it){var v=a['usab_'+it.key];if(v!==undefined&&v!==null){counts[v]++;answered++;}});
+  if(answered===0)return 2;
+  // find the level with the most votes; tie -> lean to the middle (Neutro=2)
+  var max=Math.max.apply(null,counts);
+  var leaders=[];counts.forEach(function(n,i){if(n===max)leaders.push(i);});
+  if(leaders.length===1)return leaders[0];
+  // tie: pick the one closest to the middle (2)
+  leaders.sort(function(x,y){return Math.abs(x-2)-Math.abs(y-2);});
+  return leaders[0];
+}
+function wizR3(){
+  var a=S.wiz.answers;
+  var auto=wizUsabMajority();
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Usabilidade dos canais de venda</div>';
+  html+='<div class="wiz-q-sub">Avalie cada item. O humor final é calculado pela maioria dos itens.</div>';
+  WIZ_USAB_ITEMS.forEach(function(it){
+    var sel=a['usab_'+it.key];
+    html+='<div class="wiz-usab-item"><div class="wiz-usab-lbl">'+it.label+'</div><div class="wiz-usab-faces">';
+    FKEYS.forEach(function(k,i){
+      var fc=FCOLORS[k];
+      var isActive=sel===i;
+      var style='background:'+fc.bg+';border-color:'+(isActive?fc.bd:'transparent')+';color:'+fc.tx+';'+(isActive?'border-width:2px;opacity:1':'opacity:.55');
+      html+='<button class="wiz-usab-face" title="'+e(it.opts[i])+'" style="'+style+'" onclick="wizA(\'usab_'+it.key+'\','+i+')">'+face(k,26)+'</button>';
+    });
+    html+='</div>';
+    if(sel!==undefined&&sel!==null){html+='<div class="wiz-usab-desc" style="color:'+FCOLORS[FKEYS[sel]].tx+'">'+e(it.opts[sel])+'</div>';}
+    html+='</div>';
+  });
+  html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Observações gerais (opcional)</label><textarea class="wiz-note" rows="2" placeholder="Notas sobre usabilidade..." oninput="wizAText(\'usab_note\',this.value)">'+(a.usab_note||'')+'</textarea></div>';
+  html+=wizFaces('usab',auto,true);
+  html+='</div>';
+  return html;
+}
+
+
+// wizR4 — Sugestão de produto pendente (sem humor; gera selo azul no perfil)
+function wizR4(){
+  var a=S.wiz.answers;
+  var sim=a.prodsug_has;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Há alguma sugestão de produto pendente para este cliente?</div>';
+  html+='<div class="wiz-q-sub">Se sim, um selo azul discreto aparecerá no perfil do cliente lembrando dessa oportunidade.</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(sim===true?' sel':'')+'" onclick="wizA(\'prodsug_has\',true)"><span class="wiz-opt-ico">🔵</span><span class="wiz-opt-lbl">Sim, há sugestão pendente</span></div>';
+  html+='<div class="wiz-opt'+(sim===false?' sel':'')+'" onclick="wizA(\'prodsug_has\',false)"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não, nada pendente</span></div>';
+  html+='</div>';
+  if(sim===true){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Qual produto / sugestão?</label><textarea class="wiz-note" rows="3" placeholder="Ex: Sugerir módulo financeiro; oferecer site personalizado..." oninput="wizAText(\'prodsug_note\',this.value)">'+(a.prodsug_note||'')+'</textarea></div>';
+    html+='<div class="wiz-prev-note" style="margin-top:10px;margin-bottom:0">🔵 Um selo <b>Sugestão pendente</b> ficará visível no perfil do cliente até ser resolvido.</div>';
+  }
+  html+='</div>';
+  return html;
+}
+// wizR5 — Negociação de mensalidade (sem humor)
+function wizR5(){
+  var a=S.wiz.answers;
+  var sim=a.nego_has;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Há negociação de mensalidade em andamento?</div>';
+  html+='<div class="wiz-q-sub">Registre qualquer conversa sobre valores, reajuste, desconto ou renegociação de plano.</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(sim===true?' sel':'')+'" onclick="wizA(\'nego_has\',true)"><span class="wiz-opt-ico">🤝</span><span class="wiz-opt-lbl">Sim, há negociação</span></div>';
+  html+='<div class="wiz-opt'+(sim===false?' sel':'')+'" onclick="wizA(\'nego_has\',false)"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não há negociação</span></div>';
+  html+='</div>';
+  if(sim===true||sim===false){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação</label><textarea class="wiz-note" rows="3" placeholder="'+(sim===true?'Ex: Cliente pediu desconto de 10%; avaliando upgrade de plano...':'Ex: Sem pauta de mensalidade neste momento...')+'" oninput="wizAText(\'nego_note\',this.value)">'+(a.nego_note||'')+'</textarea></div>';
+  }
+  html+='</div>';
+  return html;
+}
+// wizR6 — Plano de contas + próximos passos (última pergunta, com sugestões automáticas)
+function wizR6(){
+  var a=S.wiz.answers;
+  var tem=a.acct_has;
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Plano de contas e próximos passos</div>';
+  html+='<div class="wiz-q-sub">Fechamento do follow: consolide o que levar para a reunião com o cliente.</div>';
+  // 1. plano de contas preenchido?
+  html+='<div style="margin:.5rem 0 .25rem;font-size:13px;font-weight:600;color:var(--t)">O cliente tem plano de contas preenchido?</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(tem===true?' sel':'')+'" onclick="wizA(\'acct_has\',true)"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Sim, preenchido</span></div>';
+  html+='<div class="wiz-opt'+(tem===false?' sel':'')+'" onclick="wizA(\'acct_has\',false)"><span class="wiz-opt-ico">❌</span><span class="wiz-opt-lbl">Não preenchido</span></div>';
+  html+='</div>';
+  // 2. pontos positivos (auto-sugeridos)
+  var pos=wizAutoPositives();
+  html+='<div style="margin-top:1rem"><label style="font-size:13px;color:var(--t2);font-weight:600">Pontos positivos para destacar na reunião</label>';
+  if(pos.length){html+='<div class="wiz-suggest wiz-suggest-pos">💡 Sugestões do sistema:<ul>'+pos.map(function(p){return '<li>'+e(p)+'</li>';}).join('')+'</ul></div>';}
+  html+='<textarea class="wiz-note" rows="3" placeholder="Destaques positivos para a conversa..." oninput="wizAText(\'acct_positives\',this.value)">'+(a.acct_positives||'')+'</textarea></div>';
+  // 3. pontos de atenção (auto-sugeridos)
+  var att=wizAutoAttention();
+  html+='<div style="margin-top:1rem"><label style="font-size:13px;color:var(--t2);font-weight:600">Pontos de atenção</label>';
+  if(att){html+='<div class="wiz-suggest wiz-suggest-att">⚠️ Sugestões do sistema:<div style="white-space:pre-line;margin-top:4px">'+e(att)+'</div></div>';}
+  html+='<textarea class="wiz-note" rows="3" placeholder="Pontos que precisam de cuidado..." oninput="wizAText(\'acct_attention\',this.value)">'+(a.acct_attention||'')+'</textarea></div>';
+  // 4. próximos passos
+  html+='<div style="margin-top:1rem"><label style="font-size:13px;color:var(--t2);font-weight:600">Próximos passos</label><textarea class="wiz-note" rows="3" placeholder="Ações combinadas, agendamentos, follow-ups..." oninput="wizAText(\'acct_next\',this.value)">'+(a.acct_next||'')+'</textarea></div>';
+  html+='</div>';
+  return html;
+}
+// Sugere pontos positivos a partir dos humores altos do follow atual
+function wizAutoPositives(){
+  var eff=wizEffectiveHumors();
+  var labels=wizQLabels();
+  var out=[];
+  Object.keys(eff).forEach(function(k){
+    if(eff[k]>=3&&labels[k])out.push(labels[k]+(eff[k]===4?' (ótimo)':' (bom)'));
+  });
+  return out.slice(0,6);
+}
+// Mapa de rótulos legíveis por chave de humor (para sugestões automáticas)
+function wizQLabels(){
+  return {units:'Unidades',channels:'Canais conectados',notifs:'Painel de notificações',chperf:'Performance nos canais',usab:'Usabilidade dos canais',occupation:'Ocupação',price:'Preço competitivo',photos:'Fotos e descrição',financial:'Módulo financeiro',operational:'Módulo operacional',appcenter:'App Center',payment:'Canal de pagamento',domain:'Migração de domínio',site:'Personalização do site',nps:'NPS',cases:'Casos abertos'};
+}
+
 function wizView(){
   var step=S.wiz.step;
-  var total=WIZ_TOTAL_FIRST;
+  var isRec=S.wiz.type==='recurring';
+  var total=isRec?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST;
   var pct=Math.round(((step+1)/total)*100);
-  var stepKey=WIZ_STEPS_FIRST[step];
-  var renderers=[wizQ1,wizQ2,wizQ3,wizQ4,wizQ5,wizQ6,wizQ7,wizQ8,wizQ9,wizQ10,wizQ11,wizQ12,wizQ13,wizQ14,wizQ15,wizQ16,wizQ17,wizQ18,wizQ19];
-  var hints=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','SMS da Stays','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano'];
-  var icons=['🏢','📍','💰','🌐','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','💳','💰','⭐','🎫','⬆️'];
+  var stepKey=(isRec?WIZ_STEPS_REC:WIZ_STEPS_FIRST)[step];
+  var recRenderers={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
+  var firstRenderers=[wizQ1,wizQ2,wizQ3,wizQ4,wizQ5,wizQ6,wizQ7,wizQ8,wizQ9,wizQ10,wizQ11,wizQ12,wizQ13,wizQ14,wizQ15,wizQ16,wizQ17,wizQ18,wizQ19];
+  var renderFn=isRec?recRenderers[stepKey]:firstRenderers[step];
+  var hints=isRec?WIZ_REC_HINTS:['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','SMS da Stays','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano'];
+  var icons=isRec?WIZ_REC_ICONS:['🏢','📍','💰','🌐','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','💳','💰','⭐','🎫','⬆️'];
   var c=S.clients[S.sel];
   var html='<div class="wiz-wrap">';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
@@ -1328,7 +1526,7 @@ function wizView(){
   html+='</div>';
   html+='<div class="wiz-progress"><div class="wiz-progress-fill" style="width:'+pct+'%"></div></div>';
   html+='<div class="wiz-step-lbl"><span style="font-size:18px">'+icons[step]+'</span>Pergunta '+(step+1)+' de '+total+' &nbsp;·&nbsp; <span style="color:var(--t3);font-size:10px">'+hints[step]+'</span></div>';
-  html+=renderers[step]();
+  html+=renderFn();
   var isLast=step===total-1;
   html+='<div class="wiz-nav">'
     +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
@@ -1349,7 +1547,7 @@ function wizSaveProgress(){
   S.view='client';S.clientTab='follows';
   render();
 }
-function wizGoSummary(){S.wiz.step=WIZ_TOTAL_FIRST;render();}
+function wizGoSummary(){S.wiz.step=(S.wiz.type==='recurring'?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST);render();}
 
 function wizEvolutionCard(){
   if(S.wiz.type!=='recurring'||!S.wiz.prevAnswers)return '';
@@ -1419,7 +1617,7 @@ function wizSummaryView(){
   ];
   var html='<div class="wiz-wrap">';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
-  html+='<button class="btn btn-sm" onclick="wizGo('+(WIZ_TOTAL_FIRST-1)+')">← Voltar</button>';
+  html+='<button class="btn btn-sm" onclick="wizGo('+(('recurring'===S.wiz.type?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST)-1)+')">← Voltar</button>';
   html+='<div style="font-size:15px;font-weight:500;color:var(--t)">Resumo do follow-up</div>';
   html+='</div>';
   html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
@@ -1690,7 +1888,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=WIZ_TOTAL_FIRST?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView()))))))))+"</div>"+(S.modal?modal():"")+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=(S.wiz.type==="recurring"?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST)?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView()))))))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
