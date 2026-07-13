@@ -1166,6 +1166,9 @@ function followWizardView(){
   if(a.sf_text){
     html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">Texto do Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div><pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre></div>';
   }
+  if(a.whats_text){
+    html+='<div class="card" style="padding:1.5rem;margin-top:1rem;border-color:#25D366"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">💬 Mensagem do WhatsApp</div><button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.whats_text);alert(\'Copiado!\')">📋 Copiar</button></div><div style="font-size:13px;color:var(--t);white-space:pre-wrap;line-height:1.7;background:#e8f5e9;padding:14px;border-radius:8px;border:1px solid #25D366">'+e(a.whats_text)+'</div></div>';
+  }
   html+='</div>';
   return html;
 }
@@ -1408,12 +1411,22 @@ function wizSummaryView(){
   html+='</div>';
   html+='<div style="display:flex;gap:10px;justify-content:flex-end">';
   html+='<button class="btn" onclick="wizGenSF()">📋 Gerar texto Salesforce</button>';
+  html+='<button class="btn" style="background:#25D366;color:#fff;border-color:#25D366" onclick="wizGenWhats()">💬 Gerar mensagem WhatsApp</button>';
   html+='<button class="btn-primary" onclick="wizFinish()">✓ Salvar follow-up</button>';
   html+='</div>';
   if(a.sf_text){
     html+='<div class="card" style="margin-top:1rem;padding:1.25rem">';
     html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600;color:var(--t)">Texto para o Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.wiz.answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div>';
     html+='<pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre>';
+    html+='</div>';
+  }
+  if(S.wiz.whatsGenerating){
+    html+='<div class="card" style="margin-top:1rem;padding:1.25rem;text-align:center"><div style="font-size:13px;color:var(--t2)">💬 Gerando mensagem personalizada com IA...</div></div>';
+  }
+  if(a.whats_text){
+    html+='<div class="card" style="margin-top:1rem;padding:1.25rem;border-color:#25D366">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600;color:var(--t)">💬 Mensagem para o WhatsApp</div><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="wizGenWhats()">↻ Regenerar</button><button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="navigator.clipboard.writeText(S.wiz.answers.whats_text);alert(\'Copiado!\')">📋 Copiar</button></div></div>';
+    html+='<div style="font-size:13px;color:var(--t);white-space:pre-wrap;line-height:1.7;background:#e8f5e9;padding:14px;border-radius:8px;border:1px solid #25D366">'+e(a.whats_text)+'</div>';
     html+='</div>';
   }
   html+='</div>';
@@ -1490,6 +1503,75 @@ function wizEffectiveHumors(){
   Object.keys(auto).forEach(function(k){result[k]=auto[k];});
   Object.keys(over).forEach(function(k){if(over[k]!==undefined&&over[k]!==null)result[k]=over[k];});
   return result;
+}
+async function wizGenWhats(){
+  if(!S.apiKey){alert('Configure sua chave de API nas configurações para gerar a mensagem.');openM('settings');return;}
+  var a=S.wiz.answers;var c=S.clients[S.sel];
+  var isRec=S.wiz.type==='recurring';
+  // Effective humors (override OR auto)
+  var eff=wizEffectiveHumors();
+  var HL=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
+  // Build list of GOOD points (Bom/Ótimo) and BAD points (Ruim/Péssimo)
+  var qLabels={units:'quantidade de unidades/listings',channels:'canais de venda conectados',domain:'domínio próprio do site',site:'personalização do site',occupation:'taxa de ocupação',price:'competitividade de preço',photos_desc:'qualidade das fotos e descrições',financial:'uso do módulo financeiro',operational:'uso do módulo operacional',appcenter:'integrações no App Center',payment:'canal de pagamento',nps:'NPS/satisfação',cases:'casos de suporte em aberto'};
+  var goodPts=[],badPts=[];
+  Object.keys(qLabels).forEach(function(k){
+    var lv=eff[k];
+    if(lv===undefined||lv===null)return;
+    if(lv>=3)goodPts.push(qLabels[k]);
+    if(lv<=1)badPts.push(qLabels[k]);
+  });
+  // Evolution context (recurring)
+  var evoLines=[];
+  if(isRec&&S.wiz.prevAnswers){
+    var p=S.wiz.prevAnswers;
+    if(p.units_count!==undefined&&a.units_count!==undefined){
+      var ud=(+a.units_count)-(+p.units_count);
+      if(ud>0)evoLines.push('O cliente CRESCEU de '+p.units_count+' para '+a.units_count+' unidades (ganhou '+ud+').');
+      else if(ud<0)evoLines.push('O cliente DIMINUIU de '+p.units_count+' para '+a.units_count+' unidades (perdeu '+(-ud)+').');
+    }
+    var prevCh=(p.channels||[]).filter(function(x){return x.active;}).length;
+    var curCh=(a.channels||[]).filter(function(x){return x.active;}).length;
+    if(curCh>prevCh)evoLines.push('O cliente CONECTOU mais canais de venda (de '+prevCh+' para '+curCh+').');
+    else if(curCh<prevCh)evoLines.push('O cliente DESCONECTOU canais de venda (de '+prevCh+' para '+curCh+').');
+    // Payment channel change
+    if(p.payment==='sim'&&a.payment==='nao')evoLines.push('O cliente DEIXOU de usar canal de pagamento (antes tinha, agora não tem).');
+    if(p.payment==='nao'&&a.payment==='sim')evoLines.push('O cliente PASSOU a usar canal de pagamento (antes não tinha, agora tem).');
+  }
+  var contactName=(c.keyContacts&&c.keyContacts[0]&&c.keyContacts[0].name)?c.keyContacts[0].name:'';
+  var analystName=(S.appUser&&S.appUser.name)?S.appUser.name:'';
+  var attentionText=a.attention_points||wizAutoAttention()||'';
+
+  var promptParts=[];
+  promptParts.push('Você é um analista de Sucesso do Cliente da Stays.net (plataforma de gestão para gestores de aluguel por temporada). Escreva uma mensagem de WhatsApp curta, calorosa e profissional em português para o cliente, com o objetivo de AGENDAR UMA REUNIÃO.');
+  promptParts.push('');
+  promptParts.push('DADOS:');
+  promptParts.push('- Nome do cliente/empresa: '+(c.name||'não informado'));
+  if(contactName)promptParts.push('- Nome do contato: '+contactName);
+  if(analystName)promptParts.push('- Nome do analista (quem assina): '+analystName);
+  promptParts.push('- Tipo de análise: '+(isRec?'RECORRENTE (já acompanho esse cliente há um tempo)':'PRIMEIRA análise (acabei de assumir a conta)'));
+  promptParts.push('');
+  if(goodPts.length){promptParts.push('PONTOS POSITIVOS identificados na análise (elogie brevemente para o cliente não ficar na defensiva): '+goodPts.join(', ')+'.');}
+  if(badPts.length){promptParts.push('PONTOS DE ATENÇÃO identificados (mencione 1 ou 2 dos mais relevantes de forma leve e consultiva, mostrando que analisei o sistema a fundo e quero ajudar): '+badPts.join(', ')+'.');}
+  if(attentionText)promptParts.push('Observações do analista sobre pontos de atenção: '+attentionText);
+  if(evoLines.length){promptParts.push('');promptParts.push('EVOLUÇÃO desde o último follow (MUITO IMPORTANTE - demonstre que percebi as mudanças no negócio do cliente): '+evoLines.join(' '));}
+  promptParts.push('');
+  if(!isRec){
+    promptParts.push('Use como base este modelo de PRIMEIRA mensagem, mas PERSONALIZE com os pontos acima para o cliente ver que você analisou o sistema dele de cima a baixo:');
+    promptParts.push('"Olá, [nome]! Tudo bem? Sou [analista], analista de Sucesso do Cliente na Stays.net e a nova responsável por acompanhar a sua conta e seu desempenho na plataforma. Meu objetivo é entender o que já está funcionando bem e buscar novas oportunidades de melhoria para o seu negócio. Gostaria de convidar você para uma primeira reunião de alinhamento, onde poderemos nos conhecer melhor, revisar o andamento atual e definir juntos os próximos passos. Você tem 30 minutinhos para falarmos ainda essa semana?"');
+  }else{
+    promptParts.push('Como é um follow RECORRENTE, NÃO se apresente como novo. Escreva de forma natural, como quem já acompanha o cliente. Comece referenciando algo que você observou na análise (uma evolução positiva ou uma mudança que chamou atenção), demonstre interesse genuíno pelo negócio dele, e convide para uma reunião. Exemplos de tom: "Vi aqui que você cresceu na quantidade de listings, que ótimo! Podemos conversar melhor sobre isso" ou "Vi que você não está mais usando os canais de pagamento por aqui, aconteceu alguma coisa?".');
+  }
+  promptParts.push('');
+  promptParts.push('REGRAS: Máximo 5-6 linhas. Tom humano e caloroso, com no máximo 1 emoji sutil (ou nenhum). Termine SEMPRE com uma pergunta que leve ao agendamento (ex: "Você tem uns 30 minutinhos essa semana?"). Se souber o nome do contato, use-o. Se souber o nome do analista, assine. NÃO use markdown, NÃO use asteriscos. Responda APENAS com o texto da mensagem, sem introdução ou comentários.');
+
+  S.wiz.whatsGenerating=true;render();
+  try{
+    var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":S.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:promptParts.join("\n")}]})});
+    var d=await r.json();
+    if(d.error){S.wiz.answers.whats_text="Erro: "+d.error.message;}
+    else{S.wiz.answers.whats_text=(d.content&&d.content[0]&&d.content[0].text)?d.content[0].text.trim():"Resposta inválida.";}
+  }catch(err){S.wiz.answers.whats_text="Erro de conexão: "+err.message;}
+  S.wiz.whatsGenerating=false;render();
 }
 function wizFinish(){
   var ci=S.sel;
