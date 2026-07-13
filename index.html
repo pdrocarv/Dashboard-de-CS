@@ -294,6 +294,10 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .wiz-suggest ul{margin:4px 0 0;padding-left:18px}
 .wiz-suggest-pos{background:var(--gn50);color:var(--gn700);border:1px solid var(--gn600)}
 .wiz-suggest-att{background:var(--am50);color:var(--am700);border:1px solid var(--am600)}
+.wiz-pay-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.wiz-pay-chip{padding:7px 13px;border:1px solid var(--bd);border-radius:20px;font-size:12.5px;cursor:pointer;background:var(--surf2);color:var(--t2);transition:all .15s;user-select:none}
+.wiz-pay-chip:hover{border-color:var(--b600)}
+.wiz-pay-chip.on{background:var(--b50);border-color:var(--b600);color:var(--b600);font-weight:600}
 </style>
 </head>
 <body>
@@ -315,7 +319,7 @@ const SEASON_INDS=["occ","price","lastmin","channels"];
 const MONTHS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const PLAN_L={superhost:"Super Host",pro:"PRO",administrator:"Administrator",agency:"Agency"};
 const PLAN_S={superhost:{bg:"#f3e8ff",c:"#7c3aed"},pro:{bg:"#dbeafe",c:"#1d4ed8"},administrator:{bg:"#fef3c7",c:"#d97706"},agency:{bg:"#d1fae5",c:"#059669"}};
-const COUNTRY_TZ={"Argentina":"America/Argentina/Buenos_Aires","Bolivia":"America/La_Paz","Bolívia":"America/La_Paz","Belice":"America/Belize","Chile":"America/Santiago","Colombia":"America/Bogota","Costa Rica":"America/Costa_Rica","Cuba":"America/Havana","Ecuador":"America/Guayaquil","El Salvador":"America/El_Salvador","Guatemala":"America/Guatemala","Haiti":"America/Port-au-Prince","Honduras":"America/Tegucigalpa","Jamaica":"America/Jamaica","México":"America/Mexico_City","Mexico":"America/Mexico_City","Nicaragua":"America/Managua","Panamá":"America/Panama","Panama":"America/Panama","Paraguay":"America/Asuncion","Perú":"America/Lima","Peru":"America/Lima","Puerto Rico":"America/Puerto_Rico","República Dominicana":"America/Santo_Domingo","Trinidad y Tobago":"America/Port_of_Spain","Uruguay":"America/Montevideo","Venezuela":"America/Caracas","Estados Unidos":"America/New_York","Brasil":"America/Sao_Paulo"};
+const COUNTRY_TZ={"Argentina":"America/Argentina/Buenos_Aires","Bolivia":"America/La_Paz","Bolívia":"America/La_Paz","Belice":"America/Belize","Chile":"America/Santiago","Colombia":"America/Bogota","Costa Rica":"America/Costa_Rica","Cuba":"America/Havana","Ecuador":"America/Guayaquil","El Salvador":"America/El_Salvador","Guatemala":"America/Guatemala","Haiti":"America/Port-au-Prince","Honduras":"America/Tegucigalpa","Jamaica":"America/Jamaica","México":"America/Mexico_City","Mexico":"America/Mexico_City","Nicaragua":"America/Managua","Panamá":"America/Panama","Panama":"America/Panama","Paraguay":"America/Asuncion","Perú":"America/Lima","Peru":"America/Lima","Puerto Rico":"America/Puerto_Rico","República Dominicana":"America/Santo_Domingo","Trinidad y Tobago":"America/Port_of_Spain","Uruguay":"America/Montevideo","Venezuela":"America/Caracas","Estados Unidos":"America/New_York","España":"Europe/Madrid","Portugal":"Europe/Lisbon","Canadá":"America/Toronto","França":"Europe/Paris","Itália":"Europe/Rome","Reino Unido":"Europe/London","Alemanha":"Europe/Berlin","Suíça":"Europe/Zurich","Países Baixos":"Europe/Amsterdam","Bélgica":"Europe/Brussels","Grécia":"Europe/Athens","Croácia":"Europe/Zagreb","Tailândia":"Asia/Bangkok","Indonésia":"Asia/Jakarta","Filipinas":"Asia/Manila","Emirados Árabes Unidos":"Asia/Dubai","Marrocos":"Africa/Casablanca","África do Sul":"Africa/Johannesburg","Austrália":"Australia/Sydney","Nova Zelândia":"Pacific/Auckland","Japão":"Asia/Tokyo","Brasil":"America/Sao_Paulo"};
 const TOOLTIPS={saude:"Score geral (0-100).\n< 50 = Alto risco\n50-74 = Atencao\n75+ = Estavel\nBaseado no ultimo follow-up.",crescimento:"Unidades, ocupacao, preco\ne oportunidades de upgrade.",digital:"Presenca online: site,\ndominío, fotos e descricao.",distribuicao:"Canais conectados,\nperformance e usabilidade.",financeiro:"Pagamento, inadimplencia,\nmodulo financeiro e negociacao.",risco:"Cancelamento, NPS e casos\nabertos (N2/Website).",engajamento:"Atividade no sistema.\nInativos 30+ dias = risco.",followup:"Prazo para proximo FU (70 dias).\n Verde OK  Amarelo < 15d  Vermelho Vencido",mrr:"Receita recorrente mensal.\nClique no cabecalho para ordenar."};
 const IND=[
   {key:"units",label:"Unidades",cat:"crescimento",show:"both",w:{risk:-12,warn:-5}},
@@ -365,7 +369,7 @@ const CHANNELS=[
   {key:"casatemporada",name:"Casa Temporada",color:"#E8441A",abbr:"CT"},
   {key:"website",name:"Website",color:"#1c383d",abbr:"We"}
 ];
-const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordoba","Corrientes","Entre Rios","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquen","Rio Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego","Tucuman"],"Bolivia":["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosi","Santa Cruz","Tarija"],"Belice":["Belize","Cayo","Corozal","Orange Walk","Stann Creek","Toledo"],"Chile":["Arica y Parinacota","Tarapaca","Antofagasta","Atacama","Coquimbo","Valparaiso","Metropolitana","OHiggins","Maule","Nuble","Biobio","La Araucania","Los Rios","Los Lagos","Aysen","Magallanes"],"Colombia":["Antioquia","Bogota D.C.","Valle del Cauca","Atlantico","Bolivar","Santander","Narino","Cordoba","Tolima","Cauca","Boyaca","Meta","Huila","Magdalena","Risaralda","Cesar","Sucre","Quindio","Choco","La Guajira","Cundinamarca","Caldas","Norte de Santander","Caqueta","Arauca","Casanare","Putumayo"],"Costa Rica":["Alajuela","Cartago","Guanacaste","Heredia","Limon","Puntarenas","San Jose"],"Cuba":["Artemisa","Camaguey","Ciego de Avila","Cienfuegos","Granma","Guantanamo","Holguin","La Habana","Las Tunas","Matanzas","Mayabeque","Pinar del Rio","Sancti Spiritus","Santiago de Cuba","Villa Clara"],"Ecuador":["Azuay","Bolivar","Canar","Carchi","Chimborazo","Cotopaxi","El Oro","Esmeraldas","Galapagos","Guayas","Imbabura","Loja","Los Rios","Manabi","Morona Santiago","Napo","Orellana","Pastaza","Pichincha","Santa Elena","Santo Domingo","Sucumbios","Tungurahua","Zamora Chinchipe"],"El Salvador":["Ahuachapan","Cabanas","Chalatenango","Cuscatlan","La Libertad","La Paz","La Union","Morazan","San Miguel","San Salvador","San Vicente","Santa Ana","Sonsonate","Usulutan"],"Guatemala":["Alta Verapaz","Baja Verapaz","Chimaltenango","Chiquimula","El Progreso","Escuintla","Guatemala","Huehuetenango","Izabal","Jalapa","Jutiapa","Peten","Quetzaltenango","Quiche","Retalhuleu","Sacatepequez","San Marcos","Santa Rosa","Solola","Suchitepequez","Totonicapan","Zacapa"],"Haiti":["Artibonite","Centre","Grand Anse","Nippes","Nord","Nord-Est","Nord-Ouest","Ouest","Sud","Sud-Est"],"Honduras":["Atlantida","Choluteca","Colon","Comayagua","Copan","Cortes","El Paraiso","Francisco Morazan","Gracias a Dios","Intibuca","Islas de la Bahia","La Paz","Lempira","Ocotepeque","Olancho","Santa Barbara","Valle","Yoro"],"Jamaica":["Clarendon","Hanover","Kingston","Manchester","Portland","Saint Andrew","Saint Ann","Saint Catherine","Saint Elizabeth","Saint James","Saint Mary","Saint Thomas","Trelawny","Westmoreland"],"México":["Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de Mexico","Coahuila","Colima","Durango","Estado de Mexico","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacan","Morelos","Nayarit","Nuevo Leon","Oaxaca","Puebla","Queretaro","Quintana Roo","San Luis Potosi","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatan","Zacatecas"],"Nicaragua":["Boaco","Carazo","Chinandega","Chontales","Esteli","Granada","Jinotega","Leon","Madriz","Managua","Masaya","Matagalpa","Nueva Segovia","RACCN","RACCS","Rivas","Rio San Juan"],"Panama":["Bocas del Toro","Chiriqui","Cocle","Colon","Darien","Embera","Guna Yala","Heredia","Los Santos","Ngabe-Bugle","Panama","Panama Oeste","Veraguas"],"Paraguay":["Alto Paraguay","Alto Parana","Amambay","Asuncion","Boqueron","Caaguazu","Caazapa","Canindeyu","Central","Concepcion","Cordillera","Guaira","Itapua","Misiones","Neembucu","Paraguari","Presidente Hayes","San Pedro"],"Perú":["Amazonas","Ancash","Apurimac","Arequipa","Ayacucho","Cajamarca","Callao","Cusco","Huancavelica","Huanuco","Ica","Junin","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martin","Tacna","Tumbes","Ucayali"],"Puerto Rico":["Aguadilla","Arecibo","Bayamon","Caguas","Carolina","Fajardo","Guaynabo","Humacao","Mayaguez","Ponce","San Juan","Toa Baja","Trujillo Alto"],"República Dominicana":["Azua","Bahoruco","Barahona","Dajabon","Distrito Nacional","Duarte","El Seibo","Elias Pina","Espaillat","Hato Mayor","Hermanas Mirabal","Independencia","La Altagracia","La Romana","La Vega","M.T. Sanchez","Monsenor Nouel","Monte Cristi","Monte Plata","Pedernales","Peravia","Puerto Plata","Samana","San Cristobal","San Jose de Ocoa","San Juan","San Pedro de Macoris","Sanchez Ramirez","Santiago","Santiago Rodriguez","Santo Domingo","Valverde"],"Trinidad y Tobago":["Arima","Chaguanas","Couva-Tabaquite-Talparo","Diego Martin","Penal-Debe","Point Fortin","Port of Spain","Princes Town","Rio Claro-Mayaro","San Fernando","San Juan-Laventille","Sangre Grande","Siparia","Tobago","Tunapuna-Piarco"],"Uruguay":["Artigas","Canelones","Cerro Largo","Colonia","Durazno","Flores","Florida","Lavalleja","Maldonado","Montevideo","Paysandu","Rio Negro","Rivera","Rocha","Salto","San Jose","Soriano","Tacuarembo","Treinta y Tres"],"Venezuela":["Amazonas","Anzoategui","Apure","Aragua","Barinas","Bolivar","Carabobo","Cojedes","Delta Amacuro","Distrito Capital","Falcon","Guarico","Lara","Merida","Miranda","Monagas","Nueva Esparta","Portuguesa","Sucre","Tachira","Trujillo","Vargas","Yaracuy","Zulia"],"Outro":[]};
+const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordoba","Corrientes","Entre Rios","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquen","Rio Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego","Tucuman"],"Bolivia":["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosi","Santa Cruz","Tarija"],"Belice":["Belize","Cayo","Corozal","Orange Walk","Stann Creek","Toledo"],"Chile":["Arica y Parinacota","Tarapaca","Antofagasta","Atacama","Coquimbo","Valparaiso","Metropolitana","OHiggins","Maule","Nuble","Biobio","La Araucania","Los Rios","Los Lagos","Aysen","Magallanes"],"Colombia":["Antioquia","Bogota D.C.","Valle del Cauca","Atlantico","Bolivar","Santander","Narino","Cordoba","Tolima","Cauca","Boyaca","Meta","Huila","Magdalena","Risaralda","Cesar","Sucre","Quindio","Choco","La Guajira","Cundinamarca","Caldas","Norte de Santander","Caqueta","Arauca","Casanare","Putumayo"],"Costa Rica":["Alajuela","Cartago","Guanacaste","Heredia","Limon","Puntarenas","San Jose"],"Cuba":["Artemisa","Camaguey","Ciego de Avila","Cienfuegos","Granma","Guantanamo","Holguin","La Habana","Las Tunas","Matanzas","Mayabeque","Pinar del Rio","Sancti Spiritus","Santiago de Cuba","Villa Clara"],"Ecuador":["Azuay","Bolivar","Canar","Carchi","Chimborazo","Cotopaxi","El Oro","Esmeraldas","Galapagos","Guayas","Imbabura","Loja","Los Rios","Manabi","Morona Santiago","Napo","Orellana","Pastaza","Pichincha","Santa Elena","Santo Domingo","Sucumbios","Tungurahua","Zamora Chinchipe"],"El Salvador":["Ahuachapan","Cabanas","Chalatenango","Cuscatlan","La Libertad","La Paz","La Union","Morazan","San Miguel","San Salvador","San Vicente","Santa Ana","Sonsonate","Usulutan"],"Guatemala":["Alta Verapaz","Baja Verapaz","Chimaltenango","Chiquimula","El Progreso","Escuintla","Guatemala","Huehuetenango","Izabal","Jalapa","Jutiapa","Peten","Quetzaltenango","Quiche","Retalhuleu","Sacatepequez","San Marcos","Santa Rosa","Solola","Suchitepequez","Totonicapan","Zacapa"],"Haiti":["Artibonite","Centre","Grand Anse","Nippes","Nord","Nord-Est","Nord-Ouest","Ouest","Sud","Sud-Est"],"Honduras":["Atlantida","Choluteca","Colon","Comayagua","Copan","Cortes","El Paraiso","Francisco Morazan","Gracias a Dios","Intibuca","Islas de la Bahia","La Paz","Lempira","Ocotepeque","Olancho","Santa Barbara","Valle","Yoro"],"Jamaica":["Clarendon","Hanover","Kingston","Manchester","Portland","Saint Andrew","Saint Ann","Saint Catherine","Saint Elizabeth","Saint James","Saint Mary","Saint Thomas","Trelawny","Westmoreland"],"México":["Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de Mexico","Coahuila","Colima","Durango","Estado de Mexico","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacan","Morelos","Nayarit","Nuevo Leon","Oaxaca","Puebla","Queretaro","Quintana Roo","San Luis Potosi","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatan","Zacatecas"],"Nicaragua":["Boaco","Carazo","Chinandega","Chontales","Esteli","Granada","Jinotega","Leon","Madriz","Managua","Masaya","Matagalpa","Nueva Segovia","RACCN","RACCS","Rivas","Rio San Juan"],"Panama":["Bocas del Toro","Chiriqui","Cocle","Colon","Darien","Embera","Guna Yala","Heredia","Los Santos","Ngabe-Bugle","Panama","Panama Oeste","Veraguas"],"Paraguay":["Alto Paraguay","Alto Parana","Amambay","Asuncion","Boqueron","Caaguazu","Caazapa","Canindeyu","Central","Concepcion","Cordillera","Guaira","Itapua","Misiones","Neembucu","Paraguari","Presidente Hayes","San Pedro"],"Perú":["Amazonas","Ancash","Apurimac","Arequipa","Ayacucho","Cajamarca","Callao","Cusco","Huancavelica","Huanuco","Ica","Junin","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martin","Tacna","Tumbes","Ucayali"],"Puerto Rico":["Aguadilla","Arecibo","Bayamon","Caguas","Carolina","Fajardo","Guaynabo","Humacao","Mayaguez","Ponce","San Juan","Toa Baja","Trujillo Alto"],"República Dominicana":["Azua","Bahoruco","Barahona","Dajabon","Distrito Nacional","Duarte","El Seibo","Elias Pina","Espaillat","Hato Mayor","Hermanas Mirabal","Independencia","La Altagracia","La Romana","La Vega","M.T. Sanchez","Monsenor Nouel","Monte Cristi","Monte Plata","Pedernales","Peravia","Puerto Plata","Samana","San Cristobal","San Jose de Ocoa","San Juan","San Pedro de Macoris","Sanchez Ramirez","Santiago","Santiago Rodriguez","Santo Domingo","Valverde"],"Trinidad y Tobago":["Arima","Chaguanas","Couva-Tabaquite-Talparo","Diego Martin","Penal-Debe","Point Fortin","Port of Spain","Princes Town","Rio Claro-Mayaro","San Fernando","San Juan-Laventille","Sangre Grande","Siparia","Tobago","Tunapuna-Piarco"],"Uruguay":["Artigas","Canelones","Cerro Largo","Colonia","Durazno","Flores","Florida","Lavalleja","Maldonado","Montevideo","Paysandu","Rio Negro","Rivera","Rocha","Salto","San Jose","Soriano","Tacuarembo","Treinta y Tres"],"Venezuela":["Amazonas","Anzoategui","Apure","Aragua","Barinas","Bolivar","Carabobo","Cojedes","Delta Amacuro","Distrito Capital","Falcon","Guarico","Lara","Merida","Miranda","Monagas","Nueva Esparta","Portuguesa","Sucre","Tachira","Trujillo","Vargas","Yaracuy","Zulia"],"España":["Andalucía","Aragón","Asturias","Baleares","Canarias","Cantabria","Castilla-La Mancha","Castilla y León","Cataluña","Ceuta","Comunidad Valenciana","Extremadura","Galicia","La Rioja","Madrid","Melilla","Murcia","Navarra","País Vasco"],"Portugal":["Aveiro","Beja","Braga","Bragança","Castelo Branco","Coimbra","Évora","Faro","Guarda","Leiria","Lisboa","Portalegre","Porto","Santarém","Setúbal","Viana do Castelo","Vila Real","Viseu","Açores","Madeira"],"Estados Unidos":["California","Florida","New York","Texas","Nevada","Hawaii","Arizona","Colorado","Illinois","Georgia","Outro"],"Brasil":["São Paulo","Rio de Janeiro","Minas Gerais","Bahia","Santa Catarina","Paraná","Rio Grande do Sul","Ceará","Pernambuco","Espírito Santo","Goiás","Distrito Federal","Outro"],"Canadá":[],"França":[],"Itália":[],"Reino Unido":[],"Alemanha":[],"Suíça":[],"Países Baixos":[],"Bélgica":[],"Grécia":[],"Croácia":[],"Tailândia":[],"Indonésia":[],"Filipinas":[],"Emirados Árabes Unidos":[],"Marrocos":[],"África do Sul":[],"Austrália":[],"Nova Zelândia":[],"Japão":[],"Outro":[]};
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
@@ -460,7 +464,18 @@ function calcScore(c){
 function hl(s){return s>=75?"ok":(s>=50?"warn":"risk");}
 function fuSt(c){var f=getLatestFollow(c);if(!f||!f.date)return{label:"Sem data",cls:"fu-warn",days:null};var diff=Math.floor((Date.now()-new Date(f.date))/86400000),due=70-diff;if(due>14)return{label:due+"d",cls:"fu-ok",days:due};if(due>=0)return{label:due+"d (em breve)",cls:"fu-warn",days:due};return{label:"Vencido "+(-due)+"d",cls:"fu-overdue",days:due};}
 function catSt(c,cat){var f=getLatestFollow(c);if(!f)return"na";var type=f.type||"first";var sts=IND.filter(function(i){return i.cat===cat&&(i.show==="both"||i.show===type);}).map(function(i){return f.indicators[i.key]&&f.indicators[i.key].status||"na";});return sts.includes("risk")?"risk":(sts.includes("warn")?"warn":(sts.every(function(s){return s==="na";})?"na":"ok"));}
-function getCurrentSeason(c){var f=getLatestFollow(c);if(!f)return null;var sh=f.indicators&&f.indicators.season_high,sl=f.indicators&&f.indicators.season_low;if(!sh||!sh.start||!sh.end)return null;var cur=new Date().getMonth()+1,hs=parseInt(sh.start),he=parseInt(sh.end);var inHigh=hs<=he?(cur>=hs&&cur<=he):(cur>=hs||cur<=he);return{current:inHigh?"high":"low",highLabel:monthName(hs)+" a "+monthName(he),lowLabel:(sl&&sl.start&&sl.end)?monthName(parseInt(sl.start))+" a "+monthName(parseInt(sl.end)):null};}
+function getCurrentSeason(c){var f=getLatestFollow(c);if(!f)return null;
+  // Novo modelo (wizard): temporada vem de answers.cities[0].season_high_start/end (nomes de mês)
+  if(f.wizard&&f.answers&&f.answers.cities&&f.answers.cities.length&&f.answers.cities[0].season_high_start){
+    var MM={Jan:1,Fev:2,Mar:3,Abr:4,Mai:5,Jun:6,Jul:7,Ago:8,Set:9,Out:10,Nov:11,Dez:12};
+    var cy=f.answers.cities[0];
+    var hs=MM[cy.season_high_start],he=MM[cy.season_high_end];
+    if(hs&&he){var cur=new Date().getMonth()+1;var inHigh=hs<=he?(cur>=hs&&cur<=he):(cur>=hs||cur<=he);
+      var loLbl=null;
+      if(cy.season_low_start&&cy.season_low_end&&MM[cy.season_low_start]&&MM[cy.season_low_end]){loLbl=monthName(MM[cy.season_low_start])+" a "+monthName(MM[cy.season_low_end]);}
+      return{current:inHigh?"high":"low",highLabel:monthName(hs)+" a "+monthName(he),lowLabel:loLbl};}
+  }
+  var sh=f.indicators&&f.indicators.season_high,sl=f.indicators&&f.indicators.season_low;if(!sh||!sh.start||!sh.end)return null;var cur=new Date().getMonth()+1,hs=parseInt(sh.start),he=parseInt(sh.end);var inHigh=hs<=he?(cur>=hs&&cur<=he):(cur>=hs||cur<=he);return{current:inHigh?"high":"low",highLabel:monthName(hs)+" a "+monthName(he),lowLabel:(sl&&sl.start&&sl.end)?monthName(parseInt(sl.start))+" a "+monthName(parseInt(sl.end)):null};}
 function getListingCountry(c){var f=getLatestFollow(c);if(f&&f.indicators&&f.indicators.ind_country)return f.indicators.ind_country.value||"";return c.country||"";}
 function getCities(c){var f=getLatestFollow(c);if(f){var ic=f.indicators&&f.indicators.ind_cities;return ic&&(ic.value||ic.notes)||"";}return"";}
 function bdg(st,lbl){var m={ok:"OK",warn:"Atencao",risk:"Risco",na:"—"};var cls=st==="ok"?"b-ok":(st==="warn"?"b-warn":(st==="risk"?"b-risk":"b-na"));return'<span class="badge '+cls+'">'+(lbl||m[st]||st)+"</span>";}
@@ -554,7 +569,19 @@ function wizBtnNav(step,total,canNext){
     +(isLast?'<button class="btn-primary btn-sm" onclick="wizFinish()">Concluir ✓</button>':'<button class="btn-primary btn-sm" onclick="wizGo('+(step+1)+')" '+(canNext===false?'disabled':'')+'>Próxima →</button>')
     +'</div>';
 }
-function wizGo(step){S.wiz.step=step;render();}
+function wizAutoSave(){
+  var ci=S.sel;var c=S.clients[ci];
+  if(!c)return;
+  c.wizDraft={step:S.wiz.step,type:S.wiz.type,answers:Object.assign({},S.wiz.answers),humors:Object.assign({},S.wiz.humors),autoHumors:Object.assign({},S.wiz.autoHumors||{}),savedAt:new Date().toISOString()};
+  saveState();
+}
+function wizExitConfirm(){
+  if(confirm('Você ainda não terminou seu follow-up. Tem certeza que deseja voltar à página anterior?')){
+    wizAutoSave();
+    goBackToClient();
+  }
+}
+function wizGo(step){S.wiz.step=step;wizAutoSave();render();}
 function wizLbl(n,total,hint,icon){
   return '<div class="wiz-step-lbl"><span style="font-size:18px">'+icon+'</span>Pergunta '+(n+1)+' de '+total+'</div>'
     +(hint?'<div class="wiz-hint">📍 Verificar: '+hint+'</div>':'');
@@ -574,6 +601,11 @@ var WIZ_CHANNELS=[
 function wizQ1(){
   var a=S.wiz.answers;
   var isRec=S.wiz.type==='recurring';
+  // Pré-preenche o total de unidades a partir do perfil do cliente (editável)
+  if((a.units_count===undefined||a.units_count===''||a.units_count===null)&&!isRec){
+    var _cli=S.clients[S.sel];
+    if(_cli&&_cli.units!==undefined&&_cli.units!==null&&_cli.units!=='')a.units_count=+_cli.units;
+  }
   var prevCount=(isRec&&S.wiz.prevAnswers)?+S.wiz.prevAnswers.units_count||0:0;
   var prevBanner=(isRec&&prevCount)?'<div class="wiz-info-banner">📊 No último follow ('+formatDate(S.wiz.prevFollowDate||'')+'): <strong>'+prevCount+' unidades</strong></div>':'';
   // Auto-detect change on recurring based on current vs previous
@@ -706,7 +738,7 @@ function wizQ4(){
   var a=S.wiz.answers;
   var chs=a.channels||[];
   function chActive(key){return chs.some(function(c){return c.key===key&&c.active;});}
-  function chQty(key){var c=chs.find(function(c){return c.key===key;});return c?c.qty:'';}
+  function chQty(key){var c=chs.find(function(c){return c.key===key;});return (c&&c.qty)?c.qty:'';}
   var mainActive=WIZ_CHANNELS.filter(function(c){return c.main&&chActive(c.key);}).length;
   var auto=mainActive>=3?4:(mainActive===2?3:(mainActive===1?1:0));
   var showMore=a.channels_show_more||false;
@@ -742,7 +774,7 @@ function wizToggleCh(key){
   var a=S.wiz.answers;if(!a.channels)a.channels=[];
   var idx=a.channels.findIndex(function(c){return c.key===key;});
   if(idx>=0){a.channels[idx].active=!a.channels[idx].active;}
-  else{a.channels.push({key:key,active:true,qty:0,all:false});}
+  else{a.channels.push({key:key,active:true,qty:'',all:false});}
   render();
 }
 function wizChQty(key,qty){
@@ -994,10 +1026,18 @@ function wizQ14(){
   return html;
 }
 
+var WIZ_PAY_PROVIDERS=['Pagar.me','Cielo','Stripe','Mercado Pago','PayPal','PagBank (PagSeguro)','Koin','PayU','Conta Bancária'];
+function wizTogglePayProv(name){
+  var a=S.wiz.answers;if(!a.payment_providers)a.payment_providers=[];
+  var idx=a.payment_providers.indexOf(name);
+  if(idx>=0)a.payment_providers.splice(idx,1);else a.payment_providers.push(name);
+  render();
+}
 function wizQ15(){
   var a=S.wiz.answers;
   var val=a.payment;
   var auto=val==='sim'?3:(val==='nao'?1:2);
+  var provs=a.payment_providers||[];
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Canal de pagamento</div>';
   html+='<div class="wiz-q-sub">O cliente tem canal de pagamento configurado para receber reservas diretas pelo site?</div>';
@@ -1005,6 +1045,15 @@ function wizQ15(){
   html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'payment\',\'sim\')"><span class="wiz-opt-ico">💳</span><span class="wiz-opt-lbl">Tem canal de pagamento configurado</span></div>';
   html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'payment\',\'nao\')"><span class="wiz-opt-ico">❌</span><span class="wiz-opt-lbl">Não tem canal de pagamento</span></div>';
   html+='</div>';
+  if(val==='sim'){
+    html+='<div style="margin-top:.85rem"><label style="font-size:13px;color:var(--t2);font-weight:600">Quais canais de pagamento? <span style="color:var(--t3);font-weight:400;font-size:11px">(opcional · pode marcar mais de um)</span></label>';
+    html+='<div class="wiz-pay-grid">';
+    WIZ_PAY_PROVIDERS.forEach(function(p){
+      var on=provs.indexOf(p)>=0;
+      html+='<div class="wiz-pay-chip'+(on?' on':'')+'" onclick="wizTogglePayProv(\''+p.replace(/'/g,"\\'")+'\')">'+(on?'✓ ':'')+e(p)+'</div>';
+    });
+    html+='</div></div>';
+  }
   html+=wizFaces('payment',auto,true);
   html+='</div>';
   return html;
@@ -1020,6 +1069,11 @@ function wizQ16(){
   html+='<div class="wiz-q-sub">Só informativo. O sistema já puxa o histórico de inadimplência do dashboard.</div>';
   if(hasInad){html+='<div class="wiz-info-banner" style="border-color:#f97316;background:#fff3e0;color:#9a3412">⚠ Este cliente tem <strong>'+inadCount+' fatura(s)</strong> em aberto registradas.</div>';}
   else{html+='<div class="wiz-info-banner" style="border-color:#1f943c;background:#e8f5ec;color:#145f27">✅ Sem histórico de inadimplência registrado.</div>';}
+  var iv=a.inadimplencia_opt;
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(iv==='sim'?' sel':'')+'" onclick="wizA(\'inadimplencia_opt\',\'sim\')"><span class="wiz-opt-ico">⚠️</span><span class="wiz-opt-lbl">Sim, costuma ficar inadimplente</span></div>';
+  html+='<div class="wiz-opt'+(iv==='nao'?' sel':'')+'" onclick="wizA(\'inadimplencia_opt\',\'nao\')"><span class="wiz-opt-ico">✅</span><span class="wiz-opt-lbl">Não, pagamentos em dia</span></div>';
+  html+='</div>';
   html+='<textarea class="wiz-note" rows="2" placeholder="Anotação sobre inadimplência (opcional)..." oninput="wizAText(\'inadimplencia_note\',this.value)">'+(a.inadimplencia_note||'')+'</textarea>';
   html+='</div>';
   return html;
@@ -1049,6 +1103,17 @@ function wizQ17(){
       html+='<div style="width:44px;height:44px;border-radius:50%;border:2px solid '+(npsScore===i?'var(--b600)':'var(--bd)')+';background:'+(npsScore===i?'var(--b50)':'var(--surf)')+';display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:500;color:'+(npsScore===i?'var(--b600)':'var(--t2)')+'" onclick="wizA(\'nps_score\','+i+')">'+i+'</div>';
     }
     html+='</div></div>';
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quando foi a última avaliação?</label><br><input class="wiz-input wiz-input-sm" type="date" style="margin-top:4px" value="'+(a.nps_date||'')+'" oninput="wizAText(\'nps_date\',this.value)" onchange="render()"></div>';
+    if(npsScore&&npsScore<=2&&a.nps_date){
+      var _dias=Math.floor((Date.now()-new Date(a.nps_date))/(1000*60*60*24));
+      if(!isNaN(_dias)){
+        var _msg,_cor;
+        if(_dias<90){_msg='Avaliação negativa recente ('+_dias+' dias). Trate como ponto quente — vale abordar com cuidado na reunião.';_cor={bd:'#ef4444',bg:'#fee2e2',tx:'#7f1d1d'};}
+        else if(_dias<180){_msg='Avaliação negativa de '+_dias+' dias atrás. Já passou o pico — verifique se a percepção melhorou desde então.';_cor={bd:'#f97316',bg:'#fff3e0',tx:'#9a3412'};}
+        else{_msg='Avaliação negativa antiga ('+Math.floor(_dias/30)+' meses). Provavelmente já superada — confirme se o cliente ainda tem essa percepção.';_cor={bd:'#eab308',bg:'#fef9c3',tx:'#854d0e'};}
+        html+='<div class="wiz-info-banner" style="margin-top:.6rem;border-color:'+_cor.bd+';background:'+_cor.bg+';color:'+_cor.tx+'">⏱️ '+_msg+'</div>';
+      }
+    }
     html+=wizFaces('nps',npsAuto,true);
   }
   html+='</div>';
@@ -1113,10 +1178,10 @@ function wizQ19(){
   return html;
 }
 
-var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
+var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
 var WIZ_TOTAL_FIRST=19;
 // ── RECORRENTE: 19 perguntas existentes + 6 novas exclusivas (wizR1..wizR6) ──
-var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','site','occupation','price','lastminute','photos','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
+var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
 var WIZ_TOTAL_REC=25;
 var WIZ_REC_HINTS=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays / Painel','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','Análise do analista','SMS da Stays','Salesforce','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano','Plano de contas / Salesforce'];
 var WIZ_REC_ICONS=['🏢','📍','💰','🌐','🔔','📈','🧩','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','🔵','💳','💰','🤝','⭐','🎫','⬆️','📋'];
@@ -1514,23 +1579,24 @@ function wizView(){
   var pct=Math.round(((step+1)/total)*100);
   var stepKey=(isRec?WIZ_STEPS_REC:WIZ_STEPS_FIRST)[step];
   var recRenderers={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
-  var firstRenderers=[wizQ1,wizQ2,wizQ3,wizQ4,wizQ5,wizQ6,wizQ7,wizQ8,wizQ9,wizQ10,wizQ11,wizQ12,wizQ13,wizQ14,wizQ15,wizQ16,wizQ17,wizQ18,wizQ19];
-  var renderFn=isRec?recRenderers[stepKey]:firstRenderers[step];
-  var hints=isRec?WIZ_REC_HINTS:['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','SMS da Stays','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano'];
-  var icons=isRec?WIZ_REC_ICONS:['🏢','📍','💰','🌐','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','💳','💰','⭐','🎫','⬆️'];
+  var renderFn=recRenderers[stepKey];
+  var HINTMAP={units:'SMS da Stays',cities:'Sistema do cliente',pricing:'SMS da Stays',channels:'SMS da Stays',notifs:'SMS da Stays / Painel',ch_perf:'SMS da Stays',ch_usab:'SMS da Stays',domain:'SMS da Stays',site:'Sistema do cliente',photos:'Sistema do cliente',occupation:'Sistema do cliente',price:'SMS da Stays',lastminute:'Sistema do cliente',financial:'SMS da Stays',operational:'SMS da Stays',appcenter:'SMS da Stays',openapi:'SMS da Stays / Salesforce',prod_sug:'Análise do analista',payment:'SMS da Stays',inadimplencia:'Salesforce',nego:'Salesforce',nps_churn:'Track (NPS) / Salesforce',cases:'Salesforce',upgrade:'Análise do plano',acct_plan:'Plano de contas / Salesforce'};
+  var ICONMAP={units:'🏢',cities:'📍',pricing:'💰',channels:'🌐',notifs:'🔔',ch_perf:'📈',ch_usab:'🧩',domain:'🔗',site:'🎨',photos:'📸',occupation:'📊',price:'💵',lastminute:'⏰',financial:'💼',operational:'⚙️',appcenter:'🔌',openapi:'🛠',prod_sug:'🔵',payment:'💳',inadimplencia:'💰',nego:'🤝',nps_churn:'⭐',cases:'🎫',upgrade:'⬆️',acct_plan:'📋'};
+  var curHint=HINTMAP[stepKey]||'';
+  var curIcon=ICONMAP[stepKey]||'📋';
   var c=S.clients[S.sel];
   var html='<div class="wiz-wrap">';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
-  html+='<button class="btn btn-sm" onclick="goBackToClient()">← Voltar</button>';
+  html+='<button class="btn btn-sm" onclick="wizExitConfirm()">← Voltar</button>';
   html+='<div style="font-size:15px;font-weight:500;color:var(--t)">Follow-up — '+e(c?c.name:'')+'</div>';
   html+='</div>';
   html+='<div class="wiz-progress"><div class="wiz-progress-fill" style="width:'+pct+'%"></div></div>';
-  html+='<div class="wiz-step-lbl"><span style="font-size:18px">'+icons[step]+'</span>Pergunta '+(step+1)+' de '+total+' &nbsp;·&nbsp; <span style="color:var(--t3);font-size:10px">'+hints[step]+'</span></div>';
+  html+='<div class="wiz-step-lbl"><span style="font-size:18px">'+curIcon+'</span>Pergunta '+(step+1)+' de '+total+' &nbsp;·&nbsp; <span style="color:var(--t3);font-size:10px">'+curHint+'</span></div>';
   html+=renderFn();
   var isLast=step===total-1;
   html+='<div class="wiz-nav">'
     +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
-    +'<div style="display:flex;gap:8px;align-items:center"><button class="btn btn-sm" onclick="wizSaveProgress()" title="Salvar e terminar depois">💾 Salvar até aqui</button>'
+    +'<div style="display:flex;gap:8px;align-items:center"><span style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:4px">💾 Salvo automaticamente</span>'
     +'<span class="wiz-counter" style="font-size:13px;color:var(--t3)">'+(step+1)+' / '+total+'</span></div>'
     +(isLast?'<button class="btn-primary" onclick="wizGoSummary()">Ver resumo →</button>':'<button class="btn-primary" onclick="wizGo('+(step+1)+')">Próxima →</button>')
     +'</div>';
@@ -1642,6 +1708,24 @@ function wizSummaryView(){
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Próximos passos com o cliente:</div>';
   html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Marcar reunião para configurar módulo financeiro..." oninput="wizAText(\'next_steps\',this.value)">'+(a.next_steps||'')+'</textarea>';
   html+='</div>';
+  html+='<div style="background:var(--surf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:12px">';
+  html+='<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px">Opções da mensagem de WhatsApp</div>';
+  html+='<div style="display:flex;gap:20px;flex-wrap:wrap">';
+  html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Idioma</div><div style="display:flex;gap:6px">';
+  var _wl=a.whats_lang||'pt';
+  [['pt','Português'],['en','English'],['es','Español']].forEach(function(L){
+  var on=_wl===L[0];
+  html+='<div onclick="wizA(\'whats_lang\',\''+L[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(on?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'">'+L[1]+'</div>';
+  });
+  html+='</div></div>';
+  html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Abordagem</div><div style="display:flex;gap:6px">';
+  var _wm=a.whats_mode||(S.wiz.type==='recurring'?'recorrente':'primeiro');
+  [['primeiro','Primeiro contato'],['recorrente','Já conheço o cliente']].forEach(function(M){
+  var onm=_wm===M[0];
+  html+='<div onclick="wizA(\'whats_mode\',\''+M[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(onm?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'">'+M[1]+'</div>';
+  });
+  html+='</div></div>';
+  html+='</div></div>';
   html+='<div style="display:flex;gap:10px;justify-content:flex-end">';
   html+='<button class="btn" onclick="wizGenSF()">📋 Gerar texto Salesforce</button>';
   html+='<button class="btn" style="background:#25D366;color:#fff;border-color:#25D366" onclick="wizGenWhats()">💬 Gerar prompt do WhatsApp</button>';
@@ -1665,16 +1749,14 @@ function wizSummaryView(){
 }
 
 function wizAutoAttention(){
-  var a=S.wiz.answers;var h=S.wiz.humors;
+  var eff=wizEffectiveHumors();
+  var labels=wizQLabels();
   var pts=[];
-  if(h.channels===0||h.channels===1)pts.push('Poucos canais conectados');
-  if(h.domain===0||h.domain===1)pts.push('Sem domínio próprio');
-  if(h.site===0||h.site===1)pts.push('Site sem personalização');
-  if(h.occupation===0||h.occupation===1)pts.push('Ocupação baixa');
-  if(h.financial===0||h.financial===1)pts.push('Não utiliza módulo financeiro');
-  if(h.payment===0||h.payment===1)pts.push('Sem canal de pagamento');
-  if(h.cases===0)pts.push('Casos críticos em aberto');
-  if(h.nps===0||h.nps===1)pts.push('NPS baixo');
+  Object.keys(eff).forEach(function(k){
+    if((eff[k]===0||eff[k]===1)&&labels[k]){
+      pts.push(labels[k]+(eff[k]===0?' (péssimo)':' (ruim)'));
+    }
+  });
   return pts.join('\n');
 }
 
@@ -1738,8 +1820,11 @@ function wizEffectiveHumors(){
 function wizGenWhats(){
   var a=S.wiz.answers;var c=S.clients[S.sel];
   var isRec=S.wiz.type==='recurring';
+  var lang=a.whats_lang||'pt';
+  // modo: 'primeiro' = primeiro contato; 'recorrente' = já conhece o cliente
+  var mode=a.whats_mode||(isRec?'recorrente':'primeiro');
   var eff=wizEffectiveHumors();
-  var qLabels={units:'quantidade de unidades/listings',channels:'canais de venda conectados',domain:'domínio próprio do site',site:'personalização do site',occupation:'taxa de ocupação',price:'competitividade de preço',photos_desc:'qualidade das fotos e descrições',financial:'uso do módulo financeiro',operational:'uso do módulo operacional',appcenter:'integrações no App Center',payment:'canal de pagamento',nps:'NPS/satisfação',cases:'casos de suporte em aberto'};
+  var qLabels={units:'quantidade de unidades/listings',channels:'canais de venda conectados',notifs:'notificações do painel',chperf:'performance nos canais',usab:'usabilidade dos canais',domain:'domínio próprio do site',site:'personalização do site',occupation:'taxa de ocupação',price:'competitividade de preço',photos_desc:'qualidade das fotos e descrições',financial:'uso do módulo financeiro',operational:'uso do módulo operacional',appcenter:'integrações no App Center',payment:'canal de pagamento',nps:'NPS/satisfação',cases:'casos de suporte em aberto'};
   var goodPts=[],badPts=[];
   Object.keys(qLabels).forEach(function(k){
     var lv=eff[k];
@@ -1762,40 +1847,52 @@ function wizGenWhats(){
     if(p.payment==='sim'&&a.payment==='nao')evoLines.push('O cliente DEIXOU de usar canal de pagamento (antes tinha, agora não tem).');
     if(p.payment==='nao'&&a.payment==='sim')evoLines.push('O cliente PASSOU a usar canal de pagamento (antes não tinha, agora tem).');
   }
-  var contactName=(c.keyContacts&&c.keyContacts[0]&&c.keyContacts[0].name)?c.keyContacts[0].name:'[nome do cliente]';
+  // Nome do contato: só usa nome real se houver contato marcado como RESPONSÁVEL pela conta.
+  var respContact=(c.keyContacts||[]).find(function(k){return k.responsible;});
+  var contactName,hasRealName;
+  if(respContact&&respContact.name){contactName=respContact.name.trim().split(/\s+/)[0];hasRealName=true;}
+  else{contactName='[Nome do cliente]';hasRealName=false;}
   var analystName=(S.appUser&&S.appUser.name)?S.appUser.name:'[seu nome]';
   var attentionText=a.attention_points||wizAutoAttention()||'';
 
+  var LANGNAME={pt:'PORTUGUÊS',en:'INGLÊS',es:'ESPANHOL'};
   var P=[];
-  P.push('Você é um analista de Sucesso do Cliente da Stays.net (plataforma de gestão para gestores de aluguel por temporada). Escreva uma mensagem de WhatsApp curta, calorosa e profissional em português para o cliente, com o objetivo de AGENDAR UMA REUNIÃO.');
+  P.push('Você é um analista de Sucesso do Cliente da Stays.net (plataforma de gestão para gestores de aluguel por temporada). Escreva uma mensagem de WhatsApp curta, calorosa e profissional para o cliente, com o objetivo final de AGENDAR UMA REUNIÃO.');
+  P.push('');
+  P.push('=== IDIOMA DE SAÍDA ===');
+  P.push('Escreva a mensagem inteiramente em '+LANGNAME[lang]+'. Adapte a saudação e o tom culturalmente para esse idioma.');
   P.push('');
   P.push('=== DADOS DO CLIENTE ===');
-  P.push('- Cliente/empresa: '+(c.name||'não informado'));
-  P.push('- Nome do contato: '+contactName);
+  if(hasRealName){P.push('- Nome do contato (responsável pela conta): '+contactName+' — use este primeiro nome na saudação.');}
+  else{P.push('- Não há contato responsável cadastrado. Use exatamente o marcador "[Nome do cliente]" no lugar da saudação para o analista preencher depois. NÃO invente um nome.');}
   P.push('- Assinar como: '+analystName);
-  P.push('- Tipo de análise: '+(isRec?'RECORRENTE (já acompanho esse cliente há um tempo)':'PRIMEIRA análise (acabei de assumir a conta deste cliente)'));
+  P.push('- NÃO mencione o nome da empresa/cliente na mensagem (não usamos o nome da empresa na abordagem).');
   P.push('');
   P.push('=== O QUE ESTÁ BOM (elogie brevemente para o cliente não ficar na defensiva) ===');
   P.push(goodPts.length?goodPts.join(', ')+'.':'(nenhum ponto de destaque positivo)');
   P.push('');
-  P.push('=== PONTOS DE ATENÇÃO (mencione 1 ou 2 dos mais relevantes de forma leve e consultiva, mostrando que analisei o sistema a fundo e quero ajudar) ===');
+  P.push('=== PONTOS DE ATENÇÃO (mencione 1 ou 2 dos mais relevantes de forma leve e consultiva) ===');
   P.push(badPts.length?badPts.join(', ')+'.':'(nenhum ponto crítico)');
   if(attentionText){P.push('Observações do analista: '+attentionText.replace(/\n/g,'; '));}
   if(evoLines.length){
     P.push('');
-    P.push('=== EVOLUÇÃO DESDE O ÚLTIMO FOLLOW (MUITO IMPORTANTE - demonstre que percebi as mudanças no negócio do cliente) ===');
+    P.push('=== EVOLUÇÃO DESDE O ÚLTIMO FOLLOW (demonstre que percebi as mudanças no negócio do cliente) ===');
     P.push(evoLines.join(' '));
   }
   P.push('');
-  P.push('=== INSTRUÇÕES ===');
-  if(!isRec){
-    P.push('Use como base este modelo de PRIMEIRA mensagem, mas PERSONALIZE com os pontos acima para o cliente ver que você analisou o sistema dele de cima a baixo:');
-    P.push('"Olá, [nome]! Tudo bem? Sou [analista], analista de Sucesso do Cliente na Stays.net e a nova responsável por acompanhar a sua conta e seu desempenho na plataforma. Meu objetivo é entender o que já está funcionando bem e buscar novas oportunidades de melhoria para o seu negócio. Gostaria de convidar você para uma primeira reunião de alinhamento, onde poderemos nos conhecer melhor, revisar o andamento atual e definir juntos os próximos passos. Você tem 30 minutinhos para falarmos ainda essa semana?"');
+  P.push('=== TIPO DE ABORDAGEM ===');
+  if(mode==='primeiro'){
+    P.push('Este é o PRIMEIRO contato com este cliente. Apresente-se brevemente como analista de Sucesso do Cliente e novo(a) responsável por acompanhar a conta. Demonstre que já analisou o sistema dele e quer ajudar a melhorar os resultados. Convide para uma primeira reunião de alinhamento. Estrutura de referência (personalize, NÃO copie literalmente): saudação + apresentação curta + objetivo de acompanhar e melhorar resultados + convite para uma conversa rápida (uns 30 minutos) ainda esta semana.');
   }else{
-    P.push('Como é um follow RECORRENTE, NÃO se apresente como novo. Escreva de forma natural, como quem já acompanha o cliente. Comece referenciando algo que você observou na análise (uma evolução positiva ou uma mudança que chamou atenção), demonstre interesse genuíno pelo negócio dele, e convide para uma reunião. Exemplos de tom: "Vi aqui que você cresceu na quantidade de listings, que ótimo! Podemos conversar melhor sobre isso" ou "Vi que você não está mais usando os canais de pagamento por aqui, aconteceu alguma coisa?".');
+    P.push('Este é um contato RECORRENTE: você JÁ conhece o cliente e a operação dele. NÃO se apresente de novo. Escreva como quem já acompanha a conta e está passando para ver se está tudo bem. Referencie algo concreto que você observou na análise (uma evolução, uma mudança ou um ponto de atenção — use os dados acima), pergunte se está tudo certo e se ele precisa de algo, e conduza naturalmente para agendar uma reunião. Exemplos de tom: "Vi que você cresceu na quantidade de listings, muito bom! Queria entender como está sendo essa fase" ou "Reparei que você não está mais usando os canais de pagamento, deu algum problema? Consigo te ajudar com isso".');
   }
   P.push('');
-  P.push('REGRAS: Máximo 5-6 linhas. Tom humano e caloroso, no máximo 1 emoji sutil (ou nenhum). Termine SEMPRE com uma pergunta que leve ao agendamento. Use o nome do contato. Assine com o nome do analista. NÃO use markdown nem asteriscos. Responda APENAS com o texto final da mensagem, sem introdução nem comentários.');
+  P.push('=== REGRAS ===');
+  P.push('- Máximo 5-6 linhas. Tom humano e caloroso, no máximo 1 emoji sutil (ou nenhum).');
+  P.push('- Termine SEMPRE com uma pergunta que leve ao agendamento de uma reunião.');
+  P.push('- '+(hasRealName?'Use o primeiro nome do contato na saudação.':'Use "[Nome do cliente]" como marcador na saudação.'));
+  P.push('- Assine com o nome do analista. NÃO cite o nome da empresa. NÃO use markdown nem asteriscos.');
+  P.push('- Responda APENAS com o texto final da mensagem, no idioma pedido, sem introdução nem comentários.');
 
   S.wiz.answers.whats_prompt=P.join('\n');
   render();
@@ -1923,7 +2020,7 @@ var mrrOpts='<option value=""'+(S.sortMrr===""?" selected":"")+'>Ordenar por MRR
 var hasActiveFilter=!!(S.filterCountry||S.filterRisk||S.filterPlan||S.filterFollowUp||S.sortMrr||S.filterAnalyst||S.filterStatus||S.filterCategoria||S.filterAlertStatus);var filters='<div style="margin-top:1rem">'+'<div class="flex" style="gap:8px;margin-bottom:6px">'+'<button class="ver-filtros-btn'+(S.showFilters?' active':'')+'" onclick="S.showFilters=!S.showFilters;render()">'+'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>'+(S.showFilters?'Ocultar filtros':'Ver filtros')+'</button>'+(hasActiveFilter?'<span style="font-size:11px;color:var(--b600);font-weight:600;background:var(--b50);padding:3px 8px;border-radius:9999px">'+[S.filterCountry,S.filterRisk,S.filterPlan,S.filterFollowUp,S.filterStatus,S.filterCategoria].filter(Boolean).length+' ativo(s)</span>':'')+(hasActiveFilter?'<button class="btn btn-sm" onclick="S.filterCountry=S.filterRisk=S.filterPlan=S.filterFollowUp=S.sortMrr=S.filterAnalyst=S.filterStatus=S.filterCategoria=S.filterAlertStatus=\'\';render()">Limpar tudo</button>':'')+'</div>'+'<div class="filter-panel'+(S.showFilters?' fp-open':'')+'">'+'<div class="flex" style="flex-wrap:wrap;gap:8px;padding:10px 0">'+'<select style="width:auto" onchange="S.filterCountry=this.value;render()"><option value="">Todos os paises</option>'+countries.map(function(c){return'<option'+(S.filterCountry===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+'<select style="width:auto" onchange="S.filterCategoria=this.value;render()"><option value="">Todas as categorias</option><option value="Elite"'+(S.filterCategoria==="Elite"?' selected':'')+'>Elite</option><option value="High Touch"'+(S.filterCategoria==="High Touch"?' selected':'')+'>High Touch</option><option value="Core A/B"'+(S.filterCategoria==="Core A/B"?' selected':'')+'>Core A/B</option><option value="Long Tail"'+(S.filterCategoria==="Long Tail"?' selected':'')+'>Long Tail</option></select>'+'<select style="width:auto" onchange="S.filterAlertStatus=this.value;render()"><option value="">Status: todos</option><option value="ativo"'+(S.filterAlertStatus==="ativo"?' selected':'')+'>Ativos</option><option value="churn"'+(S.filterAlertStatus==="churn"?' selected':'')+'>Alerta de Churn</option><option value="inadimplente"'+(S.filterAlertStatus==="inadimplente"?' selected':'')+'>Inadimplentes</option><option value="recuperacao"'+(S.filterAlertStatus==="recuperacao"?' selected':'')+'>Em recuperação</option></select>'+'<select style="width:auto" onchange="S.filterStatus=this.value;render()"><option value="">Onboarding: todos</option><option value="Em andamento"'+(S.filterStatus==="Em andamento"?' selected':'')+'>Em andamento</option><option value="Completed"'+(S.filterStatus==="Completed"?' selected':'')+'>Completed</option></select>'+'<select style="width:auto" onchange="S.filterFollowUp=this.value;render()"><option value="">Follow-up: todos</option><option value="overdue"'+(S.filterFollowUp==="overdue"?' selected':'')+'>Atrasado</option><option value="soon"'+(S.filterFollowUp==="soon"?' selected':'')+'>Proximos 15d</option></select>'+'<select style="width:auto" onchange="S.filterPlan=this.value;render()"><option value="">Todos os planos</option>'+pOpts+'</select>'+'<select style="width:auto" onchange="S.filterRisk=this.value;render()"><option value="">Todos os riscos</option><option value="risk"'+(S.filterRisk==="risk"?' selected':'')+'>Alto risco</option><option value="warn"'+(S.filterRisk==="warn"?' selected':'')+'>Atencao</option><option value="ok"'+(S.filterRisk==="ok"?' selected':'')+'>Estaveis</option></select>'+'<select style="width:auto" onchange="S.sortMrr=this.value;render()">'+mrrOpts+'</select>'+(S.appUser.role==="admin"||S.appUser.role==="leader"?'+'+'<select style="width:auto" onchange="S.filterAnalyst=this.value;render()"><option value="">Todos os analistas</option>'+S.allUsers.filter(function(u){return u.role==="analyst"||u.role==="admin";}).map(function(u){return'<option value="'+u.uid+'"'+(S.filterAnalyst===u.uid?' selected':'')+'>'+e(u.name.split(' ')[0])+'</option>';}).join('')+'</select>':"")+'</div></div></div>'+'</div>';
 var tbl=filt.length===0?'<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">📋</div><p style="color:var(--t2);margin-bottom:1.5rem">Nenhum cliente encontrado.</p><button class="btn-primary" onclick="openM(\'add-client\')">+ Primeiro cliente</button></div>'
 :'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.distribuicao+'">Distribuicao</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th>Lem.</th><th></th></tr></thead><tbody>'
-+filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=hl(score),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td><button class="btn-link" onclick="openClient('+ci+')">'+e(c.name)+'</button><div class="sub">'+e(getListingCountry(c))+(lf?' · '+(lf.type==="recurring"?"Recorrente":"1a analise"):"")+'</div>'+planBdg(c.plan)+'</td><td>'+hB+'<div class="hrow"><div class="htrack"><div class="hfill" style="width:'+score+'%;background:'+hC+'"></div></div><span style="font-size:10px;color:var(--t3);min-width:24px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+distBar(calcDistribution(c))+'</td>'+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">📋</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">🔔</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">📋 Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">🗑 Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
++filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=hl(score),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td><button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px">'+e((c.slug||c.name).toUpperCase())+'</button><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+'</td><td>'+hB+'<div class="hrow"><div class="htrack"><div class="hfill" style="width:'+score+'%;background:'+hC+'"></div></div><span style="font-size:10px;color:var(--t3);min-width:24px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+distBar(calcDistribution(c))+'</td>'+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">📋</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">🔔</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">📋 Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">🗑 Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
 return'<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>'+filters+'<div style="margin-top:1.25rem"><div class="kpi-group"><div class="kpi-group-lbl">Saude da carteira</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"><div class="metric"><div class="metric-lbl">Total</div><div class="metric-val mv-d">'+all.length+'</div></div><div class="metric"><div class="metric-lbl">Alto risco</div><div class="metric-val mv-r">'+alto+'</div></div><div class="metric"><div class="metric-lbl">Atencao</div><div class="metric-val mv-a">'+med+'</div></div><div class="metric"><div class="metric-lbl">Estaveis</div><div class="metric-val mv-g">'+ok+'</div></div><div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(mrrTotal)+'</div></div></div></div><div class="kpi-group" style="margin-top:10px"><div class="kpi-group-lbl">Follow-ups</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="metric"><div class="metric-lbl">FU urgente</div><div class="metric-val mv-a">'+urg+'</div></div><div class="metric"><div class="metric-lbl">FU vencido</div><div class="metric-val mv-r">'+ven+'</div></div></div></div></div>'+tbl;}
 function archivedView(){
 var archived=S.clients.filter(function(c){return c.archived;});
@@ -2057,8 +2154,8 @@ var fuColor=fu.cls==="fu-ok"?"#1f943c":(fu.cls==="fu-warn"?"#f3b02a":"#ce1e5a");
 // Season KPI
 var seasonHigh=lf&&lf.indicators&&lf.indicators.season_high;
 var seasonLow=lf&&lf.indicators&&lf.indicators.season_low;
-var hiLabel=seasonHigh&&seasonHigh.start&&seasonHigh.end?monthName(seasonHigh.start)+"–"+monthName(seasonHigh.end):"";
-var loLabel=seasonLow&&seasonLow.start&&seasonLow.end?monthName(seasonLow.start)+"–"+monthName(seasonLow.end):"";
+var hiLabel=seasonHigh&&seasonHigh.start&&seasonHigh.end?monthName(seasonHigh.start)+"–"+monthName(seasonHigh.end):(season&&season.highLabel?season.highLabel:"");
+var loLabel=seasonLow&&seasonLow.start&&seasonLow.end?monthName(seasonLow.start)+"–"+monthName(seasonLow.end):(season&&season.lowLabel?season.lowLabel:"");
 var isHigh=season&&season.current==="high";
 var seasonIcon=isHigh?
   '<svg width="36" height="36" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="8" fill="#f3b02a"/><line x1="20" y1="4" x2="20" y2="8" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="20" y1="32" x2="20" y2="36" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="20" x2="8" y2="20" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="20" x2="36" y2="20" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="8.7" y1="8.7" x2="11.5" y2="11.5" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="28.5" y1="28.5" x2="31.3" y2="31.3" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="31.3" y1="8.7" x2="28.5" y2="11.5" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/><line x1="11.5" y1="28.5" x2="8.7" y2="31.3" stroke="#f3b02a" stroke-width="2.5" stroke-linecap="round"/></svg>'
@@ -2088,7 +2185,7 @@ var header=
   +'<div style="display:flex;align-items:center;gap:10px">'
   +smsBtn(c)
   +'<div style="font-size:20px;font-weight:700;color:var(--t)">'
-  +e(c.slug||c.name)
+  +e((c.slug||c.name).toUpperCase())
   +(c.slug?'<span style="color:var(--bd);font-weight:300;margin:0 6px">|</span>'+e(c.name):"")
   +'</div>'
   +'<div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">'+(c.churnCase&&c.churnCase.active?'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Ver Caso Churn</button>':'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Marcar Churn</button>')+'<button class="btn-inadim" onclick="S.modal=\'inad-\'+'+ci+';render()">$ Inadimplência</button>'+'<button class="btn-edit" onclick="openM(\'edit-client\')">Editar</button>'+'</div>'
@@ -2411,7 +2508,7 @@ function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort
 function mAddFollow(){var c=S.clients[S.sel],hasFirst=c.follows&&c.follows.some(function(f){return f.type==="first";}),auto=hasFirst?"recurring":"first";return'<div class="modal-box"><div class="modal-title">+ Novo Follow-Up</div><div class="import-tip">Tipo detectado: <strong>'+(auto==="first"?"Primeira analise":"Analise recorrente")+'</strong>.</div><div class="form-row"><label class="form-lbl">Data</label><input id="fd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ft"><option value="first"'+(auto==="first"?" selected":"")+'>Primeira analise</option><option value="recurring"'+(auto==="recurring"?" selected":"")+'>Analise recorrente</option></select></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveFollow()">Criar</button></div></div>';}
 function mImport(){return'<div class="modal-box" style="max-width:600px"><div class="modal-title">Importar analise</div><div class="import-tip">Cole o texto do follow-up no formato: <strong>Pergunta - Resposta</strong>. O sistema vai detectar os indicadores automaticamente.</div><div class="form-row"><label class="form-lbl">Texto do follow-up</label><textarea id="imp" style="height:280px;resize:vertical;font-size:12px;font-family:monospace" placeholder="1. Diminuiu/aumentou unidades? - Sim, de 10 para 12\n2. Canais conectados? - Airbnb, Booking\n..."></textarea></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="runImport()">Importar</button></div></div>';}
 function mContact(){return'<div class="modal-box"><div class="modal-title">Registrar contato externo</div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ct"><option value="meeting">Reuniao</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="churn">Alerta de Churn</option></select></div><div class="form-row"><label class="form-lbl">Data</label><input id="cd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Impacto</label><select id="ci"><option value="positive">Positivo</option><option value="neutral">Neutro</option><option value="negative">Negativo</option></select></div><div class="form-row"><label class="form-lbl">Resumo do contato</label><textarea id="cs" style="height:110px;resize:vertical" placeholder="O que foi discutido? Qual o resultado?"></textarea></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveContact()">Salvar</button></div></div>';}
-function mAddKeyContact(){var c=S.clients[S.sel];if(c.keyContacts&&c.keyContacts.length>=5)return'<div class="modal-box"><div class="modal-title">Limite atingido</div><p style="margin-bottom:1.5rem">Maximo de 5 contatos-chave por cliente.</p><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Fechar</button></div></div>';return'<div class="modal-box"><div class="modal-title">Adicionar contato-chave</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="kn" type="text" placeholder="Ex: Juan Carlos Rodriguez"></div><div class="form-row"><label class="form-lbl">Funcao / cargo</label><input id="kr" type="text" placeholder="Ex: CEO, Gerente, Dono"></div><div class="grid2"><div class="form-row"><label class="form-lbl">Telefone / WhatsApp</label><input id="kp" type="text" placeholder="+1 555 000 0000"></div><div class="form-row"><label class="form-lbl">E-mail</label><input id="ke" type="text" placeholder="email@cliente.com"></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveKeyContact()">Salvar</button></div></div>';}
+function mAddKeyContact(){var c=S.clients[S.sel];if(c.keyContacts&&c.keyContacts.length>=5)return'<div class="modal-box"><div class="modal-title">Limite atingido</div><p style="margin-bottom:1.5rem">Maximo de 5 contatos-chave por cliente.</p><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Fechar</button></div></div>';return'<div class="modal-box"><div class="modal-title">Adicionar contato-chave</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="kn" type="text" placeholder="Ex: Juan Carlos Rodriguez"></div><div class="form-row"><label class="form-lbl">Funcao / cargo</label><input id="kr" type="text" placeholder="Ex: CEO, Gerente, Dono"></div><div class="grid2"><div class="form-row"><label class="form-lbl">Telefone / WhatsApp</label><input id="kp" type="text" placeholder="+1 555 000 0000"></div><div class="form-row"><label class="form-lbl">E-mail</label><input id="ke" type="text" placeholder="email@cliente.com"></div></div><div class="form-row" style="margin-top:4px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer"><input id="kresp" type="checkbox" style="width:16px;height:16px;cursor:pointer"> Responsável pela conta <span style="color:var(--t3);font-size:11px">(usado para personalizar mensagens)</span></label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveKeyContact()">Salvar</button></div></div>';}
 function mAddUser(){return'<div class="modal-box"><div class="modal-title">Informar novo usuario</div><div class="import-tip">O usuario deve acessar o site e fazer login com o e-mail informado abaixo. O perfil sera criado automaticamente como Pendente ate voce aprovar aqui.</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="un" type="text" placeholder="Ex: Maria Beatriz"></div><div class="form-row"><label class="form-lbl">E-mail de acesso</label><input id="ue" type="text" placeholder="maria@stays.com.br"></div><div class="form-row"><label class="form-lbl">Funcao inicial</label><select id="ur"><option value="analyst">Analista</option><option value="leader">Lider</option></select></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="infoNewUser()">OK, entendi</button></div></div>';}
 function mSettings(){return'<div class="modal-box"><div class="modal-title">Configuracoes</div><div class="form-row"><label class="form-lbl">Chave de API Anthropic (para Gerar com API)</label><input id="sk" type="password" value="'+e(S.apiKey)+'" placeholder="sk-ant-api03-..."></div><div class="form-row"><label class="form-lbl" style="color:var(--t3);font-weight:400;font-size:11px">A chave fica salva apenas neste navegador.</label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-primary" onclick="saveSettings()">Salvar</button></div></div>';}
 // ============================================================
@@ -2498,7 +2595,7 @@ function markToday(fi){var c=S.clients[S.sel],f=c.follows[fi];if(!confirm("Isso 
 function toggleWell(fi){S.clients[S.sel].follows[fi].doingWell=!S.clients[S.sel].follows[fi].doingWell;saveState();render();}
 function saveContact(){var sum=document.getElementById("cs").value.trim();if(!sum){alert("Adicione um resumo do contato.");return;}var ct={id:uid(),type:document.getElementById("ct").value,date:document.getElementById("cd").value,impact:document.getElementById("ci").value,summary:sum};var c=S.clients[S.sel];if(!c.contacts)c.contacts=[];c.contacts.push(ct);if(ct.type==="churn"){var lf=getLatestFollow(c);if(lf&&lf.indicators)lf.indicators.churn_hist={status:"risk",notes:sum.slice(0,150)};}saveState();S.modal=null;S.genText="";render();}
 function delContact(ci,i){if(!confirm("Remover este contato?"))return;S.clients[ci].contacts.splice(i,1);saveState();render();}
-function saveKeyContact(){var name=document.getElementById("kn").value.trim();if(!name){alert("Informe o nome.");return;}var kc={id:uid(),name:name,role:document.getElementById("kr").value.trim(),phone:document.getElementById("kp").value.trim(),email:document.getElementById("ke").value.trim()};var c=S.clients[S.sel];if(!c.keyContacts)c.keyContacts=[];c.keyContacts.push(kc);saveState();S.modal=null;render();}
+function saveKeyContact(){var name=document.getElementById("kn").value.trim();if(!name){alert("Informe o nome.");return;}var resp=document.getElementById("kresp")&&document.getElementById("kresp").checked;var kc={id:uid(),name:name,role:document.getElementById("kr").value.trim(),phone:document.getElementById("kp").value.trim(),email:document.getElementById("ke").value.trim(),responsible:!!resp};var c=S.clients[S.sel];if(!c.keyContacts)c.keyContacts=[];if(resp)c.keyContacts.forEach(function(k){k.responsible=false;});c.keyContacts.push(kc);saveState();S.modal=null;render();}
 function delKeyContact(ci,i){if(!confirm("Remover este contato-chave?"))return;S.clients[ci].keyContacts.splice(i,1);saveState();render();}
 function saveSettings(){S.apiKey=document.getElementById("sk").value.trim();localStorage.setItem("stays_api_key",S.apiKey);closeM();}
 async function changeRole(uid,role){await saveUserProfile(uid,{role:role});await loadAllUsers();render();}
