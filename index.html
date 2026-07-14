@@ -678,14 +678,17 @@ function wizFaces(qkey,auto,score){
 }
 function wizSetH(key,level){
   S.wiz.humors[key]=level;
+  if(S.editFollow)S.editFollowDirty=true;
   render();
 }
 function wizA(key,val){
   S.wiz.answers[key]=val;
+  if(S.editFollow)S.editFollowDirty=true;
   render();
 }
 function wizAText(key,val){
   S.wiz.answers[key]=val;
+  if(S.editFollow)S.editFollowDirty=true;
 }
 function wizNav(step,total){
   var pct=Math.round((step/total)*100);
@@ -785,6 +788,7 @@ function wizQ1(){
   return html;
 }
 function wizUnitsChanged(){
+  if(S.editFollow)S.editFollowDirty=true;
   var a=S.wiz.answers;
   // Sync client's units field with the wizard value
   if(a.units_count!==undefined&&a.units_count!==''){
@@ -819,10 +823,13 @@ function wizQ2(){
   return html;
 }
 
-function wizAddCity(){var v=document.getElementById('wiz-city-inp').value.trim();if(!v)return;var a=S.wiz.answers;if(!a.cities)a.cities=[];a.cities.push({name:v,season_high_start:'',season_high_end:'',season_low_start:'',season_low_end:''});render();}
-function wizRemCity(i){var a=S.wiz.answers;if(a.cities)a.cities.splice(i,1);render();}
+function wizAddCity(){
+  if(S.editFollow)S.editFollowDirty=true;var v=document.getElementById('wiz-city-inp').value.trim();if(!v)return;var a=S.wiz.answers;if(!a.cities)a.cities=[];a.cities.push({name:v,season_high_start:'',season_high_end:'',season_low_start:'',season_low_end:''});render();}
+function wizRemCity(i){
+  if(S.editFollow)S.editFollowDirty=true;var a=S.wiz.answers;if(a.cities)a.cities.splice(i,1);render();}
 function wizCityS(field,val){var a=S.wiz.answers;var cities=a.cities||[];var last=cities[cities.length-1];if(last)last[field]=val;}
-function wizConfirmCity(){render();}
+function wizConfirmCity(){
+  if(S.editFollow)S.editFollowDirty=true;render();}
 
 function wizQ3(){
   var a=S.wiz.answers;
@@ -902,6 +909,7 @@ function wizQ4(){
 }
 
 function wizToggleCh(key){
+  if(S.editFollow)S.editFollowDirty=true;
   var a=S.wiz.answers;if(!a.channels)a.channels=[];
   var idx=a.channels.findIndex(function(c){return c.key===key;});
   if(idx>=0){a.channels[idx].active=!a.channels[idx].active;}
@@ -909,11 +917,13 @@ function wizToggleCh(key){
   render();
 }
 function wizChQty(key,qty){
+  if(S.editFollow)S.editFollowDirty=true;
   var a=S.wiz.answers;if(!a.channels)a.channels=[];
   var c=a.channels.find(function(c){return c.key===key;});
   if(c)c.qty=qty;
 }
 function wizChAll(key){
+  if(S.editFollow)S.editFollowDirty=true;
   var a=S.wiz.answers;if(!a.channels)a.channels=[];
   var c=a.channels.find(function(c){return c.key===key;});
   var units=+(a.units_count)||0;
@@ -1159,6 +1169,7 @@ function wizQ14(){
 
 var WIZ_PAY_PROVIDERS=['Pagar.me','Cielo','Stripe','Mercado Pago','PayPal','PagBank (PagSeguro)','Koin','PayU','Conta Bancária'];
 function wizTogglePayProv(name){
+  if(S.editFollow)S.editFollowDirty=true;
   var a=S.wiz.answers;if(!a.payment_providers)a.payment_providers=[];
   var idx=a.payment_providers.indexOf(name);
   if(idx>=0)a.payment_providers.splice(idx,1);else a.payment_providers.push(name);
@@ -1314,6 +1325,7 @@ var WIZ_TOTAL_FIRST=19;
 // ── RECORRENTE: 19 perguntas existentes + 6 novas exclusivas (wizR1..wizR6) ──
 var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
 var WIZ_TOTAL_REC=25;
+var WIZ_RENDERERS={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
 var WIZ_REC_HINTS=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays / Painel','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','Análise do analista','SMS da Stays','Salesforce','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano','Plano de contas / Salesforce'];
 var WIZ_REC_ICONS=['🏢','📍','💰','🌐','🔔','📈','🧩','🔗','🎨','📊','💵','⏰','📸','💼','⚙️','🔌','🛠','🔵','💳','💰','🤝','⭐','🎫','⬆️','📋'];
 
@@ -1345,6 +1357,41 @@ function genWhatsForFollow(ci,fi){
 }
 function setFollowWhatsLang(ci,fi,lang){var f=S.clients[ci].follows[fi];if(!f)return;f.answers.whats_lang=lang;saveState();if(f.answers.whats_prompt)genWhatsForFollow(ci,fi);else render();}
 function setFollowWhatsMode(ci,fi,mode){var f=S.clients[ci].follows[fi];if(!f)return;f.answers.whats_mode=mode;saveState();if(f.answers.whats_prompt)genWhatsForFollow(ci,fi);else render();}
+function startEditFollowQ(stepKey){
+  var ci=S.sel,fi=S.selFollow,f=S.clients[ci].follows[fi];
+  if(!f)return;
+  // Se já está editando outra pergunta com alterações não salvas, confirma
+  if(S.editFollow&&S.editFollowDirty&&S.editFollow.stepKey!==stepKey){
+    if(!confirm('Você tem alterações não salvas nesta pergunta. Descartar e editar outra?'))return;
+  }
+  // Carrega o follow num contexto de edição do wizard
+  var prevA=null,prevDate=null;
+  if(f.type==='recurring'){
+    var wf=(S.clients[ci].follows||[]).filter(function(x){return x.wizard&&x!==f&&new Date(x.date)<=new Date(f.date);}).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+    if(wf[0]){prevA=wf[0].answers;prevDate=wf[0].date;}
+  }
+  S.wiz={step:0,type:f.type||'first',answers:Object.assign({},f.answers),humors:Object.assign({},f.humors||{}),autoHumors:{},prevAnswers:prevA,prevFollowDate:prevDate};
+  S.editFollow={ci:ci,fi:fi,stepKey:stepKey};
+  S.editFollowDirty=false;
+  render();
+}
+function saveEditFollowQ(){
+  if(!S.editFollow)return;
+  var f=S.clients[S.editFollow.ci].follows[S.editFollow.fi];
+  if(f){
+    f.answers=Object.assign({},S.wiz.answers);
+    f.humors=wizEffectiveHumors();
+    // Sincroniza unidades se a pergunta editada foi de unidades
+    if(S.wiz.answers.units_count!==undefined&&S.wiz.answers.units_count!=='')S.clients[S.editFollow.ci].units=+S.wiz.answers.units_count;
+  }
+  S.editFollow=null;S.editFollowDirty=false;
+  saveState();render();
+}
+function cancelEditFollowQ(){
+  if(S.editFollowDirty){if(!confirm('Descartar as alterações não salvas desta pergunta?'))return;}
+  S.editFollow=null;S.editFollowDirty=false;
+  render();
+}
 function followWizardView(){
   var c=S.clients[S.sel],ci=S.sel,fi=S.selFollow,f=c.follows[fi];
   if(!f){goBackToClient();return"";}
@@ -1360,8 +1407,21 @@ function followWizardView(){
     return'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:'+HC[lv]+';border:1px solid '+HB[lv]+';color:'+HT[lv]+'">'+face(FKEYS[lv],14)+' '+HL[lv]+'</span>';
   }
   var CHAN_NAMES={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'Homes & Villas'};
-  function row(num,label,answer,humorKey){
-    return'<div style="padding:12px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:3px">'+num+'. '+label+'</div><div style="font-size:13px;color:var(--t2);line-height:1.5">'+(answer||'<span style="color:var(--t3)">Não respondido</span>')+'</div></div>'+(humorKey?humorPill(humorKey):'')+'</div></div>';
+  function row(num,label,answer,humorKey,stepKey){
+    // Modo edição: renderiza o editor do wizard inline para esta pergunta
+    if(stepKey&&S.editFollow&&S.editFollow.stepKey===stepKey&&WIZ_RENDERERS[stepKey]){
+      var edHtml='<div style="padding:14px;border:2px solid var(--b600);border-radius:12px;margin:10px 0;background:var(--surf2)">';
+      edHtml+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:var(--b600);text-transform:uppercase;letter-spacing:.04em">Editando: '+num+'. '+label+'</div></div>';
+      edHtml+=WIZ_RENDERERS[stepKey]();
+      edHtml+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">';
+      edHtml+='<button class="btn btn-sm" onclick="cancelEditFollowQ()">Cancelar</button>';
+      edHtml+='<button class="btn-primary" style="padding:6px 16px" onclick="saveEditFollowQ()">💾 Salvar</button>';
+      edHtml+='</div></div>';
+      return edHtml;
+    }
+    var clickable=stepKey?' onclick="startEditFollowQ(\''+stepKey+'\')" style="cursor:pointer;padding:12px 8px;margin:0 -8px;border-bottom:1px solid var(--bd);border-radius:6px" onmouseover="this.style.background=\'var(--surf2)\'" onmouseout="this.style.background=\'\'"':' style="padding:12px 0;border-bottom:1px solid var(--bd)"';
+    var editHint=stepKey?'<span style="font-size:11px;color:var(--b600);opacity:.7;margin-left:6px">✎ editar</span>':'';
+    return'<div'+clickable+'><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:3px">'+num+'. '+label+editHint+'</div><div style="font-size:13px;color:var(--t2);line-height:1.5">'+(answer||'<span style="color:var(--t3)">Não respondido</span>')+'</div></div>'+(humorKey?humorPill(humorKey):'')+'</div></div>';
   }
   var cities=((a.cities||[]).map(function(c){return c.name;})).join(', ')||'—';
   var activeChs=((a.channels||[]).filter(function(x){return x.active;}).map(function(x){return CHAN_NAMES[x.key]+(x.all?' (todos)':(x.qty?' ('+x.qty+')':''));})).join(', ')||'—';
@@ -1379,26 +1439,26 @@ function followWizardView(){
   var _fs=calcFollowScore(f);
   if(_fs){var _fc=_fs.color==='risk'?'#dc2626':(_fs.color==='warn'?'#d97706':'#16a34a');html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;border-left:4px solid '+_fc+'"><div><div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Score deste follow</div><div style="font-size:11px;color:var(--t3);margin-top:2px">Diferente do score geral do cliente</div></div><div style="font-size:32px;font-weight:800;color:'+_fc+'">'+_fs.score+'</div></div>';}
   html+='<div class="card" style="padding:1.5rem">';
-  html+=row('1','Unidades',(a.units_changed==='nao'?'Manteve igual. Total: '+(a.units_count||'?'):(a.units_changed==='ganhou'?'Ganhou '+a.units_delta+'. Total: '+(a.units_count||'?'):(a.units_changed==='perdeu'?'Perdeu '+a.units_delta+'. Total: '+(a.units_count||'?'):'Total: '+(a.units_count||'?')))),'units');
-  html+=row('2','Localização',cities,null);
-  html+=row('3','Modelo de precificação',(a.pricing_model==='fixo'?'Fixo':(a.pricing_model==='flexivel'?'Flexível':'—')),null);
-  html+=row('4','Canais conectados',activeChs+(a.channels_note?' — '+e(a.channels_note):''),'channels');
-  html+=row('5','Migração de domínio',(a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—')),'domain');
-  html+=row('6','Personalização de site',(a.site_option!==undefined&&a.site_option!==null?SITE[a.site_option]+(a.site_other?' — '+e(a.site_other):''):'—'),'site');
+  html+=row('1','Unidades',(a.units_changed==='nao'?'Manteve igual. Total: '+(a.units_count||'?'):(a.units_changed==='ganhou'?'Ganhou '+a.units_delta+'. Total: '+(a.units_count||'?'):(a.units_changed==='perdeu'?'Perdeu '+a.units_delta+'. Total: '+(a.units_count||'?'):'Total: '+(a.units_count||'?')))),'units','units');
+  html+=row('2','Localização',cities,null,'cities');
+  html+=row('3','Modelo de precificação',(a.pricing_model==='fixo'?'Fixo':(a.pricing_model==='flexivel'?'Flexível':'—')),null,'pricing');
+  html+=row('4','Canais conectados',activeChs+(a.channels_note?' — '+e(a.channels_note):''),'channels','channels');
+  html+=row('5','Migração de domínio',(a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—')),'domain','domain');
+  html+=row('6','Personalização de site',(a.site_option!==undefined&&a.site_option!==null?SITE[a.site_option]+(a.site_other?' — '+e(a.site_other):''):'—'),'site','site');
   var occArr=wizFollowSeason(a)==='low'?OCC_L:OCC_H;
-  html+=row('7','Ocupação',(a.occupation_option!==undefined&&a.occupation_option!==null?occArr[a.occupation_option]:'—'),'occupation');
-  html+=row('8','Preço competitivo',(a.price_option!==undefined&&a.price_option!==null?PRICE[a.price_option]:'—'),'price');
-  html+=row('9','Last minute',(a.lastminute==='sim'?'Sim — '+(a.lastminute_time||'?'):(a.lastminute==='nao'?'Não':'—')),null);
-  html+=row('10','Fotos e descrição',(a.photos_option!==undefined?PHOTOS[a.photos_option]:'—')+' / '+(a.description_option!==undefined?DESC[a.description_option]:'—'),'photos_desc');
-  html+=row('11','Módulo financeiro',(a.financial_option!==undefined&&a.financial_option!==null?FIN[a.financial_option]:'—'),'financial');
-  html+=row('12','Módulo operacional',(a.operational_option!==undefined&&a.operational_option!==null?FIN[a.operational_option]:'—'),'operational');
-  html+=row('13','App Center',(a.appcenter_option!==undefined&&a.appcenter_option!==null?APP[a.appcenter_option]+(a.appcenter_detail?' — '+e(a.appcenter_detail):''):'—'),'appcenter');
-  html+=row('14','Open API',(a.openapi==='sim'?'Sim — '+e(a.openapi_detail||'?'):(a.openapi==='nao'?'Não':'—')),null);
-  html+=row('15','Canal de pagamento',(a.payment==='sim'?'Tem canal':(a.payment==='nao'?'Não tem':'—')),'payment');
-  html+=row('16','Inadimplência',(a.inadimplencia_note?e(a.inadimplencia_note):'Ver histórico do cliente'),null);
-  html+=row('17','Churn / NPS / Reclame Aqui',(a.churn_note?'Churn: '+e(a.churn_note)+'. ':'')+'NPS: '+(a.nps_avaliou==='sim'?a.nps_score+'/5':'Não avaliou')+'. Reclame Aqui: '+(a.reclame_aqui==='sim'?'Sim':'Não'),'nps');
-  html+=row('18','Abertura de casos',(a.cases_option!==undefined&&a.cases_option!==null?CASES[a.cases_option]:'—')+(a.cases_n2==='sim'?' — N2/Website em aberto'+(a.cases_n2_detail?': '+e(a.cases_n2_detail):''):''),'cases');
-  html+=row('19','Oportunidade de upgrade',(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano','Tem limitações, sem interesse','Oportunidade clara','Não conhece planos'][a.upgrade_option]:'—')+(a.upgrade_note?' — '+e(a.upgrade_note):''),null);
+  html+=row('7','Ocupação',(a.occupation_option!==undefined&&a.occupation_option!==null?occArr[a.occupation_option]:'—'),'occupation','occupation');
+  html+=row('8','Preço competitivo',(a.price_option!==undefined&&a.price_option!==null?PRICE[a.price_option]:'—'),'price','price');
+  html+=row('9','Last minute',(a.lastminute==='sim'?'Sim — '+(a.lastminute_time||'?'):(a.lastminute==='nao'?'Não':'—')),null,'lastminute');
+  html+=row('10','Fotos e descrição',(a.photos_option!==undefined?PHOTOS[a.photos_option]:'—')+' / '+(a.description_option!==undefined?DESC[a.description_option]:'—'),'photos_desc','photos');
+  html+=row('11','Módulo financeiro',(a.financial_option!==undefined&&a.financial_option!==null?FIN[a.financial_option]:'—'),'financial','financial');
+  html+=row('12','Módulo operacional',(a.operational_option!==undefined&&a.operational_option!==null?FIN[a.operational_option]:'—'),'operational','operational');
+  html+=row('13','App Center',(a.appcenter_option!==undefined&&a.appcenter_option!==null?APP[a.appcenter_option]+(a.appcenter_detail?' — '+e(a.appcenter_detail):''):'—'),'appcenter','appcenter');
+  html+=row('14','Open API',(a.openapi==='sim'?'Sim — '+e(a.openapi_detail||'?'):(a.openapi==='nao'?'Não':'—')),null,'openapi');
+  html+=row('15','Canal de pagamento',(a.payment==='sim'?'Tem canal':(a.payment==='nao'?'Não tem':'—')),'payment','payment');
+  html+=row('16','Inadimplência',(a.inadimplencia_note?e(a.inadimplencia_note):'Ver histórico do cliente'),null,'inadimplencia');
+  html+=row('17','Churn / NPS / Reclame Aqui',(a.churn_note?'Churn: '+e(a.churn_note)+'. ':'')+'NPS: '+(a.nps_avaliou==='sim'?a.nps_score+'/5':'Não avaliou')+'. Reclame Aqui: '+(a.reclame_aqui==='sim'?'Sim':'Não'),'nps','nps_churn');
+  html+=row('18','Abertura de casos',(a.cases_option!==undefined&&a.cases_option!==null?CASES[a.cases_option]:'—')+(a.cases_n2==='sim'?' — N2/Website em aberto'+(a.cases_n2_detail?': '+e(a.cases_n2_detail):''):''),'cases','cases');
+  html+=row('19','Oportunidade de upgrade',(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano','Tem limitações, sem interesse','Oportunidade clara','Não conhece planos'][a.upgrade_option]:'—')+(a.upgrade_note?' — '+e(a.upgrade_note):''),null,'upgrade');
   html+='</div>';
   if(a.positive_points||a.attention_points||a.next_steps){
     html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="font-size:13px;font-weight:600;margin-bottom:.75rem">📝 Observações e próximos passos</div>';
@@ -1739,7 +1799,7 @@ function wizView(){
   var total=isRec?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST;
   var pct=Math.round(((step+1)/total)*100);
   var stepKey=(isRec?WIZ_STEPS_REC:WIZ_STEPS_FIRST)[step];
-  var recRenderers={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
+  var recRenderers=WIZ_RENDERERS;
   var renderFn=recRenderers[stepKey];
   var HINTMAP={units:'SMS da Stays',cities:'Sistema do cliente',pricing:'SMS da Stays',channels:'SMS da Stays',notifs:'SMS da Stays / Painel',ch_perf:'SMS da Stays',ch_usab:'SMS da Stays',domain:'SMS da Stays',site:'Sistema do cliente',photos:'Sistema do cliente',occupation:'Sistema do cliente',price:'SMS da Stays',lastminute:'Sistema do cliente',financial:'SMS da Stays',operational:'SMS da Stays',appcenter:'SMS da Stays',openapi:'SMS da Stays / Salesforce',prod_sug:'Análise do analista',payment:'SMS da Stays',inadimplencia:'Salesforce',nego:'Salesforce',nps_churn:'Track (NPS) / Salesforce',cases:'Salesforce',upgrade:'Análise do plano',acct_plan:'Plano de contas / Salesforce'};
   var ICONMAP={units:'🏢',cities:'📍',pricing:'💰',channels:'🌐',notifs:'🔔',ch_perf:'📈',ch_usab:'🧩',domain:'🔗',site:'🎨',photos:'📸',occupation:'📊',price:'💵',lastminute:'⏰',financial:'💼',operational:'⚙️',appcenter:'🔌',openapi:'🛠',prod_sug:'🔵',payment:'💳',inadimplencia:'💰',nego:'🤝',nps_churn:'⭐',cases:'🎫',upgrade:'⬆️',acct_plan:'📋'};
@@ -2744,13 +2804,13 @@ function mSettings(){return'<div class="modal-box"><div class="modal-title">Conf
 function openClientFollows(i){S.sel=i;S.view="client";S.clientTab="follows";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function toggleDropdown(id,ev){ev.stopPropagation();var el=document.getElementById(id);if(!el)return;var isOpen=el.style.display==="block";document.querySelectorAll(".dd-menu").forEach(function(d){d.style.display="none";});if(!isOpen){el.style.display="block";setTimeout(function(){document.addEventListener("click",function h(){el.style.display="none";document.removeEventListener("click",h);},{once:true});},0);}}
 function goBack(){S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";S.adminMode=false;render();}
-function goBackToClient(){if(S.hasUnsavedChanges&&!confirm("Tem alteracoes nao salvas. Sair sem salvar?"))return;S.hasUnsavedChanges=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
+function goBackToClient(){if(S.editFollow&&S.editFollowDirty&&!confirm("Você tem alterações não salvas nesta pergunta. Sair sem salvar?"))return;if(S.hasUnsavedChanges&&!confirm("Tem alteracoes nao salvas. Sair sem salvar?"))return;S.editFollow=null;S.editFollowDirty=false;S.hasUnsavedChanges=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
 function goArchived(){S.view="archived";render();}
 function goAdminLog(){loadAdminLog().then(function(){S.view="adminlog";render();});}
 function goAdmin(){S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
 function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
-function openFollow(fi){S.hasUnsavedChanges=false;S.selFollow=fi;var c=S.clients[S.sel];var f=c.follows[fi];S.view=(f&&f.wizard)?"follow-view":"follow";S.genText="";S.importMsg="";render();}
+function openFollow(fi){S.hasUnsavedChanges=false;S.editFollow=null;S.editFollowDirty=false;S.selFollow=fi;var c=S.clients[S.sel];var f=c.follows[fi];S.view=(f&&f.wizard)?"follow-view":"follow";S.genText="";S.importMsg="";render();}
 function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);render();}
 function closeM(){S.modal=null;S.churnEditMode=false;render();}
 function toggleCitiesPanel(){S.citiesOpen=!S.citiesOpen;render();}
