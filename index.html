@@ -1354,18 +1354,18 @@ function followWizardView(){
   html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Idioma</div><div style="display:flex;gap:6px">';
   var _fwl=a.whats_lang||'pt';
   [['pt','Português'],['en','English'],['es','Español']].forEach(function(L){
-  html+='<div onclick="setFollowWhatsLang('+ci+','+fi+',\''+L[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwl===L[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'>'+L[1]+'</div>';
+  html+='<div onclick="setFollowWhatsLang('+ci+','+fi+',\''+L[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwl===L[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'">'+L[1]+'</div>';
   });
   html+='</div></div>';
   html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Abordagem</div><div style="display:flex;gap:6px">';
   var _fwm=a.whats_mode||(f.type==='recurring'?'recorrente':'primeiro');
   [['primeiro','Primeiro contato'],['recorrente','Já conheço o cliente']].forEach(function(M){
-  html+='<div onclick="setFollowWhatsMode('+ci+','+fi+',\''+M[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwm===M[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'>'+M[1]+'</div>';
+  html+='<div onclick="setFollowWhatsMode('+ci+','+fi+',\''+M[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwm===M[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'">'+M[1]+'</div>';
   });
   html+='</div></div></div></div>';
   html+='<div class="card" style="padding:1rem 1.5rem;margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--t3);margin-right:4px">Gerar textos:</span><button class="btn btn-sm" onclick="genSFForFollow('+ci+','+fi+')">📋 Texto Salesforce</button><button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="genWhatsForFollow('+ci+','+fi+')">💬 Prompt WhatsApp</button></div>';
   if(a.sf_text){
-    html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">Texto do Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div><pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre></div>';
+    html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">Texto do Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div><pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;max-height:300px;overflow-y:auto;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre></div>';
   }
   if(a.whats_prompt){
     html+='<div class="card" style="padding:1.5rem;margin-top:1rem;border-color:#25D366"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem"><div style="font-size:13px;font-weight:600">💬 Prompt do WhatsApp</div><button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.whats_prompt);alert(\'Prompt copiado! Cole em qualquer IA para gerar a mensagem.\')">📋 Copiar prompt</button></div><div style="font-size:11px;color:var(--t3);margin-bottom:.75rem">Cole em qualquer IA (Claude, ChatGPT, Gemini) para gerar a mensagem personalizada.</div><div style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.6;background:var(--surf2);padding:14px;border-radius:8px;border:1px solid var(--bd);max-height:280px;overflow-y:auto">'+e(a.whats_prompt)+'</div></div>';
@@ -1850,7 +1850,7 @@ function wizSummaryView(){
   if(a.sf_text){
     html+='<div class="card" style="margin-top:1rem;padding:1.25rem">';
     html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600;color:var(--t)">Texto para o Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.wiz.answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div>';
-    html+='<pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre>';
+    html+='<pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;max-height:300px;overflow-y:auto;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre>';
     html+='</div>';
   }
   if(a.whats_prompt){
@@ -2402,16 +2402,27 @@ function adminView(){if(S.appUser.role!=="admin")return'<p>Acesso negado.</p>';v
 // ============================================================
 // MODAIS
 // ============================================================
+function deleteChurnHistory(ci,idx){
+  var c=S.clients[ci];
+  if(!c.churnHistory||!c.churnHistory[idx])return;
+  var h=c.churnHistory[idx];
+  if(!confirm('Excluir este registro do histórico de churn'+(h.caseNumber?' (Caso #'+h.caseNumber+')':'')+'? Esta ação não pode ser desfeita.'))return;
+  c.churnHistory.splice(idx,1);
+  saveState();
+  if(c.churnHistory.length)render();else closeM();
+}
 function mChurnHistory(ci){
   var c=S.clients[ci];
   var hist=(c.churnHistory||[]).slice().reverse();
   var rows='';
   if(!hist.length){rows='<div style="color:var(--t3);padding:1rem 0">Nenhum histórico de churn registrado.</div>';}
   else{
-    hist.forEach(function(h){
+    var _origLen=(c.churnHistory||[]).length;
+    hist.forEach(function(h,j){
+      var realIdx=_origLen-1-j;
       var badge=h.outcome==='recovery'?'<span class="badge b-warn">Recuperação</span>':'<span class="badge b-ok">Resolvido</span>';
       rows+='<div style="border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surf2)">';
-      rows+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-weight:600;font-size:14px">'+(h.caseNumber?'Caso #'+e(h.caseNumber):'Alerta de churn')+'</div>'+badge+'</div>';
+      rows+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-weight:600;font-size:14px">'+(h.caseNumber?'Caso #'+e(h.caseNumber):'Alerta de churn')+'</div><div style="display:flex;align-items:center;gap:8px">'+badge+'<button class="btn btn-sm" title="Excluir do histórico" style="padding:2px 8px;color:#b91c1c;border-color:#f3b0b0" onclick="deleteChurnHistory('+ci+','+realIdx+')">🗑</button></div></div>';
       rows+='<div style="font-size:12px;color:var(--t2);line-height:1.6">';
       if(h.openedAt)rows+='Aberto em '+e(h.openedAt)+'<br>';
       if(h.closedAt)rows+='Retido em '+e(h.closedAt)+(h.resolvedBy?' · por '+e(h.resolvedBy):'')+'<br>';
