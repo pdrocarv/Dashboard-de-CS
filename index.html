@@ -42,6 +42,8 @@ body{font-family:"Roboto",sans-serif;background:var(--bg);color:var(--t);font-si
 .alert-section{background:var(--surf2);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:12px}
 .alert-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin-bottom:10px}
 .btn-churn{background:#fde8e8;color:#b91c1c;border:1px solid #f87171;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s ease}
+.btn-churn-hist{background:var(--surf2);color:var(--t2);border:1px solid var(--bd);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s ease}
+.btn-churn-hist:hover{border-color:#b91c1c;color:#b91c1c}
 .btn-churn:hover{background:#fca5a5;color:#7f1d1d}
 .btn-inadim{background:#fff3e0;color:#c2410c;border:1px solid #fb923c;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s ease}
 .btn-inadim:hover{background:#fed7aa;color:#7c2d12}
@@ -298,6 +300,8 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .wiz-pay-chip{padding:7px 13px;border:1px solid var(--bd);border-radius:20px;font-size:12.5px;cursor:pointer;background:var(--surf2);color:var(--t2);transition:all .15s;user-select:none}
 .wiz-pay-chip:hover{border-color:var(--b600)}
 .wiz-pay-chip.on{background:var(--b50);border-color:var(--b600);color:var(--b600);font-weight:600}
+.wiz-annot{margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd)}
+.wiz-annot-lbl{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -452,8 +456,67 @@ function getTimeInTZ(tz){try{return new Date().toLocaleTimeString("pt-BR",{timeZ
 function getFollowsSorted(c){if(!c.follows||!c.follows.length)return[];return[...c.follows].sort(function(a,b){return new Date(b.date)-new Date(a.date);});}
 function getLatestFollow(c){return getFollowsSorted(c)[0]||null;}
 function getPrevFollow(c){return getFollowsSorted(c)[1]||null;}
+
+// ══════════════════════════════════════════════════════════
+// SISTEMA DE SAÚDE V2 — baseado no follow do wizard
+// Categorias e pesos: Risco 5, Financeiro 4, Distribuição 3,
+// Crescimento 2, Digital 2, Engajamento 1
+// ══════════════════════════════════════════════════════════
+var HEALTH_WEIGHTS={risco:5,financeiro:4,distribuicao:3,crescimento:2,digital:2,engajamento:1};
+// Itens de humor (carinha) por categoria — chaves batem com wizFaces
+var HEALTH_HUMOR_CATS={
+  crescimento:['units','occupation'],
+  digital:['domain','site','photos_desc','payment'],
+  distribuicao:['channels','price','chperf','usab'],
+  financeiro:['nego'],
+  risco:['nps','cases','notifs'],
+  engajamento:['financial','operational','appcenter']
+};
+function humorTo100(h){return Math.round((h/4)*100);}
+// converte estado de contato (termômetro) em nota
+function contactScore(c){var d=getDaysWithoutContact(c);if(d===null)return 20;if(d<=30)return 100;if(d<=60)return 60;return 20;}
+// atividade registrada nos últimos 90 dias
+function activityScore(c){var last=getLastActivity(c);if(!last)return 30;var d=Math.floor((Date.now()-new Date(last.date))/(1000*60*60*24));return d<=90?100:40;}
+// nota do financeiro do cliente (inadimplência)
+function inadScore(c){
+  if(isInadimplente(c))return 0;
+  var lf=getLatestFollow(c);
+  if(lf&&lf.answers&&lf.answers.inadimplencia_opt==='sim')return 40;
+  return 100;
+}
+// Calcula a nota (0-100) de cada categoria + saúde geral ponderada
+function calcHealthV2(c){
+  var f=getLatestFollow(c);
+  var eff=(f&&f.wizard)?(f.humors||{}):{};
+  var cats={};
+  Object.keys(HEALTH_HUMOR_CATS).forEach(function(cat){
+    var parts=[];
+    HEALTH_HUMOR_CATS[cat].forEach(function(k){
+      if(eff[k]!==undefined&&eff[k]!==null)parts.push(humorTo100(eff[k]));
+    });
+    // Itens que não são carinha:
+    if(cat==='financeiro')parts.push(inadScore(c));
+    if(cat==='risco'&&isChurnAlert(c))parts.push(0);
+    if(cat==='engajamento'){parts.push(contactScore(c));parts.push(activityScore(c));}
+    cats[cat]=parts.length?Math.round(parts.reduce(function(a,b){return a+b;},0)/parts.length):null;
+  });
+  // Saúde geral: média ponderada das categorias que têm nota
+  var wsum=0,acc=0;
+  Object.keys(HEALTH_WEIGHTS).forEach(function(cat){
+    if(cats[cat]!==null){acc+=cats[cat]*HEALTH_WEIGHTS[cat];wsum+=HEALTH_WEIGHTS[cat];}
+  });
+  var score=wsum?Math.round(acc/wsum):100;
+  // Travas: churn ativo, inadimplência em aberto ou NPS 1-2 → força vermelho
+  var npsScore=(f&&f.answers&&f.answers.nps_score)?+f.answers.nps_score:null;
+  var trava=isChurnAlert(c)||isInadimplente(c)||(npsScore!==null&&npsScore<=2);
+  if(trava)score=Math.min(score,30);
+  return {score:score,cats:cats,trava:trava};
+}
+function healthBand(s){return s>=70?'ok':(s>=40?'warn':'risk');}
+
 function calcScore(c){
   var f=getLatestFollow(c);if(!f)return 100;
+  if(f.wizard)return calcHealthV2(c).score;
   var s=100,type=f.type||"first";
   IND.filter(function(i){return i.show==="both"||i.show===type;}).forEach(function(ind){var v=f.indicators[ind.key];if(!v)return;if(v.status==="risk")s+=ind.w.risk;else if(v.status==="warn")s+=ind.w.warn;});
   (c.contacts||[]).slice(-10).forEach(function(ct){if(ct.type==="churn")s-=25;else if(ct.impact==="positive")s+=4;else if(ct.impact==="negative")s-=8;});
@@ -463,7 +526,9 @@ function calcScore(c){
 }
 function hl(s){return s>=75?"ok":(s>=50?"warn":"risk");}
 function fuSt(c){var f=getLatestFollow(c);if(!f||!f.date)return{label:"Sem data",cls:"fu-warn",days:null};var diff=Math.floor((Date.now()-new Date(f.date))/86400000),due=70-diff;if(due>14)return{label:due+"d",cls:"fu-ok",days:due};if(due>=0)return{label:due+"d (em breve)",cls:"fu-warn",days:due};return{label:"Vencido "+(-due)+"d",cls:"fu-overdue",days:due};}
-function catSt(c,cat){var f=getLatestFollow(c);if(!f)return"na";var type=f.type||"first";var sts=IND.filter(function(i){return i.cat===cat&&(i.show==="both"||i.show===type);}).map(function(i){return f.indicators[i.key]&&f.indicators[i.key].status||"na";});return sts.includes("risk")?"risk":(sts.includes("warn")?"warn":(sts.every(function(s){return s==="na";})?"na":"ok"));}
+function catSt(c,cat){var f=getLatestFollow(c);if(!f)return"na";
+  if(f.wizard){var h=calcHealthV2(c);var v=h.cats[cat];if(v===null||v===undefined)return"na";return v>=70?"ok":(v>=40?"warn":"risk");}
+  var type=f.type||"first";var sts=IND.filter(function(i){return i.cat===cat&&(i.show==="both"||i.show===type);}).map(function(i){return f.indicators[i.key]&&f.indicators[i.key].status||"na";});return sts.includes("risk")?"risk":(sts.includes("warn")?"warn":(sts.every(function(s){return s==="na";})?"na":"ok"));}
 function getCurrentSeason(c){var f=getLatestFollow(c);if(!f)return null;
   // Novo modelo (wizard): temporada vem de answers.cities[0].season_high_start/end (nomes de mês)
   if(f.wizard&&f.answers&&f.answers.cities&&f.answers.cities.length&&f.answers.cities[0].season_high_start){
@@ -483,7 +548,7 @@ function planBdg(plan){if(!plan||!PLAN_S[plan])return'<span class="badge b-na">�
 function bdgSt(st){return{ok:"OK",warn:"Atencao",risk:"Risco",na:"—"}[st]||st;}
 function formatMRR(mrr){if(!mrr&&mrr!==0)return"—";var n=parseFloat(mrr);if(isNaN(n))return mrr;return"$ "+n.toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:0});}
 function mkInd(){var o={};IND.forEach(function(i){var b={status:"na",notes:""};if(i.special==="season_high"||i.special==="season_low"){b.start="";b.end="";}if(i.special==="country"||i.special==="states"||i.special==="cities")b.value="";o[i.key]=b;});return o;}
-function migrateClient(c){if(!c.follows)c.follows=[];if(!c.keyContacts)c.keyContacts=[];if(c.units===undefined)c.units="";if(!c.mrr)c.mrr="";if(!c.clientCountry)c.clientCountry="";if(!c.clientCity)c.clientCity="";if(!c.categoria)c.categoria="";if(!c.onboardingStatus)c.onboardingStatus="";if(!c.churnCase)c.churnCase=null;if(!c.inadimplencia)c.inadimplencia=[];if(c.archived===undefined)c.archived=false;if(!c.recoveryMode)c.recoveryMode=null;if(!c.activities)c.activities=[];if(!c.reminders)c.reminders=[];c.follows.forEach(function(f){if(!f.indicators)f.indicators=mkInd();IND.forEach(function(i){if(!f.indicators[i.key]){var b={status:"na",notes:""};if(i.special==="season_high"||i.special==="season_low"){b.start="";b.end="";}if(i.special==="country"||i.special==="states"||i.special==="cities")b.value="";f.indicators[i.key]=b;}});});return c;}
+function migrateClient(c){if(!c.follows)c.follows=[];if(!c.keyContacts)c.keyContacts=[];if(c.units===undefined)c.units="";if(!c.mrr)c.mrr="";if(!c.clientCountry)c.clientCountry="";if(!c.clientCity)c.clientCity="";if(!c.categoria)c.categoria="";if(!c.onboardingStatus)c.onboardingStatus="";if(!c.churnCase)c.churnCase=null;if(!c.churnHistory)c.churnHistory=[];if(!c.inadimplencia)c.inadimplencia=[];if(c.archived===undefined)c.archived=false;if(!c.recoveryMode)c.recoveryMode=null;if(!c.activities)c.activities=[];if(!c.reminders)c.reminders=[];c.follows.forEach(function(f){if(!f.indicators)f.indicators=mkInd();IND.forEach(function(i){if(!f.indicators[i.key]){var b={status:"na",notes:""};if(i.special==="season_high"||i.special==="season_low"){b.start="";b.end="";}if(i.special==="country"||i.special==="states"||i.special==="cities")b.value="";f.indicators[i.key]=b;}});});return c;}
 function migrateClients(cs){return cs.map(migrateClient);}
 function findInd(q){for(var en of KMAP){if(en.keys.some(function(k){return q.includes(k);}))return en.ind;}return null;}
 function detectSt(q,a){var yes=/^sim/.test(a),no=/^n[ao]o/.test(a),never=/nunca|jamais/.test(a);if(q.includes("inadimpl"))return(no||never)?"ok":(yes?"risk":"na");if(q.includes("cancelamento")||q.includes("nps")){if(never||/nunca teve/.test(a))return"ok";if(yes||/pediu|solicitou/.test(a))return"risk";}if(q.includes("fuso")){if(yes||/correto/.test(a))return"ok";if(no||/incorreto/.test(a))return"risk";}if(q.includes("caso")||q.includes("n2")){if(no||/nao tem|sem casos/.test(a))return"ok";if(/n2|website/.test(a))return"risk";if(yes||/aberto/.test(a))return"warn";}if(q.includes("ocup")){var p=a.match(/(\d+)%/);if(p){var n=parseInt(p[1]);return n<30?"risk":(n<60?"warn":"ok");}if(/boa|alta|otima/.test(a))return"ok";if(/baixa|ruim/.test(a))return"risk";}if(q.includes("foto")||q.includes("descric"))return yes?"ok":(no?"warn":"na");if(q.includes("personaliz")||q.includes("site")){if(/bem personalizado|ativo|possui/.test(a)||yes)return"ok";return no?"warn":"na";}if(q.includes("domin")||q.includes("migra"))return yes?"ok":(no?"warn":"na");if(q.includes("financeiro")||q.includes("operacional")){if(/nao tem acesso|nao utiliza/.test(a))return"na";return yes?"ok":"na";}if(q.includes("unidade")){if(/diminuiu|reduziu|perdeu/.test(a))return"risk";if(/aumentou|cresceu/.test(a))return"ok";return"ok";}if(q.includes("preco")||q.includes("competit")){if(/abaixo/.test(a))return"warn";if(/muito acima|bem acima/.test(a))return"risk";if(/competitiv|adequado/.test(a))return"ok";}if(q.includes("canal")||q.includes("listing")){if(/nao conectado|desconect|queda/.test(a))return"warn";if(/todos|conectado/.test(a))return"ok";}if(q.includes("pagamento")){if(/stripe|paypal|mercado pago|getnet/.test(a))return"ok";if(no||/nao tem/.test(a))return"risk";}if(q.includes("atividade")||q.includes("acesso")){if(/todo dia|diariamente/.test(a))return"ok";if(/30 dias|um mes/.test(a))return"risk";if(/7 dias/.test(a))return"warn";}return"na";}
@@ -1212,6 +1277,8 @@ function genWhatsForFollow(ci,fi){
   S.wiz=backup;
   saveState();render();
 }
+function setFollowWhatsLang(ci,fi,lang){var f=S.clients[ci].follows[fi];if(!f)return;f.answers.whats_lang=lang;saveState();if(f.answers.whats_prompt)genWhatsForFollow(ci,fi);else render();}
+function setFollowWhatsMode(ci,fi,mode){var f=S.clients[ci].follows[fi];if(!f)return;f.answers.whats_mode=mode;saveState();if(f.answers.whats_prompt)genWhatsForFollow(ci,fi);else render();}
 function followWizardView(){
   var c=S.clients[S.sel],ci=S.sel,fi=S.selFollow,f=c.follows[fi];
   if(!f){goBackToClient();return"";}
@@ -1272,6 +1339,30 @@ function followWizardView(){
     if(a.next_steps)html+='<div><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase">Próximos passos</div><div style="font-size:13px;color:var(--t2);white-space:pre-wrap">'+e(a.next_steps)+'</div></div>';
     html+='</div>';
   }
+  var _svSteps=(f.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST);
+  var _svLbl=wizStepLabels();var _svAnnots=[];
+  _svSteps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())_svAnnots.push({label:_svLbl[k]||k,note:n.trim()});});
+  if(_svAnnots.length){
+  html+='<div class="card" style="padding:1rem 1.25rem;margin-top:1rem">';
+  html+='<div style="font-size:13px;font-weight:600;margin-bottom:10px">📝 Anotações do follow</div>';
+  _svAnnots.forEach(function(it){
+  html+='<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bd)"><div style="font-size:12px;font-weight:600;color:var(--b600)">'+e(it.label)+'</div><div style="font-size:13px;color:var(--t);white-space:pre-line">'+e(it.note)+'</div></div>';
+  });
+  html+='</div>';
+  }
+  html+='<div class="card" style="padding:1rem 1.5rem;margin-top:1rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px">Opções da mensagem de WhatsApp</div><div style="display:flex;gap:20px;flex-wrap:wrap">';
+  html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Idioma</div><div style="display:flex;gap:6px">';
+  var _fwl=a.whats_lang||'pt';
+  [['pt','Português'],['en','English'],['es','Español']].forEach(function(L){
+  html+='<div onclick="setFollowWhatsLang('+ci+','+fi+',\''+L[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwl===L[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'>'+L[1]+'</div>';
+  });
+  html+='</div></div>';
+  html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:5px">Abordagem</div><div style="display:flex;gap:6px">';
+  var _fwm=a.whats_mode||(f.type==='recurring'?'recorrente':'primeiro');
+  [['primeiro','Primeiro contato'],['recorrente','Já conheço o cliente']].forEach(function(M){
+  html+='<div onclick="setFollowWhatsMode('+ci+','+fi+',\''+M[0]+'\')" style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:12px;border:1px solid '+(_fwm===M[0]?'var(--b600);background:var(--b50);color:var(--b600);font-weight:600':'var(--bd);background:var(--surf);color:var(--t2)')+'>'+M[1]+'</div>';
+  });
+  html+='</div></div></div></div>';
   html+='<div class="card" style="padding:1rem 1.5rem;margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="font-size:12px;color:var(--t3);margin-right:4px">Gerar textos:</span><button class="btn btn-sm" onclick="genSFForFollow('+ci+','+fi+')">📋 Texto Salesforce</button><button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="genWhatsForFollow('+ci+','+fi+')">💬 Prompt WhatsApp</button></div>';
   if(a.sf_text){
     html+='<div class="card" style="padding:1.5rem;margin-top:1rem"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:13px;font-weight:600">Texto do Salesforce</div><button class="btn btn-sm" onclick="navigator.clipboard.writeText(S.clients['+ci+'].follows['+fi+'].answers.sf_text);alert(\'Copiado!\')">📋 Copiar</button></div><pre style="font-size:12px;color:var(--t2);white-space:pre-wrap;line-height:1.7;font-family:\'Roboto\',sans-serif">'+e(a.sf_text)+'</pre></div>';
@@ -1516,15 +1607,17 @@ function wizR4(){
 function wizR5(){
   var a=S.wiz.answers;
   var sim=a.nego_has;
+  var auto=sim===true?1:(sim===false?4:2); // sim=Ruim (risco), não=Ótimo (saudável)
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Há negociação de mensalidade em andamento?</div>';
-  html+='<div class="wiz-q-sub">Registre qualquer conversa sobre valores, reajuste, desconto ou renegociação de plano.</div>';
+  html+='<div class="wiz-q-sub">Registre qualquer conversa sobre valores, reajuste, desconto ou renegociação de plano. Negociação em aberto é sinal de risco — ajuste o humor se for uma conversa tranquila ou séria.</div>';
   html+='<div class="wiz-opts">';
   html+='<div class="wiz-opt'+(sim===true?' sel':'')+'" onclick="wizA(\'nego_has\',true)"><span class="wiz-opt-ico">🤝</span><span class="wiz-opt-lbl">Sim, há negociação</span></div>';
   html+='<div class="wiz-opt'+(sim===false?' sel':'')+'" onclick="wizA(\'nego_has\',false)"><span class="wiz-opt-ico">➖</span><span class="wiz-opt-lbl">Não há negociação</span></div>';
   html+='</div>';
   if(sim===true||sim===false){
     html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação</label><textarea class="wiz-note" rows="3" placeholder="'+(sim===true?'Ex: Cliente pediu desconto de 10%; avaliando upgrade de plano...':'Ex: Sem pauta de mensalidade neste momento...')+'" oninput="wizAText(\'nego_note\',this.value)">'+(a.nego_note||'')+'</textarea></div>';
+    html+=wizFaces('nego',auto,true);
   }
   html+='</div>';
   return html;
@@ -1593,6 +1686,9 @@ function wizView(){
   html+='<div class="wiz-progress"><div class="wiz-progress-fill" style="width:'+pct+'%"></div></div>';
   html+='<div class="wiz-step-lbl"><span style="font-size:18px">'+curIcon+'</span>Pergunta '+(step+1)+' de '+total+' &nbsp;·&nbsp; <span style="color:var(--t3);font-size:10px">'+curHint+'</span></div>';
   html+=renderFn();
+  // Campo de Anotações por pergunta (aparece no resumo e alimenta o prompt do WhatsApp)
+  html+='<div class="wiz-annot"><label class="wiz-annot-lbl">📝 Anotações desta pergunta <span style="color:var(--t3);font-weight:400">(opcional)</span></label>'
+    +'<textarea class="wiz-note" rows="2" placeholder="Observações do analista sobre este ponto..." oninput="wizAText(\'note_'+stepKey+'\',this.value)">'+(S.wiz.answers['note_'+stepKey]||'')+'</textarea></div>';
   var isLast=step===total-1;
   html+='<div class="wiz-nav">'
     +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
@@ -1612,6 +1708,17 @@ function wizSaveProgress(){
   alert('Follow-up salvo! Você pode continuar de onde parou depois, abrindo novamente na aba Follow-Ups.');
   S.view='client';S.clientTab='follows';
   render();
+}
+function wizAnnotationsRecap(){
+  var a=S.wiz.answers;
+  var steps=(S.wiz.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST);
+  var LBL=wizStepLabels();
+  var items=[];
+  steps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())items.push({label:LBL[k]||k,note:n.trim()});});
+  return items;
+}
+function wizStepLabels(){
+  return {units:'Unidades',cities:'Localização/temporada',pricing:'Precificação',channels:'Canais',notifs:'Notificações do painel',ch_perf:'Performance nos canais',ch_usab:'Usabilidade dos canais',domain:'Migração de domínio',site:'Personalização do site',photos:'Fotos e descrição',occupation:'Ocupação',price:'Preço competitivo',lastminute:'Last minute',financial:'Módulo financeiro',operational:'Módulo operacional',appcenter:'App Center',openapi:'Open API',prod_sug:'Sugestão de produto',payment:'Canal de pagamento',inadimplencia:'Inadimplência',nego:'Negociação de mensalidade',nps_churn:'Churn/NPS/Reclame Aqui',cases:'Casos abertos',upgrade:'Upgrade',acct_plan:'Plano de contas'};
 }
 function wizGoSummary(){S.wiz.step=(S.wiz.type==='recurring'?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST);render();}
 
@@ -1708,6 +1815,15 @@ function wizSummaryView(){
   html+='<div style="font-size:12px;color:var(--t2);margin-bottom:.5rem;margin-top:.75rem">Próximos passos com o cliente:</div>';
   html+='<textarea class="wiz-note" rows="3" placeholder="Ex: Marcar reunião para configurar módulo financeiro..." oninput="wizAText(\'next_steps\',this.value)">'+(a.next_steps||'')+'</textarea>';
   html+='</div>';
+  var _annots=wizAnnotationsRecap();
+  if(_annots.length){
+  html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:12px">';
+  html+='<div style="font-size:13px;font-weight:600;margin-bottom:10px">📝 Anotações do follow</div>';
+  _annots.forEach(function(it){
+  html+='<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bd)"><div style="font-size:12px;font-weight:600;color:var(--b600)">'+e(it.label)+'</div><div style="font-size:13px;color:var(--t);white-space:pre-line">'+e(it.note)+'</div></div>';
+  });
+  html+='</div>';
+  }
   html+='<div style="background:var(--surf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:12px">';
   html+='<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px">Opções da mensagem de WhatsApp</div>';
   html+='<div style="display:flex;gap:20px;flex-wrap:wrap">';
@@ -1854,6 +1970,8 @@ function wizGenWhats(){
   else{contactName='[Nome do cliente]';hasRealName=false;}
   var analystName=(S.appUser&&S.appUser.name)?S.appUser.name:'[seu nome]';
   var attentionText=a.attention_points||wizAutoAttention()||'';
+  var _annotList=(typeof wizAnnotationsRecap==='function')?wizAnnotationsRecap():[];
+  var annotText=_annotList.map(function(it){return it.label+': '+it.note;}).join(' | ');
 
   var LANGNAME={pt:'PORTUGUÊS',en:'INGLÊS',es:'ESPANHOL'};
   var P=[];
@@ -1874,6 +1992,7 @@ function wizGenWhats(){
   P.push('=== PONTOS DE ATENÇÃO (mencione 1 ou 2 dos mais relevantes de forma leve e consultiva) ===');
   P.push(badPts.length?badPts.join(', ')+'.':'(nenhum ponto crítico)');
   if(attentionText){P.push('Observações do analista: '+attentionText.replace(/\n/g,'; '));}
+  if(annotText){P.push('');P.push('=== ANOTAÇÕES DO ANALISTA POR TÓPICO (use como referência para personalizar a mensagem) ===');P.push(annotText);}
   if(evoLines.length){
     P.push('');
     P.push('=== EVOLUÇÃO DESDE O ÚLTIMO FOLLOW (demonstre que percebi as mudanças no negócio do cliente) ===');
@@ -2020,7 +2139,7 @@ var mrrOpts='<option value=""'+(S.sortMrr===""?" selected":"")+'>Ordenar por MRR
 var hasActiveFilter=!!(S.filterCountry||S.filterRisk||S.filterPlan||S.filterFollowUp||S.sortMrr||S.filterAnalyst||S.filterStatus||S.filterCategoria||S.filterAlertStatus);var filters='<div style="margin-top:1rem">'+'<div class="flex" style="gap:8px;margin-bottom:6px">'+'<button class="ver-filtros-btn'+(S.showFilters?' active':'')+'" onclick="S.showFilters=!S.showFilters;render()">'+'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>'+(S.showFilters?'Ocultar filtros':'Ver filtros')+'</button>'+(hasActiveFilter?'<span style="font-size:11px;color:var(--b600);font-weight:600;background:var(--b50);padding:3px 8px;border-radius:9999px">'+[S.filterCountry,S.filterRisk,S.filterPlan,S.filterFollowUp,S.filterStatus,S.filterCategoria].filter(Boolean).length+' ativo(s)</span>':'')+(hasActiveFilter?'<button class="btn btn-sm" onclick="S.filterCountry=S.filterRisk=S.filterPlan=S.filterFollowUp=S.sortMrr=S.filterAnalyst=S.filterStatus=S.filterCategoria=S.filterAlertStatus=\'\';render()">Limpar tudo</button>':'')+'</div>'+'<div class="filter-panel'+(S.showFilters?' fp-open':'')+'">'+'<div class="flex" style="flex-wrap:wrap;gap:8px;padding:10px 0">'+'<select style="width:auto" onchange="S.filterCountry=this.value;render()"><option value="">Todos os paises</option>'+countries.map(function(c){return'<option'+(S.filterCountry===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+'<select style="width:auto" onchange="S.filterCategoria=this.value;render()"><option value="">Todas as categorias</option><option value="Elite"'+(S.filterCategoria==="Elite"?' selected':'')+'>Elite</option><option value="High Touch"'+(S.filterCategoria==="High Touch"?' selected':'')+'>High Touch</option><option value="Core A/B"'+(S.filterCategoria==="Core A/B"?' selected':'')+'>Core A/B</option><option value="Long Tail"'+(S.filterCategoria==="Long Tail"?' selected':'')+'>Long Tail</option></select>'+'<select style="width:auto" onchange="S.filterAlertStatus=this.value;render()"><option value="">Status: todos</option><option value="ativo"'+(S.filterAlertStatus==="ativo"?' selected':'')+'>Ativos</option><option value="churn"'+(S.filterAlertStatus==="churn"?' selected':'')+'>Alerta de Churn</option><option value="inadimplente"'+(S.filterAlertStatus==="inadimplente"?' selected':'')+'>Inadimplentes</option><option value="recuperacao"'+(S.filterAlertStatus==="recuperacao"?' selected':'')+'>Em recuperação</option></select>'+'<select style="width:auto" onchange="S.filterStatus=this.value;render()"><option value="">Onboarding: todos</option><option value="Em andamento"'+(S.filterStatus==="Em andamento"?' selected':'')+'>Em andamento</option><option value="Completed"'+(S.filterStatus==="Completed"?' selected':'')+'>Completed</option></select>'+'<select style="width:auto" onchange="S.filterFollowUp=this.value;render()"><option value="">Follow-up: todos</option><option value="overdue"'+(S.filterFollowUp==="overdue"?' selected':'')+'>Atrasado</option><option value="soon"'+(S.filterFollowUp==="soon"?' selected':'')+'>Proximos 15d</option></select>'+'<select style="width:auto" onchange="S.filterPlan=this.value;render()"><option value="">Todos os planos</option>'+pOpts+'</select>'+'<select style="width:auto" onchange="S.filterRisk=this.value;render()"><option value="">Todos os riscos</option><option value="risk"'+(S.filterRisk==="risk"?' selected':'')+'>Alto risco</option><option value="warn"'+(S.filterRisk==="warn"?' selected':'')+'>Atencao</option><option value="ok"'+(S.filterRisk==="ok"?' selected':'')+'>Estaveis</option></select>'+'<select style="width:auto" onchange="S.sortMrr=this.value;render()">'+mrrOpts+'</select>'+(S.appUser.role==="admin"||S.appUser.role==="leader"?'+'+'<select style="width:auto" onchange="S.filterAnalyst=this.value;render()"><option value="">Todos os analistas</option>'+S.allUsers.filter(function(u){return u.role==="analyst"||u.role==="admin";}).map(function(u){return'<option value="'+u.uid+'"'+(S.filterAnalyst===u.uid?' selected':'')+'>'+e(u.name.split(' ')[0])+'</option>';}).join('')+'</select>':"")+'</div></div></div>'+'</div>';
 var tbl=filt.length===0?'<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">📋</div><p style="color:var(--t2);margin-bottom:1.5rem">Nenhum cliente encontrado.</p><button class="btn-primary" onclick="openM(\'add-client\')">+ Primeiro cliente</button></div>'
 :'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.distribuicao+'">Distribuicao</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th>Lem.</th><th></th></tr></thead><tbody>'
-+filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=hl(score),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td><button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px">'+e((c.slug||c.name).toUpperCase())+'</button><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+'</td><td>'+hB+'<div class="hrow"><div class="htrack"><div class="hfill" style="width:'+score+'%;background:'+hC+'"></div></div><span style="font-size:10px;color:var(--t3);min-width:24px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+distBar(calcDistribution(c))+'</td>'+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">📋</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">🔔</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">📋 Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">🗑 Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
++filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=healthBand(score),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td>'+(h==="risk"?'<span style="display:inline-block;border-left:3px solid #dc2626;background:#fde8e8;padding:1px 8px;border-radius:4px">':'<span>')+'<button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px;color:'+hC+'">'+e((c.slug||c.name).toUpperCase())+'</button></span><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+'</td><td>'+hB+'<div class="hrow"><div class="htrack"><div class="hfill" style="width:'+score+'%;background:'+hC+'"></div></div><span style="font-size:10px;color:var(--t3);min-width:24px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+distBar(calcDistribution(c))+'</td>'+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">📋</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">🔔</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">📋 Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">🗑 Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
 return'<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>'+filters+'<div style="margin-top:1.25rem"><div class="kpi-group"><div class="kpi-group-lbl">Saude da carteira</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"><div class="metric"><div class="metric-lbl">Total</div><div class="metric-val mv-d">'+all.length+'</div></div><div class="metric"><div class="metric-lbl">Alto risco</div><div class="metric-val mv-r">'+alto+'</div></div><div class="metric"><div class="metric-lbl">Atencao</div><div class="metric-val mv-a">'+med+'</div></div><div class="metric"><div class="metric-lbl">Estaveis</div><div class="metric-val mv-g">'+ok+'</div></div><div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(mrrTotal)+'</div></div></div></div><div class="kpi-group" style="margin-top:10px"><div class="kpi-group-lbl">Follow-ups</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="metric"><div class="metric-lbl">FU urgente</div><div class="metric-val mv-a">'+urg+'</div></div><div class="metric"><div class="metric-lbl">FU vencido</div><div class="metric-val mv-r">'+ven+'</div></div></div></div></div>'+tbl;}
 function archivedView(){
 var archived=S.clients.filter(function(c){return c.archived;});
@@ -2188,7 +2307,7 @@ var header=
   +e((c.slug||c.name).toUpperCase())
   +(c.slug?'<span style="color:var(--bd);font-weight:300;margin:0 6px">|</span>'+e(c.name):"")
   +'</div>'
-  +'<div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">'+(c.churnCase&&c.churnCase.active?'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Ver Caso Churn</button>':'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Marcar Churn</button>')+'<button class="btn-inadim" onclick="S.modal=\'inad-\'+'+ci+';render()">$ Inadimplência</button>'+'<button class="btn-edit" onclick="openM(\'edit-client\')">Editar</button>'+'</div>'
+  +'<div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">'+(c.churnCase&&c.churnCase.active?'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Ver Caso Churn</button>':'<button class="btn-churn" onclick="openM(\'churn-alert\','+ci+')">⚠ Marcar Churn</button>')+(c.churnHistory&&c.churnHistory.length?'<button class="btn-churn-hist" onclick="openM(\'churn-history\','+ci+')">↺ Histórico de churn</button>':'')+'<button class="btn-inadim" onclick="S.modal=\'inad-\'+'+ci+';render()">$ Inadimplência</button>'+'<button class="btn-edit" onclick="openM(\'edit-client\')">Editar</button>'+'</div>'
   +'</div>'
   // Row 2: location + clock + plano
   +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--t3);margin-top:-4px">'
@@ -2283,6 +2402,29 @@ function adminView(){if(S.appUser.role!=="admin")return'<p>Acesso negado.</p>';v
 // ============================================================
 // MODAIS
 // ============================================================
+function mChurnHistory(ci){
+  var c=S.clients[ci];
+  var hist=(c.churnHistory||[]).slice().reverse();
+  var rows='';
+  if(!hist.length){rows='<div style="color:var(--t3);padding:1rem 0">Nenhum histórico de churn registrado.</div>';}
+  else{
+    hist.forEach(function(h){
+      var badge=h.outcome==='recovery'?'<span class="badge b-warn">Recuperação</span>':'<span class="badge b-ok">Resolvido</span>';
+      rows+='<div style="border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surf2)">';
+      rows+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-weight:600;font-size:14px">'+(h.caseNumber?'Caso #'+e(h.caseNumber):'Alerta de churn')+'</div>'+badge+'</div>';
+      rows+='<div style="font-size:12px;color:var(--t2);line-height:1.6">';
+      if(h.openedAt)rows+='Aberto em '+e(h.openedAt)+'<br>';
+      if(h.closedAt)rows+='Retido em '+e(h.closedAt)+(h.resolvedBy?' · por '+e(h.resolvedBy):'')+'<br>';
+      if(h.note)rows+='<div style="margin-top:4px;color:var(--t)">'+e(h.note)+'</div>';
+      if(h.sfLink)rows+='<a href="'+e(h.sfLink)+'" target="_blank" style="color:var(--b600);font-size:12px">Abrir no Salesforce ↗</a>';
+      rows+='</div></div>';
+    });
+  }
+  return '<div class="modal-box" style="max-width:520px"><div class="modal-title">↺ Histórico de churn — '+e(c.slug||c.name)+'</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">Alertas de churn que já foram retidos (recuperados ou resolvidos).</div>'
+    +rows
+    +'<div class="flex" style="justify-content:flex-end;margin-top:1rem"><button class="btn" onclick="closeM()">Fechar</button></div></div>';
+}
 function mChurnAlert(ci){
 var c=S.clients[ci];
 var existing=c.churnCase&&c.churnCase.active;
@@ -2372,12 +2514,16 @@ function setRecoveryMode(ci,days){
 if(!confirm('Colocar '+S.clients[ci].name+' em recuperação por '+days+' dias?'))return;
 var endDate=Date.now()+(days*24*60*60*1000);
 S.clients[ci].recoveryMode={active:true,endDate:endDate,days:days,startDate:new Date().toLocaleDateString('pt-BR')};
+if(!S.clients[ci].churnHistory)S.clients[ci].churnHistory=[];
+S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,sfLink:S.clients[ci].churnCase.sfLink,note:S.clients[ci].churnCase.note,openedAt:S.clients[ci].churnCase.date,closedAt:new Date().toLocaleDateString('pt-BR'),outcome:'recovery',resolvedBy:S.appUser.name});
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='recovery';
 saveState();closeM();render();}
 function closeChurnResolved(ci){
 if(!confirm('Fechar caso de churn como RESOLVIDO? '+S.clients[ci].name+' voltará ao score normal.'))return;
+if(!S.clients[ci].churnHistory)S.clients[ci].churnHistory=[];
+S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,sfLink:S.clients[ci].churnCase.sfLink,note:S.clients[ci].churnCase.note,openedAt:S.clients[ci].churnCase.date,closedAt:new Date().toLocaleDateString('pt-BR'),outcome:'resolved',resolvedBy:S.appUser.name});
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='resolved';
@@ -2502,7 +2648,7 @@ function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];v
 function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveState();S.modal='inad-'+ci;render();}
 function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveState();S.modal='inad-'+ci;render();}
 
-function modal(){var fns={"add-client":mAddClient,"add-follow":mAddFollow,"import":mImport,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
+function modal(){var fns={"add-client":mAddClient,"add-follow":mAddFollow,"import":mImport,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="number" min="0" placeholder="Ex: 1500"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="Elite">Elite</option><option value="High Touch">High Touch</option><option value="Core A/B">Core A/B</option><option value="Long Tail">Long Tail</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div><p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
 function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(c.plan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(x){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(x);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Editar cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="en" type="text" value="'+e(c.name)+'"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS)</label><input id="eslug" type="text" value="'+e(c.slug||"")+'" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="ec"><option value="">Selecionar...</option>'+countries.map(function(x){return'<option'+(c.country===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="eu" type="number" min="1" value="'+e(c.units||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="epl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="emrr" type="number" min="0" value="'+e(c.mrr||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="ecl"><option value="">Selecionar...</option>'+allCountries.map(function(x){return'<option'+(c.clientCountry===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="ecly" type="text" value="'+e(c.clientCity||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="ecat"><option value="">Selecionar...</option><option value="Elite"'+(c.categoria==='Elite'?' selected':'')+'>Elite</option><option value="High Touch"'+(c.categoria==='High Touch'?' selected':'')+'>High Touch</option><option value="Core A/B"'+(c.categoria==='Core A/B'?' selected':'')+'>Core A/B</option><option value="Long Tail"'+(c.categoria==='Long Tail'?' selected':'')+'>Long Tail</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="est"><option value="">Selecionar...</option><option value="Em andamento"'+(c.onboardingStatus==='Em andamento'?' selected':'')+'>Em andamento</option><option value="Completed"'+(c.onboardingStatus==='Completed'?' selected':'')+'>Completed</option></select></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveEditClient()">Salvar</button></div></div>';}
 function mAddFollow(){var c=S.clients[S.sel],hasFirst=c.follows&&c.follows.some(function(f){return f.type==="first";}),auto=hasFirst?"recurring":"first";return'<div class="modal-box"><div class="modal-title">+ Novo Follow-Up</div><div class="import-tip">Tipo detectado: <strong>'+(auto==="first"?"Primeira analise":"Analise recorrente")+'</strong>.</div><div class="form-row"><label class="form-lbl">Data</label><input id="fd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ft"><option value="first"'+(auto==="first"?" selected":"")+'>Primeira analise</option><option value="recurring"'+(auto==="recurring"?" selected":"")+'>Analise recorrente</option></select></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveFollow()">Criar</button></div></div>';}
