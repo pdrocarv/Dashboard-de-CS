@@ -1019,7 +1019,7 @@ function wizQ6(){
   html+='<div class="wiz-q-sub">Como está o nível de personalização do site do cliente?</div>';
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){
-    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'site_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
+    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'site_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
   });
   html+='</div>';
   if(sel===4){
@@ -1057,7 +1057,7 @@ function wizQ7(){
   html+='<div class="wiz-q-sub">Avalie a taxa de ocupação atual das unidades.</div>';
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){
-    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'occupation_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
+    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'occupation_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
   });
   html+='</div>';
   html+=wizFaces('occupation',auto,true);
@@ -1080,7 +1080,7 @@ function wizQ8(){
   html+='<div class="wiz-q">Preço competitivo?</div>';
   html+='<div class="wiz-q-sub">Compare o posicionamento de preço com os concorrentes na região.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'price_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'price_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+=wizFaces('price',auto,true);
   html+='</div>';
@@ -1128,10 +1128,10 @@ function wizQ10(){
   html+='<div class="wiz-q">Boas fotos? Boa descrição?</div>';
   html+='<div class="wiz-q-sub">Avalie separadamente a qualidade visual e textual dos anúncios. O humor final é a média das duas avaliações.</div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">'+svgIcon('camera',14)+' Fotos dos anúncios</div><div class="wiz-opts">';
-  pOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sp===i?' sel':'')+'" onclick="wizA(\'photos_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  pOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sp===i?' sel':'')+'" onclick="wizA(\'photos_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div></div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">'+svgIcon('edit_alt',14)+' Descrição dos anúncios</div><div class="wiz-opts">';
-  dOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sd===i?' sel':'')+'" onclick="wizA(\'description_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  dOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sd===i?' sel':'')+'" onclick="wizA(\'description_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div></div>';
   html+=wizFaces('photos_desc',avgAuto,(sp!==undefined&&sp!==null&&sd!==undefined&&sd!==null));
   html+='</div>';
@@ -1152,7 +1152,7 @@ function wizQ11(){
   html+='<div class="wiz-q">Utiliza módulo financeiro?</div>';
   html+='<div class="wiz-q-sub">Centraliza a gestão de prestação de contas aos proprietários. Quanto mais usa, maior o engajamento com a plataforma.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'financial_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'financial_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+=wizFaces('financial',auto,true);
   html+='</div>';
@@ -1173,7 +1173,7 @@ function wizQ12(){
   html+='<div class="wiz-q">Utiliza módulo operacional ou alguma integração?</div>';
   html+='<div class="wiz-q-sub">Limpeza, manutenção, controle de tarefas. Aumenta a dependência e engajamento com a plataforma.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'operational_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'operational_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+=wizFaces('operational',auto,true);
   html+='</div>';
@@ -1193,7 +1193,7 @@ function wizQ13(){
   html+='<div class="wiz-q">Tem alguma integração ativa no App Center?</div>';
   html+='<div class="wiz-q-sub">Amplia funcionalidades e aumenta a dificuldade de churn.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'appcenter_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'appcenter_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   if(sel===0||sel===1){
     html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Quais integrações?</label><textarea class="wiz-note" rows="2" placeholder="Ex: Guesty, PriceLabs..." oninput="wizAText(\'appcenter_detail\',this.value)">'+(a.appcenter_detail||'')+'</textarea></div>';
@@ -1340,7 +1340,7 @@ function wizQ18(){
   html+='<div class="wiz-q">Como está a abertura de casos?</div>';
   html+='<div class="wiz-q-sub">Verifica volume e criticidade dos chamados. Casos N2 ou Website são mais críticos e puxam o humor para Péssimo automaticamente.</div>';
   html+='<div class="wiz-opts">';
-  caseOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'cases_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  caseOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'cases_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Tem casos N2 ou casos de Website em aberto?</div>';
   html+='<div class="wiz-opts">';
@@ -1369,7 +1369,7 @@ function wizQ19(){
   html+='<div class="wiz-q">Oportunidade de upgrade?</div>';
   html+='<div class="wiz-q-sub">Sem score — apenas identifique se há oportunidade comercial. O contexto fica salvo para a reunião.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'upgrade_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'upgrade_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+='<textarea class="wiz-note" rows="2" placeholder="Observações sobre upgrade (opcional)..." oninput="wizAText(\'upgrade_note\',this.value)">'+(a.upgrade_note||'')+'</textarea>';
   html+='</div>';
@@ -1687,7 +1687,7 @@ function wizR1(){
   html+='<div class="wiz-q">Como estão as notificações do painel inicial?</div>';
   html+='<div class="wiz-q-sub">Olhe o painel inicial do cliente: alertas, pendências e avisos dos canais.</div>';
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'notifs_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'notifs_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Observações (opcional)</label><textarea class="wiz-note" rows="2" placeholder="Ex: 3 mensagens não respondidas no Airbnb..." oninput="wizAText(\'notifs_note\',this.value)">'+(a.notifs_note||'')+'</textarea></div>';
   html+=wizFaces('notifs',auto,true);
@@ -1713,7 +1713,7 @@ function wizR2(){
   html+='<div class="wiz-q-sub">Compare o desempenho atual dos canais com o período anterior.</div>';
   if(prevNote){html+='<div class="wiz-prev-note">'+svgIcon('chart',14)+' No último follow: '+e(prevNote)+'</div>';}
   html+='<div class="wiz-opts">';
-  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'chperf_option\','+i+')"><span class="wiz-opt-ico">'+o.ico+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
+  opts.forEach(function(o,i){html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'chperf_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
   html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Detalhes por canal (opcional)</label><textarea class="wiz-note" rows="3" placeholder="Ex: Airbnb forte, Booking caiu 20%, Decolar estável..." oninput="wizAText(\'chperf_note\',this.value)">'+(a.chperf_note||'')+'</textarea></div>';
   html+=wizFaces('chperf',auto,true);
