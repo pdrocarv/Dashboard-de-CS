@@ -1116,16 +1116,17 @@ function wizQ6(){
 function wizSetOccOption(key,idx){var a=S.wiz.answers;if(!a[key])a[key]={};a[key].option=idx;if(S.editFollow)S.editFollowDirty=true;render();}
 function wizSetOccDatePart(key,field,part,val){
   var a=S.wiz.answers;if(!a[key])a[key]={};
-  var cur=a[key][field]?a[key][field].split('-'):['','',''];
-  var y=cur[0]||'',m=cur[1]||'',d=cur[2]||'';
-  if(part==='y')y=val;if(part==='m')m=val;if(part==='d')d=val;
-  a[key][field]=(y&&m&&d)?(y+'-'+m+'-'+d):'';
+  var pk=field+'_parts';
+  if(!a[key][pk])a[key][pk]={d:'',m:'',y:''};
+  a[key][pk][part]=val;
+  var p=a[key][pk];
+  a[key][field]=(p.y&&p.m&&p.d)?(p.y+'-'+p.m+'-'+p.d):'';
   if(S.editFollow)S.editFollowDirty=true;render();
 }
 function wizSetOccLastyearListings(val){var a=S.wiz.answers;if(!a.occ_lastyear)a.occ_lastyear={};var n=parseInt(val);a.occ_lastyear.listings=(val===''||isNaN(n))?'':n;if(S.editFollow)S.editFollowDirty=true;render();}
-function dateTripletHTML(key,field,val){
-  var parts=val?val.split('-'):['','',''];
-  var y=parts[0]||'',m=parts[1]||'',d=parts[2]||'';
+function dateTripletHTML(key,field,parts){
+  parts=parts||{};
+  var y=parts.y||'',m=parts.m||'',d=parts.d||'';
   var MESES=[['01','Jan'],['02','Fev'],['03','Mar'],['04','Abr'],['05','Mai'],['06','Jun'],['07','Jul'],['08','Ago'],['09','Set'],['10','Out'],['11','Nov'],['12','Dez']];
   var dayOpts='<option value="">Dia</option>';
   for(var dv=1;dv<=31;dv++){var dd=(dv<10?'0':'')+dv;dayOpts+='<option value="'+dd+'"'+(d===dd?' selected':'')+'>'+dv+'</option>';}
@@ -1181,14 +1182,14 @@ function wizQ7(){
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){html+='<div class="wiz-opt'+(curSel===i?' sel':'')+'" onclick="wizSetOccOption(\'occ_current\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
-  html+='<div style="margin-top:8px"><label style="font-size:11px;color:var(--t3)">Período analisado</label><div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">'+dateTripletHTML('occ_current','period_start',a.occ_current.period_start)+'<span style="font-size:11px;color:var(--t3)">até</span>'+dateTripletHTML('occ_current','period_end',a.occ_current.period_end)+'</div></div>';
+  html+='<div style="margin-top:8px"><label style="font-size:11px;color:var(--t3)">Período analisado</label><div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">'+dateTripletHTML('occ_current','period_start',a.occ_current.period_start_parts)+'<span style="font-size:11px;color:var(--t3)">até</span>'+dateTripletHTML('occ_current','period_end',a.occ_current.period_end_parts)+'</div></div>';
   if(a.occ_current.listings)html+='<div style="font-size:11px;color:var(--t3);margin-top:4px">'+a.occ_current.listings+' unidades (automático)</div>';
   html+='</div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Ocupação no mesmo período do ano passado</div>';
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){html+='<div class="wiz-opt'+(prevSel===i?' sel':'')+'" onclick="wizSetOccOption(\'occ_lastyear\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div>';
-  html+='<div style="margin-top:8px"><label style="font-size:11px;color:var(--t3)">Período analisado</label><div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">'+dateTripletHTML('occ_lastyear','period_start',a.occ_lastyear.period_start)+'<span style="font-size:11px;color:var(--t3)">até</span>'+dateTripletHTML('occ_lastyear','period_end',a.occ_lastyear.period_end)+'</div></div>';
+  html+='<div style="margin-top:8px"><label style="font-size:11px;color:var(--t3)">Período analisado</label><div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">'+dateTripletHTML('occ_lastyear','period_start',a.occ_lastyear.period_start_parts)+'<span style="font-size:11px;color:var(--t3)">até</span>'+dateTripletHTML('occ_lastyear','period_end',a.occ_lastyear.period_end_parts)+'</div></div>';
   html+='<div style="margin-top:8px"><label style="font-size:11px;color:var(--t3)">Unidades no ano passado (editável)</label><br><input class="wiz-input wiz-input-sm" type="number" min="0" style="margin-top:2px" value="'+(a.occ_lastyear.listings!==undefined&&a.occ_lastyear.listings!==null?a.occ_lastyear.listings:'')+'" onchange="wizSetOccLastyearListings(this.value)"></div>';
   html+='</div>';
   html+=wizFaces('occupation',auto,true);
