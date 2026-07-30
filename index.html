@@ -3339,7 +3339,7 @@ async function qBuilderSubmit(){
     await loadCustomQuestions();
     qBuilderInit();
     render();
-  }catch(e){console.error(e);alert('Erro ao enviar pergunta para aprovação.');}
+  }catch(e){console.error(e);alert('Erro ao enviar pergunta para aprovação: '+(e.code||'')+' '+(e.message||e));}
 }
 function wizSettingsView(){
   if(!S.qBuilder)qBuilderInit();
@@ -3418,7 +3418,7 @@ async function leaderApproveQuestion(qid){
     S.leaderReviewDraft=null;
     await loadCustomQuestions();
     render();
-  }catch(e){console.error(e);alert('Erro ao aprovar.');}
+  }catch(e){console.error(e);alert('Erro ao aprovar: '+(e.code||'')+' '+(e.message||e));}
 }
 async function leaderRejectQuestion(qid){
   var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
@@ -3430,7 +3430,7 @@ async function leaderRejectQuestion(qid){
     if(S.leaderReviewDraft&&S.leaderReviewDraft.qid===qid)S.leaderReviewDraft=null;
     await loadCustomQuestions();
     render();
-  }catch(e){console.error(e);alert('Erro ao rejeitar.');}
+  }catch(e){console.error(e);alert('Erro ao rejeitar: '+(e.code||'')+' '+(e.message||e));}
 }
 function leaderPanelView(){
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel de líder</h1>';
