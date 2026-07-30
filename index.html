@@ -3273,16 +3273,30 @@ function getMyApprovedCustomQuestions(uid,type){
 }
 function getWizOrder(type){
   var base=(type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST).slice();
-  var customs=getMyApprovedCustomQuestions(S.appUser.uid,type).map(function(q){return'custom_'+q.id;});
-  var all=base.concat(customs);
+  var customs=getMyApprovedCustomQuestions(S.appUser.uid,type);
+  var customKeys=customs.map(function(q){return'custom_'+q.id;});
+  var all=base.concat(customKeys);
   var savedKey=type==='recurring'?'wizStepOrderRec':'wizStepOrderFirst';
-  var saved=S.appUser[savedKey];
-  if(saved&&saved.length){
-    var ordered=saved.filter(function(k){return all.indexOf(k)>=0;});
-    all.forEach(function(k){if(ordered.indexOf(k)<0)ordered.push(k);});
-    return ordered;
-  }
-  return all;
+  var saved=S.appUser[savedKey]||[];
+  var ordered=saved.filter(function(k){return all.indexOf(k)>=0;});
+  all.forEach(function(k){
+    if(ordered.indexOf(k)>=0)return;
+    if(k.indexOf('custom_')===0){
+      var q=customs.find(function(x){return('custom_'+x.id)===k;});
+      var pos=q&&q.desiredPosition;
+      if(pos!==undefined&&pos!==null&&pos>=1)ordered.splice(Math.min(pos-1,ordered.length),0,k);
+      else ordered.push(k);
+    }else{
+      ordered.push(k);
+    }
+  });
+  return ordered;
+}
+function saveWizOrderList(type,list){
+  var savedKey=type==='recurring'?'wizStepOrderRec':'wizStepOrderFirst';
+  S.appUser[savedKey]=list;
+  var patch={};patch[savedKey]=list;
+  saveUserProfile(S.appUser.uid,patch);
 }
 function wizOrderLabel(k){
   if(k.indexOf('custom_')===0){var q=(S.customQuestions||[]).find(function(x){return x.id===k.slice(7);});return q?q.text:k;}
@@ -3293,29 +3307,33 @@ function getStepHumorKey(k){
   return STEP_HUMOR_KEY[k];
 }
 function customStepsFromAnswers(a){return Object.keys((a&&a.custom)||{}).map(function(qid){return'custom_'+qid;});}
-function moveWizOrder(type,idx,dir){
+function wizOrderDragStart(ev,type,idx){S.wizOrderDrag={type:type,idx:idx};if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';try{ev.dataTransfer.setData('text/plain',String(idx));}catch(e){}}}
+function wizOrderDragOver(ev){ev.preventDefault();}
+function wizOrderDrop(ev,type,idx){
+  ev.preventDefault();
+  if(!S.wizOrderDrag||S.wizOrderDrag.type!==type)return;
+  var from=S.wizOrderDrag.idx;
+  S.wizOrderDrag=null;
+  if(from===idx)return;
   var list=getWizOrder(type);
-  var newIdx=idx+dir;
-  if(newIdx<0||newIdx>=list.length)return;
-  var tmp=list[idx];list[idx]=list[newIdx];list[newIdx]=tmp;
-  var savedKey=type==='recurring'?'wizStepOrderRec':'wizStepOrderFirst';
-  S.appUser[savedKey]=list;
-  var patch={};patch[savedKey]=list;
-  saveUserProfile(S.appUser.uid,patch);
+  var moved=list.splice(from,1)[0];
+  list.splice(idx,0,moved);
+  saveWizOrderList(type,list);
   render();
 }
-function qBuilderInit(){S.qBuilder={text:'',appliesTo:'both',category:'',answers:[{label:'',humor:null},{label:'',humor:null}]};}
-function qBuilderSetField(field,val){if(!S.qBuilder)qBuilderInit();S.qBuilder[field]=val;render();}
+function qBuilderInit(){S.qBuilder={text:'',appliesTo:'both',category:'',position:'',answers:[{label:'',humor:null},{label:'',humor:null}]};}
+function qBuilderSetField(field,val){if(!S.qBuilder)qBuilderInit();S.qBuilder[field]=val;if(field!=='text'&&field!=='position')render();}
 function qBuilderAddAnswer(){if(!S.qBuilder)qBuilderInit();S.qBuilder.answers.push({label:'',humor:null});render();}
 function qBuilderRemoveAnswer(idx){if(!S.qBuilder)return;S.qBuilder.answers.splice(idx,1);render();}
-function qBuilderSetAnswer(idx,field,val){if(!S.qBuilder)return;S.qBuilder.answers[idx][field]=val;render();}
+function qBuilderSetAnswer(idx,field,val){if(!S.qBuilder)return;S.qBuilder.answers[idx][field]=val;if(field!=='label')render();}
 async function qBuilderSubmit(){
   var qb=S.qBuilder;
   if(!qb||!qb.text.trim()){alert('Escreva o texto da pergunta.');return;}
   var validAnswers=qb.answers.filter(function(a){return a.label.trim();});
   if(validAnswers.length<2){alert('Adicione pelo menos 2 respostas.');return;}
   if(qb.category&&validAnswers.some(function(a){return a.humor===null||a.humor===undefined;})){alert('Defina o humor de cada resposta, ou deixe a categoria em branco pra ficar informativa.');return;}
-  var doc={text:qb.text.trim(),category:qb.category||null,appliesTo:qb.appliesTo,answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:qb.category?a.humor:null};}),createdBy:S.appUser.uid,createdByName:S.appUser.name,status:'pending',sharedWith:[S.appUser.uid],createdAt:new Date().toISOString()};
+  var posNum=qb.position?parseInt(qb.position):null;
+  var doc={text:qb.text.trim(),category:qb.category||null,appliesTo:qb.appliesTo,desiredPosition:(posNum&&posNum>=1)?posNum:null,answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:qb.category?a.humor:null};}),createdBy:S.appUser.uid,createdByName:S.appUser.name,status:'pending',sharedWith:[S.appUser.uid],createdAt:new Date().toISOString()};
   try{
     await db.collection('custom_questions').add(doc);
     await loadCustomQuestions();
@@ -3331,6 +3349,8 @@ function wizSettingsView(){
   html+='<div class="form-row"><label class="form-lbl">Texto da pergunta</label><input id="qb-text" type="text" value="'+e(qb.text)+'" oninput="qBuilderSetField(\'text\',this.value)" placeholder="Ex: O cliente usa o app mobile?"></div>';
   html+='<div class="grid2"><div class="form-row"><label class="form-lbl">Aplica a</label><select onchange="qBuilderSetField(\'appliesTo\',this.value)"><option value="both"'+(qb.appliesTo==='both'?' selected':'')+'>Primeiro follow e Recorrente</option><option value="first"'+(qb.appliesTo==='first'?' selected':'')+'>Só Primeiro follow</option><option value="recurring"'+(qb.appliesTo==='recurring'?' selected':'')+'>Só Recorrente</option></select></div>';
   html+='<div class="form-row"><label class="form-lbl">Categoria de score</label><select onchange="qBuilderSetField(\'category\',this.value)">'+CUSTOM_Q_CATS.map(function(c){return'<option value="'+c.key+'"'+(qb.category===c.key?' selected':'')+'>'+c.label+'</option>';}).join('')+'</select></div></div>';
+  var curFirstLen=getWizOrder('first').length,curRecLen=getWizOrder('recurring').length;
+  html+='<div class="form-row"><label class="form-lbl">Posição desejada no fluxo <span style="color:var(--t3);font-weight:400">(opcional)</span></label><input type="number" min="1" style="width:120px" value="'+e(qb.position)+'" oninput="qBuilderSetField(\'position\',this.value)" placeholder="Ex: 10"><div style="font-size:11px;color:var(--t3);margin-top:4px">Hoje: '+curFirstLen+' perguntas no Primeiro follow e '+curRecLen+' no Recorrente. Se você preencher uma posição, quando a pergunta for aprovada ela entra ali e empurra as perguntas seguintes uma casa pra baixo — sem preencher, ela entra no fim do fluxo.</div></div>';
   html+='<div style="margin-top:.75rem"><label class="form-lbl">Respostas'+(qb.category?' (defina o humor de cada uma)':'')+'</label>';
   qb.answers.forEach(function(a,i){
     html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="text" style="flex:1" value="'+e(a.label)+'" placeholder="Resposta '+(i+1)+'" oninput="qBuilderSetAnswer('+i+',\'label\',this.value)">';
@@ -3353,12 +3373,12 @@ function wizSettingsView(){
     });
     html+='</div>';
   }
-  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div>';
+  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div><p class="muted" style="font-size:12px;margin-bottom:.75rem">Clique e arraste pelas barrinhas para reordenar.</p>';
   ['first','recurring'].forEach(function(type){
     var order=getWizOrder(type);
     html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem"><div style="font-size:13px;font-weight:600;margin-bottom:.75rem">'+(type==='first'?'Primeiro follow':'Follow recorrente')+'</div>';
     order.forEach(function(k,idx){
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span><button class="btn btn-sm" '+(idx===0?'disabled':'')+' onclick="moveWizOrder(\''+type+'\','+idx+',-1)">↑</button><button class="btn btn-sm" '+(idx===order.length-1?'disabled':'')+' onclick="moveWizOrder(\''+type+'\','+idx+',1)">↓</button></div>';
+      html+='<div draggable="true" ondragstart="wizOrderDragStart(event,\''+type+'\','+idx+')" ondragover="wizOrderDragOver(event)" ondrop="wizOrderDrop(event,\''+type+'\','+idx+')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:grab"><span style="color:var(--t3);font-size:14px;line-height:1;user-select:none">☰</span><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span></div>';
     });
     html+='</div>';
   });
