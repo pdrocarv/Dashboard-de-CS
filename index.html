@@ -383,7 +383,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline'};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline'};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -409,7 +409,8 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
         if(profile.role==="pending"){S.appReady=true;render();return;}
       }
       await loadClients();
-      if(S.appUser.role==="admin")await loadAllUsers();
+      if(S.appUser.role==="admin"||S.appUser.role==="leader")await loadAllUsers();
+      await loadCustomQuestions();
       S.appReady=true;
       migrateFromLocalStorage();
       render();
@@ -436,6 +437,7 @@ async function loadClients(){
 }
 async function loadAdminLog(){try{var snap=await db.collection('admin_log').orderBy('at','desc').limit(100).get();S.adminLog=snap.docs.map(function(d){return d.data();});}catch(e){console.error('loadAdminLog:',e);S.adminLog=[];}}
 async function loadAllUsers(){try{var s=await db.collection("users").get();S.allUsers=s.docs.map(function(d){return Object.assign({uid:d.id},d.data());});}catch(e){console.error(e);}}
+async function loadCustomQuestions(){try{var s=await db.collection("custom_questions").get();S.customQuestions=s.docs.map(function(d){return Object.assign({id:d.id},d.data());});}catch(e){console.error("loadCustomQuestions:",e);S.customQuestions=[];}}
 async function saveState(){
   if(!S.appUser||S.appUser.role==="pending")return;
   var c=S.sel!==null?S.clients[S.sel]:null;if(!c)return;
@@ -491,6 +493,14 @@ var HEALTH_HUMOR_CATS={
   risco:['nps','cases','notifs'],
   engajamento:['financial','operational','appcenter']
 };
+function getEffectiveHealthHumorCats(){
+  var cats={};
+  Object.keys(HEALTH_HUMOR_CATS).forEach(function(c){cats[c]=HEALTH_HUMOR_CATS[c].slice();});
+  (S.customQuestions||[]).forEach(function(q){
+    if(q.status==='approved'&&q.category&&cats[q.category])cats[q.category].push('custom_'+q.id);
+  });
+  return cats;
+}
 function humorTo100(h){return Math.round((h/4)*100);}
 // converte estado de contato (termômetro de atividades do analista) em nota
 function contactScore(c){var d=getDaysWithoutContact(c);if(d===null)return 20;if(d<=30)return 100;if(d<=60)return 60;return 20;}
@@ -529,9 +539,10 @@ function calcHealthV2(c){
   var npsInfo=npsRiskInfo(f);
   if(npsInfo.humor!==null)eff.nps=npsInfo.humor;
   var cats={};
-  Object.keys(HEALTH_HUMOR_CATS).forEach(function(cat){
+  var effCats=getEffectiveHealthHumorCats();
+  Object.keys(effCats).forEach(function(cat){
     var parts=[];
-    HEALTH_HUMOR_CATS[cat].forEach(function(k){
+    effCats[cat].forEach(function(k){
       if(eff[k]!==undefined&&eff[k]!==null)parts.push(humorTo100(eff[k]));
     });
     if(cat==='financeiro')parts.push(inadScore(c));
@@ -572,9 +583,10 @@ function calcFollowScore(f){
   var npsInfo=npsRiskInfo(f);
   if(npsInfo.humor!==null)eff.nps=npsInfo.humor;
   var cats={};
-  Object.keys(HEALTH_HUMOR_CATS).forEach(function(cat){
+  var effCats=getEffectiveHealthHumorCats();
+  Object.keys(effCats).forEach(function(cat){
     var parts=[];
-    HEALTH_HUMOR_CATS[cat].forEach(function(k){
+    effCats[cat].forEach(function(k){
       if(eff[k]!==undefined&&eff[k]!==null)parts.push(humorTo100(eff[k]));
     });
     cats[cat]=parts.length?Math.round(parts.reduce(function(a,b){return a+b;},0)/parts.length):null;
@@ -1552,6 +1564,31 @@ function wizQ20(){
   html+='</div>';
   return html;
 }
+function wizRenderCustomQuestion(qid){
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return'<div class="wiz-card"><div class="wiz-q">Pergunta não encontrada</div><div class="wiz-q-sub">Pode ter sido rejeitada ou removida.</div></div>';
+  var a=S.wiz.answers;
+  if(!a.custom)a.custom={};
+  var sel=a.custom[qid];
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">'+e(q.text)+'</div>';
+  html+='<div class="wiz-q-sub">'+(q.category?'Pergunta customizada.':'Pergunta customizada — só informativa, sem score.')+'</div>';
+  html+='<div class="wiz-opts">';
+  q.answers.forEach(function(ans,i){
+    html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizSetCustomAnswer(\''+qid+'\','+i+')"><span class="wiz-opt-lbl">'+e(ans.label)+'</span></div>';
+  });
+  html+='</div>';
+  if(q.category&&sel!==undefined&&sel!==null&&q.answers[sel]){
+    html+=wizFaces('custom_'+qid,q.answers[sel].humor,true);
+  }
+  html+='</div>';
+  return html;
+}
+function wizSetCustomAnswer(qid,idx){
+  var a=S.wiz.answers;if(!a.custom)a.custom={};a.custom[qid]=idx;
+  if(S.editFollow)S.editFollowDirty=true;
+  render();
+}
 
 var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','tz_check','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
 var WIZ_TOTAL_FIRST=20;
@@ -1641,10 +1678,11 @@ function followWizardView(){
   var CHAN_NAMES={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'Homes & Villas'};
   function row(num,label,answer,humorKey,stepKey){
     // Modo edição: renderiza o editor do wizard inline para esta pergunta
-    if(stepKey&&S.editFollow&&S.editFollow.stepKey===stepKey&&WIZ_RENDERERS[stepKey]){
+    var isCustomStep=stepKey&&stepKey.indexOf('custom_')===0;
+    if(stepKey&&S.editFollow&&S.editFollow.stepKey===stepKey&&(WIZ_RENDERERS[stepKey]||isCustomStep)){
       var edHtml='<div style="padding:14px;border:2px solid var(--b600);border-radius:12px;margin:10px 0;background:var(--surf2)">';
       edHtml+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:var(--b600);text-transform:uppercase;letter-spacing:.04em">Editando: '+num+'. '+label+'</div></div>';
-      edHtml+=WIZ_RENDERERS[stepKey]();
+      edHtml+=isCustomStep?wizRenderCustomQuestion(stepKey.slice(7)):WIZ_RENDERERS[stepKey]();
       edHtml+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">';
       edHtml+='<button class="btn btn-sm" onclick="cancelEditFollowQ()">Cancelar</button>';
       edHtml+='<button class="btn-primary" style="padding:6px 16px" onclick="saveEditFollowQ()">'+svgIcon('save',14)+' Salvar</button>';
@@ -1700,7 +1738,14 @@ function followWizardView(){
       case'cases':return(a.cases_option!==undefined&&a.cases_option!==null?CASES[a.cases_option]:'—')+(a.cases_n2==='sim'?' — N2/Website em aberto'+(a.cases_n2_detail?': '+e(a.cases_n2_detail):''):'');
       case'upgrade':return(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano','Tem limitações, sem interesse','Oportunidade clara','Não conhece planos','Já no plano máximo (Agency)'][a.upgrade_option]:'—')+(a.upgrade_note?' — '+e(a.upgrade_note):'');
       case'acct_plan':return(a.acct_has===true?'Plano de contas preenchido':(a.acct_has===false?'Plano de contas não preenchido':'—'))+(a.acct_next?' · Próximos passos: '+e(a.acct_next):'');
-      default:return'—';
+      default:
+        if(k.indexOf('custom_')===0){
+          var _qid=k.slice(7);var _q=(S.customQuestions||[]).find(function(x){return x.id===_qid;});
+          if(!_q)return'—';
+          var _sel=a.custom&&a.custom[_qid];
+          return(_sel!==undefined&&_sel!==null&&_q.answers[_sel])?e(_q.answers[_sel].label):'—';
+        }
+        return'—';
     }
   }
   var html='<div class="wiz-wrap">';
@@ -1712,10 +1757,9 @@ function followWizardView(){
     if(_wfPrev)html+=wizEvolutionCard(a,_wfPrev.answers||{},h,_wfPrev.humors||{},_wfPrev.date);
   }
   html+='<div class="card" style="padding:1.5rem">';
-  var _steps=(f.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST);
-  var _lbl=wizStepLabels();
+  var _steps=(f.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST).concat(customStepsFromAnswers(a));
   _steps.forEach(function(k,idx){
-    html+=row(String(idx+1),_lbl[k]||k,stepAnswerHtml(k),STEP_HUMOR_KEY[k],k);
+    html+=row(String(idx+1),wizOrderLabel(k),stepAnswerHtml(k),getStepHumorKey(k),k);
   });
   html+='</div>';
   if(a.positive_points||a.attention_points||a.next_steps){
@@ -1725,9 +1769,9 @@ function followWizardView(){
     if(a.next_steps)html+='<div><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase">Próximos passos</div><div style="font-size:13px;color:var(--t2);white-space:pre-wrap">'+e(a.next_steps)+'</div></div>';
     html+='</div>';
   }
-  var _svSteps=(f.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST);
-  var _svLbl=wizStepLabels();var _svAnnots=[];
-  _svSteps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())_svAnnots.push({label:_svLbl[k]||k,note:n.trim()});});
+  var _svSteps=(f.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST).concat(customStepsFromAnswers(a));
+  var _svAnnots=[];
+  _svSteps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())_svAnnots.push({label:wizOrderLabel(k),note:n.trim()});});
   if(_svAnnots.length){
   html+='<div class="card" style="padding:1rem 1.25rem;margin-top:1rem">';
   html+='<div style="font-size:13px;font-weight:600;margin-bottom:10px">'+svgIcon('edit',14)+' Anotações do follow</div>';
@@ -2048,11 +2092,11 @@ function wizQLabels(){
 function wizView(){
   var step=S.wiz.step;
   var isRec=S.wiz.type==='recurring';
-  var total=isRec?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST;
+  var effSteps=getWizOrder(S.wiz.type);
+  var total=effSteps.length;
   var pct=Math.round(((step+1)/total)*100);
-  var stepKey=(isRec?WIZ_STEPS_REC:WIZ_STEPS_FIRST)[step];
-  var recRenderers=WIZ_RENDERERS;
-  var renderFn=recRenderers[stepKey];
+  var stepKey=effSteps[step];
+  var renderFn=stepKey&&stepKey.indexOf('custom_')===0?(function(){return wizRenderCustomQuestion(stepKey.slice(7));}):WIZ_RENDERERS[stepKey];
   var HINTMAP={units:'SMS da Stays',cities:'Sistema do cliente',pricing:'SMS da Stays',channels:'SMS da Stays',notifs:'SMS da Stays / Painel',ch_perf:'SMS da Stays',ch_usab:'SMS da Stays',domain:'SMS da Stays',tz_check:'Sistema do cliente',site:'Sistema do cliente',photos:'Sistema do cliente',occupation:'Sistema do cliente',price:'SMS da Stays',lastminute:'Sistema do cliente',financial:'SMS da Stays',operational:'SMS da Stays',appcenter:'SMS da Stays',openapi:'SMS da Stays / Salesforce',prod_sug:'Análise do analista',payment:'SMS da Stays',inadimplencia:'Salesforce',nego:'Salesforce',nps_churn:'Track (NPS) / Salesforce',cases:'Salesforce',upgrade:'Análise do plano',acct_plan:'Plano de contas / Salesforce'};
   var ICONMAP={units:'units',cities:'cities',pricing:'pricing',channels:'channels',notifs:'notifs',ch_perf:'ch_perf',ch_usab:'ch_usab',domain:'domain',tz_check:'timer',site:'site',photos:'photos',occupation:'occupation',price:'price',lastminute:'lastminute',financial:'financial',operational:'operational',appcenter:'appcenter',openapi:'openapi',prod_sug:'prod_sug',payment:'payment',inadimplencia:'inadimplencia',nego:'nego',nps_churn:'nps_churn',cases:'cases',upgrade:'upgrade',acct_plan:'acct_plan'};
   var curHint=HINTMAP[stepKey]||'';
@@ -2091,16 +2135,15 @@ function wizSaveProgress(){
 }
 function wizAnnotationsRecap(){
   var a=S.wiz.answers;
-  var steps=(S.wiz.type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST);
-  var LBL=wizStepLabels();
+  var steps=getWizOrder(S.wiz.type);
   var items=[];
-  steps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())items.push({label:LBL[k]||k,note:n.trim()});});
+  steps.forEach(function(k){var n=a['note_'+k];if(n&&n.trim())items.push({label:wizOrderLabel(k),note:n.trim()});});
   return items;
 }
 function wizStepLabels(){
   return {units:'Unidades',cities:'Localização/temporada',pricing:'Precificação',channels:'Canais',notifs:'Notificações do painel',ch_perf:'Performance nos canais',ch_usab:'Usabilidade dos canais',domain:'Migração de domínio',tz_check:'Fuso horário do sistema',site:'Personalização do site',photos:'Fotos e descrição',occupation:'Ocupação',price:'Preço competitivo',lastminute:'Last minute',financial:'Módulo financeiro',operational:'Módulo operacional',appcenter:'App Center',openapi:'Open API',prod_sug:'Sugestão de produto',payment:'Canal de pagamento',inadimplencia:'Inadimplência',nego:'Negociação de mensalidade',nps_churn:'Churn/NPS/Reclame Aqui',cases:'Casos abertos',upgrade:'Upgrade',acct_plan:'Plano de contas'};
 }
-function wizGoSummary(){S.wiz.step=(S.wiz.type==='recurring'?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST);render();}
+function wizGoSummary(){S.wiz.step=getWizOrder(S.wiz.type).length;render();}
 
 function wizEvolutionCard(a,p,curH,prevH,prevDate){
   var usingWiz=arguments.length===0;
@@ -2126,16 +2169,15 @@ function wizEvolutionCard(a,p,curH,prevH,prevDate){
     var chArrow=chDiff>0?'<span style="color:#16a34a">'+svgIcon('arrow_up',10)+' +'+chDiff+'</span>':(chDiff<0?'<span style="color:#dc2626">'+svgIcon('arrow_down',10)+' '+chDiff+'</span>':'<span style="color:var(--t3)">= igual</span>');
     rows.push({label:'Canais conectados',prev:prevChCount,cur:curChCount,change:chArrow});
   }
-  // Todos os demais indicadores com humor calculado neste follow e no anterior, sem filtro
-  var _lbl=wizStepLabels();
-  WIZ_STEPS_REC.forEach(function(k){
-    var hk=STEP_HUMOR_KEY[k];
-    if(!hk||hk==='units'||hk==='channels')return;
+  // Todos os demais indicadores com humor calculado neste follow e no anterior, sem filtro (fixos + customizados)
+  var HUMOR_TO_STEP={};Object.keys(STEP_HUMOR_KEY).forEach(function(sk){var hk=STEP_HUMOR_KEY[sk];if(hk)HUMOR_TO_STEP[hk]=sk;});
+  Object.keys(Object.assign({},prevH,curH)).forEach(function(hk){
+    if(hk==='units'||hk==='channels')return;
     var pv=prevH[hk],cv=curH[hk];
     if(pv===undefined||pv===null||cv===undefined||cv===null)return;
     var d=cv-pv;
     var arrow=d>0?'<span style="color:#16a34a">'+svgIcon('arrow_up',10)+' melhorou</span>':(d<0?'<span style="color:#dc2626">'+svgIcon('arrow_down',10)+' piorou</span>':'<span style="color:var(--t3)">= igual</span>');
-    rows.push({label:_lbl[k]||k,prev:EV_HUMOR_LABELS[pv],cur:EV_HUMOR_LABELS[cv],change:arrow});
+    rows.push({label:wizOrderLabel(HUMOR_TO_STEP[hk]||hk),prev:EV_HUMOR_LABELS[pv],cur:EV_HUMOR_LABELS[cv],change:arrow});
   });
   if(!rows.length)return '';
   var html='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
@@ -2180,7 +2222,7 @@ function wizSummaryView(){
   ];
   var html='<div class="wiz-wrap">';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">';
-  html+='<button class="btn btn-sm" onclick="wizGo('+(('recurring'===S.wiz.type?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST)-1)+')">← Voltar</button>';
+  html+='<button class="btn btn-sm" onclick="wizGo('+(getWizOrder(S.wiz.type).length-1)+')">← Voltar</button>';
   html+='<div style="font-size:15px;font-weight:500;color:var(--t)">Resumo do follow-up</div>';
   html+='</div>';
   var _fscore=calcFollowScore({wizard:true,humors:wizEffectiveHumors(),answers:S.wiz.answers,type:S.wiz.type});
@@ -2527,10 +2569,12 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="S.view=\'dashboard\';S.adminMode=true;loadAllUsers().then(function(){render();})">Visão Geral</button>':"")
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
   +'<button class="sb-item'+(S.view==="archived"?" sb-act":"")+'" onclick="goArchived()">Arquivados</button>'
+  +'<button class="sb-item'+(S.view==="wizsettings"?" sb-act":"")+'" onclick="goWizSettings()">Configurações de Follow-up</button>'
+  +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel de líder</button>':"")
   +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=(S.wiz.type==="recurring"?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST)?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():adminView()))))))))+"</div>"+(S.modal?modal():"")+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():(S.view==="wizsettings"?wizSettingsView():(S.view==="leaderpanel"?leaderPanelView():adminView())))))))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
@@ -2541,7 +2585,10 @@ function pendingView(){return'<div class="pending-wrap"><div class="pending-card
 // NAV
 // ============================================================
 function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Lider</span>':'<span class="analyst-badge">Analista</span>');var adminBtn=S.appUser.role==="admin"?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea='<span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(" ")[0])+"</span>"+roleBadge;if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
-if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';if(S.view==="client"){if(S.view==="archived")return archivedNav();if(S.view==="adminlog")return archivedNav();
+if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
+if(S.view==="wizsettings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações de Follow-up</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
+if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel de líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
+if(S.view==="client"){if(S.view==="archived")return archivedNav();if(S.view==="adminlog")return archivedNav();
 var c=S.clients[S.sel];return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><strong style="font-size:14px;font-family:\'Roboto Slab\',serif">'+e(c.name)+'</strong><div class="nav-right">'+thSel+adminBtn+userArea+'<button class="btn btn-sm btn-danger" onclick="delClient('+S.sel+')">Excluir</button></div></nav>';}var c=S.clients[S.sel];
 if(S.view==="follow-wizard"){return'<nav class="nav"><button class="btn btn-sm" onclick="wizExitConfirm()">← '+e(c.name)+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow-up em andamento</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delInProgressFollow()">Excluir Follow</button></div></nav>';}
 if(S.view==="follow-charts"){return'<nav class="nav"><button class="btn btn-sm" onclick="goBackToClient()">← '+e(c.name)+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Acompanhamento em gráficos</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
@@ -2618,7 +2665,7 @@ if(!S.adminLog||!S.adminLog.length){
 var rows=S.adminLog.sort(function(a,b){return(b.at||0)-(a.at||0);}).slice(0,100);
 html+='<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Ação</th><th>Cliente</th><th>Por</th><th>Data</th></tr></thead><tbody>'
   +rows.map(function(log){
-    var label={archive_client:'Arquivamento',permanent_delete:'Exclusão permanente'}[log.action]||log.action;
+    var label={archive_client:'Arquivamento',permanent_delete:'Exclusão permanente',question_approved:'Pergunta aprovada',question_rejected:'Pergunta rejeitada'}[log.action]||log.action;
     return'<tr><td>'+e(label)+'</td><td>'+e((log.data&&log.data.clientName)||'—')+'</td><td>'+e((log.data&&log.data.by)||'—')+'</td><td>'+e((log.data&&log.data.at)||'—')+'</td></tr>';
   }).join('')
   +'</tbody></table></div></div>';
@@ -2804,7 +2851,7 @@ function infoTab(c,ci){var html="";html+='<div class="section-hdr"><span>Princip
 var cmp=getComparison(c);if(cmp){var better=cmp.changes.filter(function(x){return x.improved;}),worse=cmp.changes.filter(function(x){return x.worsened&&!x.expected;}),expected=cmp.changes.filter(function(x){return x.expected;});html+='<div class="section-hdr"><span>Comparacao vs. Follow anterior</span></div><div class="card" style="padding:1rem;margin-bottom:1.5rem"><div class="muted" style="margin-bottom:10px">'+formatDate(cmp.prev.date)+' → '+formatDate(cmp.latest.date)+'</div><div class="flex" style="margin-bottom:12px"><span class="cmp-pill cmp-better">+'+better.length+' melhoraram</span><span class="cmp-pill cmp-worse">-'+worse.length+' pioraram</span><span class="cmp-pill cmp-expected">'+expected.length+' esperados</span></div>'+(better.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--gn600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Melhoraram</div><div>'+better.map(function(x){return'<span class="cmp-pill cmp-better">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( worse.length?'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--rd600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Pioraram</div><div>'+worse.map(function(x){return'<span class="cmp-pill cmp-worse">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+( expected.length?'<div><div style="font-size:11px;font-weight:700;color:var(--am600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Esperado (sazonalidade)</div><div>'+expected.map(function(x){return'<span class="cmp-pill cmp-expected">'+e(x.ind.label)+'</span>';}).join("")+'</div></div>':"")+'</div>';}
 html+=npsHistoryHTML(c);var cts=[...(c.contacts||[])].reverse();html+='<div class="section-hdr"><span>Contatos externos</span><button class="btn btn-sm" onclick="openM(\'add-contact\')">+ Registrar</button></div>';if(!cts.length){html+='<p class="muted">Nenhum contato registrado ainda.</p>';}else{cts.forEach(function(ct,idx){var ri=(c.contacts.length-1)-idx;var tl={meeting:"Reuniao",whatsapp:"WhatsApp",email:"E-mail",churn:"Churn Alert"}[ct.type];var il={positive:"+ Positivo",neutral:"Neutro",negative:"- Negativo"}[ct.impact];html+='<div class="contact-entry"><div class="ce-hdr"><span class="ctb ctb-'+ct.type+'">'+tl+'</span><span class="ct-date">'+formatDate(ct.date)+'</span><span class="impb imp-'+ct.impact+'">'+il+'</span><button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="delContact('+ci+','+ri+')">Remover</button></div><div class="ct-summary">'+e(ct.summary)+'</div></div>';});}return html;}
 
-function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">'+svgIcon('edit',14)+' Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/'+(c.wizDraft.type==='recurring'?WIZ_TOTAL_REC:WIZ_TOTAL_FIRST)+'</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var html=draftBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button><button class="btn-primary" style="background:#8b5cf6" onclick="openFollowCharts()">'+svgIcon('arrow_up',14)+' Acompanhamento em gráficos</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex" style="gap:8px;align-items:center">'+followScoreBadge(f)+'<span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
+function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">'+svgIcon('edit',14)+' Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/'+getWizOrder(c.wizDraft.type).length+'</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var html=draftBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button><button class="btn-primary" style="background:#8b5cf6" onclick="openFollowCharts()">'+svgIcon('arrow_up',14)+' Acompanhamento em gráficos</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var inds=IND.filter(function(i){return i.show==="both"||i.show===f.type;});var rc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="risk";}).length;var wc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="warn";}).length;var oc=inds.filter(function(i){return f.indicators[i.key]&&f.indicators[i.key].status==="ok";}).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+'</div></div><div class="flex" style="gap:8px;align-items:center">'+followScoreBadge(f)+'<span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
 // ============================================================
 // FOLLOW VIEW
 // ============================================================
@@ -2838,7 +2885,7 @@ return'<div class="ind-card '+catCls+' '+stCls+'"><div class="ind-lbl">'+ind.lab
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function adminView(){if(S.appUser.role!=="admin")return'<p>Acesso negado.</p>';var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="openM(\'add-user\')">+ Informar novo usuario</button></div>';var byRole={admin:[],leader:[],analyst:[],pending:[]};S.allUsers.forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});var roleLabel={admin:"Administrador",leader:"Lider",analyst:"Analista",pending:"Pendentes (aguardando aprovacao)"};["pending","admin","leader","analyst"].forEach(function(role){var users=byRole[role];if(!users.length)return;html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';users.forEach(function(u){var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+(u.uid!==S.appUser.uid?'<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao"><option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option></select>':'<span class="muted" style="font-size:11px">Voce</span>')+'</div>';});html+='</div>';});html+='<div class="mt3 alert alert-amber">Ao aprovar um usuario (mudar de Pendente para Analista/Lider), ele tera acesso ao dashboard. Para atribuir clientes de analistas a um lider, edite o campo managedUsers no Firestore Console (adicione os UIDs dos analistas gerenciados).</div>';return html;}
+function adminView(){if(S.appUser.role!=="admin")return'<p>Acesso negado.</p>';var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="openM(\'add-user\')">+ Informar novo usuario</button></div>';var byRole={admin:[],leader:[],analyst:[],pending:[]};S.allUsers.forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});var roleLabel={admin:"Administrador",leader:"Lider",analyst:"Analista",pending:"Pendentes (aguardando aprovacao)"};["pending","admin","leader","analyst"].forEach(function(role){var users=byRole[role];if(!users.length)return;html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';users.forEach(function(u){var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");var respLeader=role==="analyst"?S.allUsers.find(function(x){return x.role==="leader"&&(x.managedUsers||[]).indexOf(u.uid)>=0;}):null;var leaderOpts=role==="analyst"?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+S.allUsers.filter(function(x){return x.role==="leader";}).map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name.split(' ')[0])+'</option>';}).join('')+'</select>':'';html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+leaderOpts+(u.uid!==S.appUser.uid?'<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao"><option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option></select>':'<span class="muted" style="font-size:11px">Voce</span>')+'</div>';});html+='</div>';});html+='<div class="mt3 alert alert-amber">Ao aprovar um usuario (mudar de Pendente para Analista/Lider), ele tera acesso ao dashboard. Use o seletor "Lider responsavel" em cada analista para definir quem aprova as perguntas customizadas e ve a carteira dele na Visao Geral.</div>';return html;}
 // ============================================================
 // MODAIS
 // ============================================================
@@ -3117,6 +3164,8 @@ function goBack(){S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.
 function goBackToClient(){if(S.editFollow&&S.editFollowDirty&&!confirm("Você tem alterações não salvas nesta pergunta. Sair sem salvar?"))return;if(S.hasUnsavedChanges&&!confirm("Tem alteracoes nao salvas. Sair sem salvar?"))return;S.editFollow=null;S.editFollowDirty=false;S.hasUnsavedChanges=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
 function goArchived(){S.view="archived";render();}
 function goAdminLog(){loadAdminLog().then(function(){S.view="adminlog";render();});}
+function goWizSettings(){S.view="wizsettings";render();}
+function goLeaderPanel(){if(!S.allUsers||!S.allUsers.length){loadAllUsers().then(function(){S.view="leaderpanel";render();});}else{S.view="leaderpanel";render();}}
 function goAdmin(){S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
 function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
@@ -3197,6 +3246,209 @@ function saveKeyContact(){var name=document.getElementById("kn").value.trim();if
 function delKeyContact(ci,i){if(!confirm("Remover este contato-chave?"))return;S.clients[ci].keyContacts.splice(i,1);saveState();render();}
 function saveSettings(){S.apiKey=document.getElementById("sk").value.trim();localStorage.setItem("stays_api_key",S.apiKey);closeM();}
 async function changeRole(uid,role){await saveUserProfile(uid,{role:role});await loadAllUsers();render();}
+async function setResponsibleLeader(analystUid,newLeaderUid){
+  var oldLeader=S.allUsers.find(function(u){return u.role==="leader"&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
+  if(oldLeader&&oldLeader.uid!==newLeaderUid){
+    var pulled=(oldLeader.managedUsers||[]).filter(function(id){return id!==analystUid;});
+    await saveUserProfile(oldLeader.uid,{managedUsers:pulled});
+  }
+  if(newLeaderUid){
+    var newLeader=S.allUsers.find(function(u){return u.uid===newLeaderUid;});
+    var pushed=(newLeader&&newLeader.managedUsers)||[];
+    if(pushed.indexOf(analystUid)<0)pushed=pushed.concat([analystUid]);
+    await saveUserProfile(newLeaderUid,{managedUsers:pushed});
+  }
+  await loadAllUsers();
+  render();
+}
+// ============================================================
+// PERGUNTAS CUSTOMIZADAS (analista cria/reordena, líder aprova)
+// ============================================================
+var CUSTOM_Q_CATS=[{key:'',label:'Só informativa (sem score)'},{key:'crescimento',label:'Crescimento'},{key:'digital',label:'Digital'},{key:'distribuicao',label:'Distribuição'},{key:'financeiro',label:'Financeiro'},{key:'risco',label:'Risco'},{key:'engajamento',label:'Engajamento'}];
+function customQCatLabel(key){var f=CUSTOM_Q_CATS.find(function(c){return c.key===(key||'');});return f?f.label:'Informativa';}
+function getMyApprovedCustomQuestions(uid,type){
+  return (S.customQuestions||[]).filter(function(q){
+    return q.status==='approved'&&(q.sharedWith||[]).indexOf(uid)>=0&&(q.appliesTo==='both'||q.appliesTo===type);
+  });
+}
+function getWizOrder(type){
+  var base=(type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST).slice();
+  var customs=getMyApprovedCustomQuestions(S.appUser.uid,type).map(function(q){return'custom_'+q.id;});
+  var all=base.concat(customs);
+  var savedKey=type==='recurring'?'wizStepOrderRec':'wizStepOrderFirst';
+  var saved=S.appUser[savedKey];
+  if(saved&&saved.length){
+    var ordered=saved.filter(function(k){return all.indexOf(k)>=0;});
+    all.forEach(function(k){if(ordered.indexOf(k)<0)ordered.push(k);});
+    return ordered;
+  }
+  return all;
+}
+function wizOrderLabel(k){
+  if(k.indexOf('custom_')===0){var q=(S.customQuestions||[]).find(function(x){return x.id===k.slice(7);});return q?q.text:k;}
+  return wizStepLabels()[k]||k;
+}
+function getStepHumorKey(k){
+  if(k.indexOf('custom_')===0){var q=(S.customQuestions||[]).find(function(x){return x.id===k.slice(7);});return(q&&q.category)?k:null;}
+  return STEP_HUMOR_KEY[k];
+}
+function customStepsFromAnswers(a){return Object.keys((a&&a.custom)||{}).map(function(qid){return'custom_'+qid;});}
+function moveWizOrder(type,idx,dir){
+  var list=getWizOrder(type);
+  var newIdx=idx+dir;
+  if(newIdx<0||newIdx>=list.length)return;
+  var tmp=list[idx];list[idx]=list[newIdx];list[newIdx]=tmp;
+  var savedKey=type==='recurring'?'wizStepOrderRec':'wizStepOrderFirst';
+  S.appUser[savedKey]=list;
+  var patch={};patch[savedKey]=list;
+  saveUserProfile(S.appUser.uid,patch);
+  render();
+}
+function qBuilderInit(){S.qBuilder={text:'',appliesTo:'both',category:'',answers:[{label:'',humor:null},{label:'',humor:null}]};}
+function qBuilderSetField(field,val){if(!S.qBuilder)qBuilderInit();S.qBuilder[field]=val;render();}
+function qBuilderAddAnswer(){if(!S.qBuilder)qBuilderInit();S.qBuilder.answers.push({label:'',humor:null});render();}
+function qBuilderRemoveAnswer(idx){if(!S.qBuilder)return;S.qBuilder.answers.splice(idx,1);render();}
+function qBuilderSetAnswer(idx,field,val){if(!S.qBuilder)return;S.qBuilder.answers[idx][field]=val;render();}
+async function qBuilderSubmit(){
+  var qb=S.qBuilder;
+  if(!qb||!qb.text.trim()){alert('Escreva o texto da pergunta.');return;}
+  var validAnswers=qb.answers.filter(function(a){return a.label.trim();});
+  if(validAnswers.length<2){alert('Adicione pelo menos 2 respostas.');return;}
+  if(qb.category&&validAnswers.some(function(a){return a.humor===null||a.humor===undefined;})){alert('Defina o humor de cada resposta, ou deixe a categoria em branco pra ficar informativa.');return;}
+  var doc={text:qb.text.trim(),category:qb.category||null,appliesTo:qb.appliesTo,answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:qb.category?a.humor:null};}),createdBy:S.appUser.uid,createdByName:S.appUser.name,status:'pending',sharedWith:[S.appUser.uid],createdAt:new Date().toISOString()};
+  try{
+    await db.collection('custom_questions').add(doc);
+    await loadCustomQuestions();
+    qBuilderInit();
+    render();
+  }catch(e){console.error(e);alert('Erro ao enviar pergunta para aprovação.');}
+}
+function wizSettingsView(){
+  if(!S.qBuilder)qBuilderInit();
+  var qb=S.qBuilder;
+  var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Configurações de Follow-up</h1>';
+  html+='<div class="section-hdr"><span>Nova pergunta customizada</span></div><div class="card" style="padding:1.25rem;margin-bottom:1.5rem">';
+  html+='<div class="form-row"><label class="form-lbl">Texto da pergunta</label><input id="qb-text" type="text" value="'+e(qb.text)+'" oninput="qBuilderSetField(\'text\',this.value)" placeholder="Ex: O cliente usa o app mobile?"></div>';
+  html+='<div class="grid2"><div class="form-row"><label class="form-lbl">Aplica a</label><select onchange="qBuilderSetField(\'appliesTo\',this.value)"><option value="both"'+(qb.appliesTo==='both'?' selected':'')+'>Primeiro follow e Recorrente</option><option value="first"'+(qb.appliesTo==='first'?' selected':'')+'>Só Primeiro follow</option><option value="recurring"'+(qb.appliesTo==='recurring'?' selected':'')+'>Só Recorrente</option></select></div>';
+  html+='<div class="form-row"><label class="form-lbl">Categoria de score</label><select onchange="qBuilderSetField(\'category\',this.value)">'+CUSTOM_Q_CATS.map(function(c){return'<option value="'+c.key+'"'+(qb.category===c.key?' selected':'')+'>'+c.label+'</option>';}).join('')+'</select></div></div>';
+  html+='<div style="margin-top:.75rem"><label class="form-lbl">Respostas'+(qb.category?' (defina o humor de cada uma)':'')+'</label>';
+  qb.answers.forEach(function(a,i){
+    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="text" style="flex:1" value="'+e(a.label)+'" placeholder="Resposta '+(i+1)+'" oninput="qBuilderSetAnswer('+i+',\'label\',this.value)">';
+    if(qb.category){
+      html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="qBuilderSetAnswer('+i+',\'humor\','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
+    }
+    html+='<button class="btn btn-sm" onclick="qBuilderRemoveAnswer('+i+')">×</button></div>';
+  });
+  html+='<button class="btn btn-sm" onclick="qBuilderAddAnswer()">+ Adicionar resposta</button></div>';
+  html+='<div style="margin-top:1rem;text-align:right"><button class="btn-primary" onclick="qBuilderSubmit()">Enviar para aprovação</button></div>';
+  html+='</div>';
+  var mine=(S.customQuestions||[]).filter(function(q){return q.createdBy===S.appUser.uid;});
+  html+='<div class="section-hdr"><span>Minhas perguntas ('+mine.length+')</span></div>';
+  if(!mine.length){html+='<p class="muted" style="margin-bottom:1.5rem">Nenhuma pergunta customizada criada ainda.</p>';}
+  else{
+    html+='<div class="card" style="padding:0;margin-bottom:1.5rem">';
+    mine.forEach(function(q){
+      var stBadge=q.status==='approved'?'<span class="badge b-ok">Aprovada</span>':(q.status==='rejected'?'<span class="badge b-risk">Rejeitada</span>':'<span class="badge b-warn">Aguardando aprovação</span>');
+      html+='<div class="user-row"><div style="flex:1"><div style="font-weight:500">'+e(q.text)+'</div><div class="muted" style="font-size:11px">'+customQCatLabel(q.category)+' · '+(q.appliesTo==='both'?'Primeiro e Recorrente':(q.appliesTo==='first'?'Só Primeiro':'Só Recorrente'))+'</div></div>'+stBadge+'</div>';
+    });
+    html+='</div>';
+  }
+  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div>';
+  ['first','recurring'].forEach(function(type){
+    var order=getWizOrder(type);
+    html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem"><div style="font-size:13px;font-weight:600;margin-bottom:.75rem">'+(type==='first'?'Primeiro follow':'Follow recorrente')+'</div>';
+    order.forEach(function(k,idx){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)"><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span><button class="btn btn-sm" '+(idx===0?'disabled':'')+' onclick="moveWizOrder(\''+type+'\','+idx+',-1)">↑</button><button class="btn btn-sm" '+(idx===order.length-1?'disabled':'')+' onclick="moveWizOrder(\''+type+'\','+idx+',1)">↓</button></div>';
+    });
+    html+='</div>';
+  });
+  return html;
+}
+function leaderPendingQueue(){
+  var all=(S.customQuestions||[]).filter(function(q){return q.status==='pending';});
+  if(S.appUser.role==='admin')return all;
+  var managed=S.appUser.managedUsers||[];
+  return all.filter(function(q){return managed.indexOf(q.createdBy)>=0;});
+}
+function leaderToggleReview(qid){
+  if(S.leaderReviewDraft&&S.leaderReviewDraft.qid===qid){S.leaderReviewDraft=null;render();return;}
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return;
+  S.leaderReviewDraft={qid:qid,answers:q.answers.map(function(a){return{label:a.label,humor:a.humor};}),shareWith:[]};
+  render();
+}
+function leaderSetReviewHumor(idx,humor){if(!S.leaderReviewDraft)return;S.leaderReviewDraft.answers[idx].humor=humor;render();}
+function leaderToggleShare(uid){
+  if(!S.leaderReviewDraft)return;
+  var i=S.leaderReviewDraft.shareWith.indexOf(uid);
+  if(i>=0)S.leaderReviewDraft.shareWith.splice(i,1);else S.leaderReviewDraft.shareWith.push(uid);
+  render();
+}
+async function leaderApproveQuestion(qid){
+  var draft=S.leaderReviewDraft;
+  if(!draft||draft.qid!==qid){alert('Abra a pergunta pra revisar o humor antes de aprovar.');return;}
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return;
+  if(q.category&&draft.answers.some(function(a){return a.humor===null||a.humor===undefined;})){alert('Defina o humor de todas as respostas antes de aprovar.');return;}
+  var sharedWith=(q.sharedWith||[]).slice();
+  draft.shareWith.forEach(function(uid){if(sharedWith.indexOf(uid)<0)sharedWith.push(uid);});
+  try{
+    await db.collection('custom_questions').doc(qid).update({status:'approved',answers:draft.answers,sharedWith:sharedWith,approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
+    addAdminLog('question_approved',{questionText:q.text,questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
+    S.leaderReviewDraft=null;
+    await loadCustomQuestions();
+    render();
+  }catch(e){console.error(e);alert('Erro ao aprovar.');}
+}
+async function leaderRejectQuestion(qid){
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return;
+  if(!confirm('Rejeitar a pergunta "'+q.text+'"?'))return;
+  try{
+    await db.collection('custom_questions').doc(qid).update({status:'rejected',approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
+    addAdminLog('question_rejected',{questionText:q.text,questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
+    if(S.leaderReviewDraft&&S.leaderReviewDraft.qid===qid)S.leaderReviewDraft=null;
+    await loadCustomQuestions();
+    render();
+  }catch(e){console.error(e);alert('Erro ao rejeitar.');}
+}
+function leaderPanelView(){
+  var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel de líder</h1>';
+  var queue=leaderPendingQueue();
+  html+='<div class="section-hdr"><span>Perguntas aguardando aprovação ('+queue.length+')</span></div>';
+  if(!queue.length){html+='<p class="muted">Nenhuma pergunta pendente no momento.</p>';return html;}
+  var managedAnalysts=S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
+  queue.forEach(function(q){
+    var creator=S.allUsers.find(function(u){return u.uid===q.createdBy;});
+    var isOpen=S.leaderReviewDraft&&S.leaderReviewDraft.qid===q.id;
+    html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600;font-size:14px">'+e(q.text)+'</div><div class="muted" style="font-size:11px;margin-top:2px">Proposta por '+e((creator&&creator.name)||q.createdByName||'?')+' · '+customQCatLabel(q.category)+' · '+(q.appliesTo==='both'?'Primeiro e Recorrente':(q.appliesTo==='first'?'Só Primeiro':'Só Recorrente'))+'</div></div><button class="btn btn-sm" onclick="leaderToggleReview(\''+q.id+'\')">'+(isOpen?'Fechar':'Revisar')+'</button></div>';
+    if(isOpen){
+      var draft=S.leaderReviewDraft;
+      html+='<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--bd)">';
+      html+='<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Respostas'+(q.category?' — confirme o humor de cada uma':'')+'</div>';
+      draft.answers.forEach(function(a,i){
+        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:13px">'+e(a.label)+'</span>';
+        if(q.category){
+          html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="leaderSetReviewHumor('+i+','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
+        }
+        html+='</div>';
+      });
+      if(managedAnalysts.length){
+        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar também com</div>';
+        managedAnalysts.filter(function(u){return u.uid!==q.createdBy;}).forEach(function(u){
+          var checked=draft.shareWith.indexOf(u.uid)>=0;
+          html+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="leaderToggleShare(\''+u.uid+'\')">'+e(u.name)+'</label>';
+        });
+        html+='</div>';
+      }
+      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem"><button class="btn btn-sm btn-danger" onclick="leaderRejectQuestion(\''+q.id+'\')">Rejeitar</button><button class="btn-primary" onclick="leaderApproveQuestion(\''+q.id+'\')">Aprovar</button></div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  return html;
+}
 function infoNewUser(){var name=document.getElementById("un").value.trim(),email=document.getElementById("ue").value.trim();if(!name||!email){alert("Preencha nome e e-mail.");return;}alert("Perfeito! Informe "+name+" ("+email+") para acessar "+window.location.origin+" e fazer login com o Google ou criar uma conta com esse e-mail. Assim que o perfil for criado, ele aparecera aqui como Pendente para voce aprovar.");S.modal=null;render();}
 function runImport(){var text=document.getElementById("imp").value.trim();if(!text)return;if(S.selFollow===null){alert("Abra um follow-up primeiro.");closeM();return;}var imported=importTextFn(text,S.sel,S.selFollow);saveState();S.modal=null;S.genText="";S.importMsg=imported>0?("OK: "+imported+" indicadores importados."):"Nenhum indicador reconhecido. Verifique o formato do texto.";render();}
 function copyResult(){navigator.clipboard.writeText(S.genText).then(function(){S.copied=true;render();setTimeout(function(){S.copied=false;render();},2500);}).catch(function(){alert("Erro ao copiar. Selecione e copie manualmente.");});}
