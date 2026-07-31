@@ -205,6 +205,8 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .admin-badge{background:#4c1d95;color:#ede9fe;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
 .leader-badge{background:#1e3a5f;color:#bfdbfe;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
 .analyst-badge{background:#052e16;color:#86efac;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+.gerente-badge{background:#7c2d12;color:#fed7aa;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+.testuser-badge{background:#374151;color:#d1d5db;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
 .user-row{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--bd)}.user-row:last-child{border-bottom:none}
 .user-avatar{width:32px;height:32px;border-radius:50%;background:var(--b50);color:var(--b600);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;overflow:hidden}
 @keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite}
@@ -342,6 +344,17 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .settings-cat-title{font-size:13px;font-weight:600;color:var(--t)}
 .settings-cat-row.active .settings-cat-title,.settings-sub-row.active .settings-cat-title{color:var(--b600)}
 .settings-cat-desc{font-size:11px;color:var(--t3);margin-top:2px}
+
+/* ── Histórico de atividades ── */
+.ah-wrap{display:flex;gap:0;background:var(--surf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;align-items:stretch}
+.ah-filters{width:250px;flex-shrink:0;border-right:1px solid var(--bd);padding:16px;background:var(--surf2)}
+.ah-feed{flex:1;min-width:0;max-height:600px;overflow-y:auto;padding:4px 0}
+.ah-day{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);padding:12px 16px 6px;border-bottom:1px solid var(--bd);background:var(--surf2);position:sticky;top:0}
+.ah-row{display:flex;gap:12px;align-items:baseline;padding:7px 16px;font-size:13px;border-bottom:1px solid var(--bd)}
+.ah-row:nth-child(even){background:var(--surf2)}
+.ah-time{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:38px}
+.ah-txt{min-width:0;color:var(--t2);line-height:1.5}
+@media (max-width:900px){.ah-wrap{flex-direction:column}.ah-filters{width:auto;border-right:none;border-bottom:1px solid var(--bd)}}
 
 /* ── Sidebar redesign ── */
 .sidebar-strip{position:fixed;left:0;top:0;bottom:0;width:4px;background:rgba(180,176,176,.5);z-index:100;overflow:hidden;display:flex;flex-direction:column;transition:width .38s cubic-bezier(0.16,1,0.3,1),background .3s ease,box-shadow .35s ease}

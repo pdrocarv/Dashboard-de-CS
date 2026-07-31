@@ -21,9 +21,11 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',action:''}};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
+const PROTECTED_ADMIN_EMAILS=['pedro.ferreira@stays.net','pdroc.ferreira@gmail.com'];
+function isProtectedAdmin(u){return u&&PROTECTED_ADMIN_EMAILS.indexOf((u.email||'').toLowerCase())>=0;}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
 auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
   if(fbUser&&!emailPermitido(fbUser.email)){
@@ -74,7 +76,7 @@ async function loadClients(){
     S.clients=migrateClients(S.clients);
   }catch(e){console.error("Load clients:",e);S.clients=[];}
 }
-async function loadAdminLog(){try{var snap=await db.collection('admin_log').orderBy('at','desc').limit(100).get();S.adminLog=snap.docs.map(function(d){return d.data();});}catch(e){console.error('loadAdminLog:',e);S.adminLog=[];}}
+async function loadAdminLog(){try{var snap=await db.collection('admin_log').orderBy('at','desc').limit(500).get();S.adminLog=snap.docs.map(function(d){return d.data();});}catch(e){console.error('loadAdminLog:',e);S.adminLog=[];}}
 async function loadAllUsers(){try{var s=await db.collection("users").get();S.allUsers=s.docs.map(function(d){return Object.assign({uid:d.id},d.data());});}catch(e){console.error(e);}}
 async function loadCustomQuestions(){try{var s=await db.collection("custom_questions").get();S.customQuestions=s.docs.map(function(d){return Object.assign({id:d.id},d.data());});}catch(e){console.error("loadCustomQuestions:",e);S.customQuestions=[];}}
 async function saveState(){
@@ -416,6 +418,7 @@ function wizSetH(key,level){
 }
 function wizA(key,val){
   S.wiz.answers[key]=val;
+  S.wizBlockedMsg=false;
   if(S.editFollow)S.editFollowDirty=true;
   render();
 }
@@ -457,7 +460,7 @@ function delInProgressFollow(){
   S.clientTab='follows';
   render();
 }
-function wizGo(step){S.wiz.step=step;wizAutoSave();render();}
+function wizGo(step){S.wiz.step=step;S.wizBlockedMsg=false;wizAutoSave();render();}
 function wizLbl(n,total,hint,icon){
   return '<div class="wiz-step-lbl"><span style="font-size:18px">'+icon+'</span>Pergunta '+(n+1)+' de '+total+'</div>'
     +(hint?'<div class="wiz-hint">'+svgIcon('pin',14)+' Verificar: '+hint+'</div>':'');
@@ -1217,6 +1220,7 @@ function wizRenderCustomQuestion(qid){
 }
 function wizSetCustomAnswer(qid,idx){
   var a=S.wiz.answers;if(!a.custom)a.custom={};a.custom[qid]=idx;
+  S.wizBlockedMsg=false;
   if(S.editFollow)S.editFollowDirty=true;
   render();
 }
@@ -1229,6 +1233,34 @@ var WIZ_TOTAL_REC=26;
 var WIZ_RENDERERS={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,tz_check:wizQ20,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
 var STEP_HUMOR_KEY={units:'units',cities:null,pricing:null,channels:'channels',notifs:'notifs',ch_perf:'chperf',ch_usab:'usab',domain:'domain',tz_check:null,site:'site',photos:'photos_desc',occupation:'occupation',price:'price',lastminute:null,financial:'financial',operational:'operational',appcenter:'appcenter',openapi:null,prod_sug:null,payment:'payment',inadimplencia:null,nego:'nego',nps_churn:'nps',cases:'cases',upgrade:'upgrade',acct_plan:null};
 var WIZ_REC_HINTS=['SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays / Painel','SMS da Stays','SMS da Stays','SMS da Stays','Sistema do cliente','Sistema do cliente','SMS da Stays','Sistema do cliente','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays','SMS da Stays / Salesforce','Análise do analista','SMS da Stays','Salesforce','Salesforce','Track (NPS) / Salesforce','Salesforce','Análise do plano','Plano de contas / Salesforce'];
+// Qual campo em S.wiz.answers conta como "esta pergunta foi respondida"
+var STEP_ANSWER_KEY={units:'units_count',cities:'cities',pricing:'pricing_model',channels:'channels',notifs:'notifs_option',ch_perf:'chperf_option',ch_usab:'usab',domain:'domain_migration',tz_check:'tz_confirmed',site:'site_option',photos:'photos_option',occupation:'occupation',price:'price_option',lastminute:'lastminute',financial:'financial_option',operational:'operational_option',appcenter:'appcenter_option',openapi:'openapi',prod_sug:'prodsug_has',payment:'payment',inadimplencia:'inadimplencia_opt',nego:'nego_has',nps_churn:'nps_avaliou',cases:'cases_option',upgrade:'upgrade_option',acct_plan:'acct_has'};
+function wizStepAnswered(stepKey){
+  var a=S.wiz.answers||{};
+  if(stepKey.indexOf('custom_')===0){var qid=stepKey.slice(7);return!!(a.custom&&a.custom[qid]!==undefined&&a.custom[qid]!==null);}
+  var key=STEP_ANSWER_KEY[stepKey];
+  if(!key)return true;
+  if(key==='cities')return!!(a.cities&&a.cities.length);
+  if(key==='channels')return!!(a.channels&&a.channels.some(function(c){return c.active;}));
+  if(key==='usab')return WIZ_USAB_ITEMS.every(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
+  if(key==='occupation')return!!(a.occ_current&&a.occ_current.option!==undefined&&a.occ_current.option!==null);
+  var v=a[key];
+  return v!==undefined&&v!==null&&v!=='';
+}
+function wizStepMandatory(stepKey){
+  if(stepKey.indexOf('custom_')===0){var q=(S.customQuestions||[]).find(function(x){return x.id===stepKey.slice(7);});return!!(q&&q.mandatory);}
+  return true;
+}
+function wizCanSkipMandatory(){return S.appUser&&(S.appUser.role==='admin'||S.appUser.canBypassMandatory===true);}
+function wizTryAdvance(target){
+  var effSteps=getWizOrder(S.wiz.type);
+  var stepKey=effSteps[S.wiz.step];
+  if(stepKey&&wizStepMandatory(stepKey)&&!wizStepAnswered(stepKey)&&!wizCanSkipMandatory()){
+    S.wizBlockedMsg=true;render();return;
+  }
+  S.wizBlockedMsg=false;
+  if(target==='summary')wizGoSummary();else wizGo(target);
+}
 function genSFForFollow(ci,fi){
   var f=S.clients[ci].follows[fi];
   if(!f)return;
@@ -1749,8 +1781,9 @@ function wizView(){
     +(step===0?'<span></span>':'<button class="btn btn-sm" onclick="wizGo('+(step-1)+')">← Anterior</button>')
     +'<div style="display:flex;gap:8px;align-items:center"><span style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:4px">'+svgIcon('save',12)+' Salvo automaticamente</span>'
     +'<span class="wiz-counter" style="font-size:13px;color:var(--t3)">'+(step+1)+' / '+total+'</span></div>'
-    +(isLast?'<button class="btn-primary" onclick="wizGoSummary()">Ver resumo →</button>':'<button class="btn-primary" onclick="wizGo('+(step+1)+')">Próxima →</button>')
+    +(isLast?'<button class="btn-primary" onclick="wizTryAdvance(\'summary\')">Ver resumo →</button>':'<button class="btn-primary" onclick="wizTryAdvance('+(step+1)+')">Próxima →</button>')
     +'</div>';
+  if(S.wizBlockedMsg)html+='<div class="alert alert-red" style="margin-top:10px">Selecione uma resposta pra continuar — essa pergunta é obrigatória.</div>';
   html+='</div>';
   return html;
 }
@@ -2100,6 +2133,7 @@ function wizFinish(){
   c.follows.push(newFollow);
   c.wizDraft=null;
   saveState();
+  addAdminLog('follow_completed',Object.assign(logClient(c),{followId:newFollow.id,followType:S.wiz.type}));
   S.wiz={step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
   S.view='client';S.clientTab='follows';
   render();
@@ -2253,7 +2287,8 @@ function savedBadge(){return S.savedMsg?'<span class="saved-badge">Salvo</span>'
 function startClocks(){function tick(){var cc=document.getElementById("clock-client");if(cc&&S.sel!==null){var c=S.clients[S.sel];var tz=COUNTRY_TZ[c.clientCountry];cc.textContent=tz?getTimeInTZ(tz):"--:--:--";}}tick();S.clockInterval=setInterval(tick,1000);}
 function buildHTML(){if(!S.appReady)return'<div class="loading-wrap"><div class="spinner" style="width:24px;height:24px"></div><span>Carregando...</span></div>';if(!S.appUser)return loginView();if(S.appUser&&S.appUser.unauthorized)return unauthorizedView();if(S.appUser.role==="pending")return pendingView();var undo=S.undoMsg?'<div class="undo-banner">'+e(S.undoMsg)+'<button class="btn btn-sm" style="background:#fff;color:#1e2329;margin-left:4px" onclick="undoDelete()">Desfazer</button><button class="btn btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="clearUndo()">x</button></div>':"";var isAdmin=S.appUser&&S.appUser.role==='admin';
 var isLeader=S.appUser&&S.appUser.role==='leader';
-var canAdmin=isAdmin;var canGeral=isAdmin||isLeader;
+var isGerente=S.appUser&&S.appUser.role==='gerente';
+var canAdmin=isAdmin||isGerente;var canGeral=isAdmin||isGerente||isLeader;
 var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">Stays CS</div>'
   +'<button class="sb-item'+(S.view==="dashboard"&&!S.adminMode?" sb-act":"")+'" onclick="goBack()">Contas</button>'
   +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="goVisaoGeralAdmin()">Visão Geral</button>':"")
@@ -2272,7 +2307,7 @@ function pendingView(){return'<div class="pending-wrap"><div class="pending-card
 // ============================================================
 // NAV
 // ============================================================
-function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Lider</span>':'<span class="analyst-badge">Analista</span>');var adminBtn=S.appUser.role==="admin"?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea='<span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(" ")[0])+"</span>"+roleBadge;if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
+function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="gerente"?'<span class="gerente-badge">Gerente</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Lider</span>':(S.appUser.role==="testuser"?'<span class="testuser-badge">Usuario teste</span>':'<span class="analyst-badge">Analista</span>')));var adminBtn=(S.appUser.role==="admin"||S.appUser.role==="gerente")?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea='<span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(" ")[0])+"</span>"+roleBadge;if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
 if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="settings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel do líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
@@ -2343,21 +2378,81 @@ S.clients.splice(ci,1);
 deleteClientFromDB(cid);
 render();}
 function archivedNav(){return'<nav class="nav" style="padding-left:60px"><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Arquivados</span><div class="nav-right"><select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(S.theme==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(S.theme==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(S.theme==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select><span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(' ')[0])+'</span></div></nav>';}
-function adminLogView(){
-var html='<div class="flex-between" style="margin-bottom:1.25rem">'
-  +'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Log de Auditoria</h1>'
-  +'</div>';
-if(!S.adminLog||!S.adminLog.length){
-  return html+'<div class="card" style="padding:3rem;text-align:center"><p style="color:var(--t2)">Nenhuma ação registrada.</p></div>';
+var ACTION_LABELS={
+  client_edited:'editou os dados de',client_deleted:'excluiu o cliente',archive_client:'arquivou',permanent_delete:'excluiu permanentemente',
+  follow_completed:'finalizou um follow-up de',follow_deleted:'excluiu um follow-up de',
+  contact_added:'registrou um contato com',activity_added:'registrou uma atividade em',activity_archived:'arquivou uma atividade de',
+  reminder_added:'criou um lembrete para',reminder_deleted:'excluiu um lembrete de',reminder_completed:'concluiu um lembrete de',reminder_archived:'arquivou um lembrete de',
+  churn_opened:'abriu um caso de churn em',churn_recovery:'colocou em recuperação',churn_resolved:'resolveu o caso de churn de',
+  inadimplencia_added:'registrou fatura em aberto de',inadimplencia_paid:'marcou fatura como paga de',
+  question_approved:'aprovou uma pergunta customizada',question_rejected:'rejeitou uma pergunta customizada',
+  user_approved:'aprovou o acesso de',user_role_changed:'alterou a função de',leader_assigned:'definiu o líder responsável de'
+};
+function lpVisibleLog(){
+  var all=(S.adminLog||[]).slice();
+  var r=S.appUser.role;
+  if(r!=='admin'&&r!=='gerente'&&r!=='leader')all=all.filter(function(l){return l.byUid===S.appUser.uid;});
+  return all.sort(function(a,b){return(b.at||0)-(a.at||0);});
 }
-var rows=S.adminLog.sort(function(a,b){return(b.at||0)-(a.at||0);}).slice(0,100);
-html+='<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Ação</th><th>Cliente</th><th>Por</th><th>Data</th></tr></thead><tbody>'
-  +rows.map(function(log){
-    var label={archive_client:'Arquivamento',permanent_delete:'Exclusão permanente',question_approved:'Pergunta aprovada',question_rejected:'Pergunta rejeitada'}[log.action]||log.action;
-    return'<tr><td>'+e(label)+'</td><td>'+e((log.data&&log.data.clientName)||'—')+'</td><td>'+e((log.data&&log.data.by)||'—')+'</td><td>'+e((log.data&&log.data.at)||'—')+'</td></tr>';
-  }).join('')
-  +'</tbody></table></div></div>';
-return html;}
+function ahSetFilter(k,v){S.ahFilters[k]=v;render();}
+function ahClearFilters(){S.ahFilters={from:'',to:'',user:'',action:''};render();}
+function adminLogView(){
+  var canSeeAll=['admin','gerente','leader'].indexOf(S.appUser.role)>=0;
+  if(!S.ahFilters)S.ahFilters={from:'',to:'',user:'',action:''};
+  var f=S.ahFilters;
+  var all=lpVisibleLog();
+  var userOpts=Array.from(new Set(all.map(function(l){return(l.data&&l.data.by)||'';}).filter(Boolean))).sort();
+  var actionOpts=Array.from(new Set(all.map(function(l){return l.action;}).filter(Boolean))).sort();
+  var rows=all.filter(function(l){
+    if(f.user&&((l.data&&l.data.by)||'')!==f.user)return false;
+    if(f.action&&l.action!==f.action)return false;
+    if(f.from&&l.at&&new Date(l.at)<new Date(f.from+'T00:00:00'))return false;
+    if(f.to&&l.at&&new Date(l.at)>new Date(f.to+'T23:59:59'))return false;
+    return true;
+  });
+  var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Histórico de atividades</h1>';
+  html+='<div class="ah-wrap">';
+  html+='<div class="ah-filters">';
+  html+='<div class="form-row"><label class="form-lbl">De</label><input type="date" value="'+e(f.from)+'" onchange="ahSetFilter(\'from\',this.value)"></div>';
+  html+='<div class="form-row"><label class="form-lbl">Até</label><input type="date" value="'+e(f.to)+'" onchange="ahSetFilter(\'to\',this.value)"></div>';
+  if(canSeeAll){
+    html+='<div class="form-row"><label class="form-lbl">Usuário</label><select onchange="ahSetFilter(\'user\',this.value)"><option value="">Todos</option>'+userOpts.map(function(u){return'<option'+(f.user===u?' selected':'')+'>'+e(u)+'</option>';}).join('')+'</select></div>';
+  }
+  html+='<div class="form-row"><label class="form-lbl">Tipo de ação</label><select onchange="ahSetFilter(\'action\',this.value)"><option value="">Todas</option>'+actionOpts.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(ACTION_LABELS[a]||a)+'</option>';}).join('')+'</select></div>';
+  html+='<button class="btn btn-sm" onclick="ahClearFilters()">Limpar filtros</button>';
+  if(!canSeeAll)html+='<p class="muted" style="margin-top:12px;font-size:11px">Você vê apenas as suas próprias atividades.</p>';
+  html+='</div>';
+  html+='<div class="ah-feed">';
+  if(!rows.length){
+    html+='<p class="muted" style="padding:1rem">Nenhuma atividade registrada com esses filtros.</p>';
+  }else{
+    var lastDay='';
+    rows.forEach(function(l){
+      var d=l.at?new Date(l.at):null;
+      var dayKey=d?d.toLocaleDateString('pt-BR'):'—';
+      if(dayKey!==lastDay){html+='<div class="ah-day">'+e(dayKey)+'</div>';lastDay=dayKey;}
+      var time=d?d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'--:--';
+      var who=(l.data&&l.data.by)||'—';
+      var verb=ACTION_LABELS[l.action]||l.action;
+      var subject='';
+      if(l.data&&l.data.clientId){
+        var idx=(S.clients||[]).findIndex(function(c){return c.id===l.data.clientId;});
+        var lbl=e(String(l.data.clientName||'').toUpperCase());
+        subject=idx>=0?' <button class="btn-link" onclick="openClient('+idx+')">'+lbl+'</button>':' <span style="font-weight:600">'+lbl+'</span>';
+      }else if(l.data&&l.data.targetName){
+        subject=' <span style="font-weight:600">'+e(l.data.targetName)+'</span>';
+      }
+      var extra='';
+      if(l.data&&l.data.newRole)extra=' <span class="muted">→ '+e(l.data.newRole)+'</span>';
+      else if(l.data&&l.data.leaderName)extra=' <span class="muted">→ '+e(l.data.leaderName)+'</span>';
+      else if(l.data&&l.data.month)extra=' <span class="muted">('+e(l.data.month)+'/'+e(l.data.year)+')</span>';
+      else if(l.data&&l.data.title)extra=' <span class="muted">— '+e(l.data.title)+'</span>';
+      html+='<div class="ah-row"><span class="ah-time">'+time+'</span><span class="ah-txt"><span style="color:var(--b600);font-weight:600">'+e(who)+'</span> '+verb+subject+extra+'</span></div>';
+    });
+  }
+  html+='</div></div>';
+  return html;
+}
 function adminDashView(){
 var byA={};
 S.clients.forEach(function(c){var o=c.ownerId||"?";if(!byA[o])byA[o]=[];byA[o].push(c);});
@@ -2542,7 +2637,37 @@ function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizD
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function adminView(){if(S.appUser.role!=="admin")return'<p>Acesso negado.</p>';var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="openM(\'add-user\')">+ Informar novo usuario</button></div>';var byRole={admin:[],leader:[],analyst:[],pending:[]};S.allUsers.forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});var roleLabel={admin:"Administrador",leader:"Lider",analyst:"Analista",pending:"Pendentes (aguardando aprovacao)"};["pending","admin","leader","analyst"].forEach(function(role){var users=byRole[role];if(!users.length)return;html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';users.forEach(function(u){var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");var respLeader=role==="analyst"?S.allUsers.find(function(x){return(x.role==="leader"||x.role==="admin")&&(x.managedUsers||[]).indexOf(u.uid)>=0;}):null;var leaderOpts=role==="analyst"?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+S.allUsers.filter(function(x){return x.role==="leader"||x.role==="admin";}).map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>':'';html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+leaderOpts+(u.uid!==S.appUser.uid?'<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao"><option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option></select>':'<span class="muted" style="font-size:11px">Voce</span>')+'</div>';});html+='</div>';});html+='<div class="mt3 alert alert-amber">Ao aprovar um usuario (mudar de Pendente para Analista/Lider), ele tera acesso ao dashboard. Use o seletor "Lider responsavel" em cada analista para definir quem aprova as perguntas customizadas e ve a carteira dele na Visao Geral.</div>';return html;}
+function adminView(){
+  if(S.appUser.role!=="admin"&&S.appUser.role!=="gerente")return'<p>Acesso negado.</p>';
+  var isTrueAdmin=S.appUser.role==="admin";
+  var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="openM(\'add-user\')">+ Informar novo usuario</button></div>';
+  var byRole={admin:[],gerente:[],leader:[],analyst:[],testuser:[],pending:[]};
+  S.allUsers.forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});
+  var roleLabel={admin:"Administrador",gerente:"Gerente",leader:"Lider",analyst:"Analista",testuser:"Usuario teste",pending:"Pendentes (aguardando aprovacao)"};
+  ["pending","admin","gerente","leader","analyst","testuser"].forEach(function(role){
+    var users=byRole[role];if(!users.length)return;
+    html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';
+    users.forEach(function(u){
+      var protectedUser=isProtectedAdmin(u);
+      var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");
+      var respLeader=role==="analyst"?S.allUsers.find(function(x){return(x.role==="leader"||x.role==="admin"||x.role==="gerente")&&(x.managedUsers||[]).indexOf(u.uid)>=0;}):null;
+      var leaderOpts=role==="analyst"?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+S.allUsers.filter(function(x){return x.role==="leader"||x.role==="admin"||x.role==="gerente";}).map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>':'';
+      var roleSelect;
+      if(protectedUser&&!isTrueAdmin){
+        roleSelect='<span class="muted" style="font-size:11px" title="Só o admin pode alterar esta conta">Protegido</span>';
+      }else if(u.uid!==S.appUser.uid){
+        roleSelect='<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao"><option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="gerente"'+(u.role==="gerente"?" selected":"")+'>Gerente</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option><option value="testuser"'+(u.role==="testuser"?" selected":"")+'>Usuario teste</option></select>';
+      }else{
+        roleSelect='<span class="muted" style="font-size:11px">Voce</span>';
+      }
+      var bypassChk=isTrueAdmin?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap" title="Permite pular perguntas obrigatorias no wizard sem responder"><input type="checkbox" '+(u.canBypassMandatory?'checked':'')+' onchange="setBypassMandatory(\''+u.uid+'\',this.checked)"> Pula obrigatorias</label>':'';
+      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+leaderOpts+bypassChk+roleSelect+'</div>';
+    });
+    html+='</div>';
+  });
+  html+='<div class="mt3 alert alert-amber">Ao aprovar um usuario (mudar de Pendente para Analista/Lider), ele tera acesso ao dashboard. Use o seletor "Lider responsavel" em cada analista para definir quem aprova as perguntas customizadas e ve a carteira dele na Visao Geral.</div>';
+  return html;
+}
 // ============================================================
 // MODAIS
 // ============================================================
@@ -2674,7 +2799,7 @@ S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,s
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='recovery';
-saveState();closeM();render();}
+saveState();addAdminLog('churn_recovery',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber,days:days}));closeM();render();}
 function closeChurnResolved(ci){
 if(!confirm('Fechar caso de churn como RESOLVIDO? '+S.clients[ci].name+' voltará ao score normal.'))return;
 if(!S.clients[ci].churnHistory)S.clients[ci].churnHistory=[];
@@ -2682,7 +2807,7 @@ S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,s
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='resolved';
-saveState();closeM();render();}
+saveState();addAdminLog('churn_resolved',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber}));closeM();render();}
 function closeChurnConfirmed(ci){
 if(!confirm('ATENÇÃO: Esta ação irá ARQUIVAR '+S.clients[ci].name+'.\n\nO cliente sairá da carteira e ficará na página de Arquivados. Esta ação não pode ser desfeita facilmente.\n\nTem certeza?'))return;
 var archived={...S.clients[ci],archived:true,archivedAt:new Date().toLocaleDateString('pt-BR'),archivedBy:S.appUser.uid,archivedByName:S.appUser.name};
@@ -2698,15 +2823,16 @@ var date=document.getElementById('sp-act-date').value;
 var note=document.getElementById('sp-act-note').value.trim();
 if(!date){alert('Informe a data.');return;}
 if(!S.clients[ci].activities)S.clients[ci].activities=[];
-S.clients[ci].activities.push({id:uid(),type:type,date:date,note:note,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
-saveState();S.slideAddOpen=false;render();}
+var _act={id:uid(),type:type,date:date,note:note,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()};
+S.clients[ci].activities.push(_act);
+saveState();addAdminLog('activity_added',Object.assign(logClient(S.clients[ci]),{activityId:_act.id,activityType:type}));S.slideAddOpen=false;render();}
 function archiveAct(ci,btn){archiveActivity(ci,btn.dataset.id);}
 function archiveRem(ci,btn){archiveReminder(ci,btn.dataset.id);}
 function archiveActivity(ci,aid){
 if(!confirm('Arquivar esta atividade?'))return;
 var act=S.clients[ci].activities.find(function(a){return a.id===aid;});
 if(act)act.archived=true;
-saveState();render();}
+saveState();addAdminLog('activity_archived',Object.assign(logClient(S.clients[ci]),{activityId:aid}));render();}
 /* ── REMINDER FUNCTIONS ── */
 function saveReminder(ci){
 var type=document.getElementById('sp-rem-type').value;
@@ -2717,25 +2843,26 @@ if(!title){alert('Informe o título do lembrete.');return;}
 if(!dueDate){alert('Informe a data do lembrete.');return;}
 if(!confirm((type==='retorno'?'Registrar lembrete de RETORNO':'Registrar lembrete PROATIVO')+' para '+S.clients[ci].name+'?'))return;
 if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
-S.clients[ci].reminders.push({id:uid(),type:type,title:title,dueDate:dueDate,note:note,done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
-saveState();S.slideAddOpen=false;render();}
+var _rem={id:uid(),type:type,title:title,dueDate:dueDate,note:note,done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()};
+S.clients[ci].reminders.push(_rem);
+saveState();addAdminLog('reminder_added',Object.assign(logClient(S.clients[ci]),{reminderId:_rem.id,reminderType:type,title:title}));S.slideAddOpen=false;render();}
 function deleteReminder(ci,rid){
   var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
   if(rem&&rem.type==='retorno'){alert('Lembretes de retorno não podem ser excluídos, apenas arquivados.');return;}
   if(!confirm('Excluir este lembrete proativo permanentemente?'))return;
   S.clients[ci].reminders=S.clients[ci].reminders.filter(function(r){return r.id!==rid;});
-  saveState();render();
+  saveState();addAdminLog('reminder_deleted',Object.assign(logClient(S.clients[ci]),{reminderId:rid,title:rem&&rem.title}));render();
 }
 function completeReminder(ci,rid){
 if(!confirm('Marcar lembrete como concluído?'))return;
 var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
 if(rem){rem.done=true;rem.doneAt=new Date().toLocaleDateString('pt-BR');}
-saveState();render();}
+saveState();addAdminLog('reminder_completed',Object.assign(logClient(S.clients[ci]),{reminderId:rid,title:rem&&rem.title}));render();}
 function archiveReminder(ci,rid){
 if(!confirm('Arquivar este lembrete?'))return;
 var rem=S.clients[ci].reminders.find(function(r){return r.id===rid;});
 if(rem)rem.archived=true;
-saveState();render();}
+saveState();addAdminLog('reminder_archived',Object.assign(logClient(S.clients[ci]),{reminderId:rid,title:rem&&rem.title}));render();}
 /* ── SLIDE PANEL HTML ── */
 function spAct(btn){var ci=+btn.getAttribute('data-ci'),id=btn.getAttribute('data-id'),ac=btn.getAttribute('data-ac');if(ac==='archAct')archiveActivity(ci,id);else if(ac==='archRem')archiveReminder(ci,id);else if(ac==='doneRem')completeReminder(ci,id);else if(ac==='delRem')deleteReminder(ci,id);}
 function slidePanelHTML(){
@@ -2796,12 +2923,13 @@ if(S.slideAddOpen&&tabActs){
 }
 return html+'</div>';}
 
-function addAdminLog(action,data){var log={id:uid(),action:action,data:data,at:Date.now()};db.collection('admin_log').add(log).catch(function(e){console.error('Log error:',e);});}
+function addAdminLog(action,data){var d=Object.assign({},data||{});if(!d.by)d.by=S.appUser&&S.appUser.name;if(!d.at)d.at=new Date().toLocaleDateString('pt-BR');var log={id:uid(),action:action,data:d,byUid:(S.appUser&&S.appUser.uid)||null,at:Date.now()};db.collection('admin_log').add(log).catch(function(e){console.error('Log error:',e);});}
+function logClient(c){return{clientId:c&&c.id,clientName:c&&(c.slug||c.name)};}
 
-function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveState();closeM();render();}
+function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveState();addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
 function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
-function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveState();S.modal='inad-'+ci;render();}
-function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveState();S.modal='inad-'+ci;render();}
+function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveState();addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
+function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveState();addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
 
 function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div><p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
@@ -2866,27 +2994,39 @@ function saveEditClient(){
   c.clientCity=document.getElementById("ecly").value.trim();
   c.categoria=document.getElementById("ecat").value;
   c.onboardingStatus=document.getElementById("est").value;
-  saveState();showSaved();S.modal=null;render();
+  saveState();addAdminLog('client_edited',logClient(c));showSaved();S.modal=null;render();
 }
 function showSaved(){S.savedMsg=true;render();setTimeout(function(){S.savedMsg=false;render();},2500);}
-function delClient(i){if(!confirm("Tem certeza que deseja excluir \""+S.clients[i].name+"\"?\n\nEsta ação é permanente e irá remover todos os dados, follow-ups e histórico do cliente. Não pode ser desfeita."))return;var cid=S.clients[i].id;S.clients.splice(i,1);deleteClientFromDB(cid);goBack();}
+function delClient(i){if(!confirm("Tem certeza que deseja excluir \""+S.clients[i].name+"\"?\n\nEsta ação é permanente e irá remover todos os dados, follow-ups e histórico do cliente. Não pode ser desfeita."))return;var cid=S.clients[i].id;addAdminLog('client_deleted',logClient(S.clients[i]));S.clients.splice(i,1);deleteClientFromDB(cid);goBack();}
 function delFollow(ci,fi){
   var c=S.clients[ci],f=c.follows[fi];
   if(!confirm("Tem certeza que deseja excluir este Follow-Up de "+formatDate(f.date)+"?"))return;
   S.undoFollow=JSON.parse(JSON.stringify(f));S.undoFollowIdx=fi;S.undoCI=ci;S.undoMsg="Follow-Up de "+formatDate(f.date)+" excluido.";
+  addAdminLog('follow_deleted',Object.assign(logClient(c),{followDate:formatDate(f.date)}));
   c.follows.splice(fi,1);saveState();goBackToClient();S.clientTab="follows";render();
   setTimeout(function(){if(S.undoMsg){S.undoMsg="";S.undoFollow=null;render();}},10000);
 }
 function undoDelete(){if(!S.undoFollow||S.undoCI===null)return;S.clients[S.undoCI].follows.splice(S.undoFollowIdx,0,S.undoFollow);saveState();S.undoFollow=null;S.undoFollowIdx=null;S.undoCI=null;S.undoMsg="";render();}
 function clearUndo(){S.undoMsg="";S.undoFollow=null;S.undoCI=null;render();}
-function saveContact(){var sum=document.getElementById("cs").value.trim();if(!sum){alert("Adicione um resumo do contato.");return;}var ct={id:uid(),type:document.getElementById("ct").value,date:document.getElementById("cd").value,impact:document.getElementById("ci").value,summary:sum};var c=S.clients[S.sel];if(!c.contacts)c.contacts=[];c.contacts.push(ct);saveState();S.modal=null;S.genText="";render();}
+function saveContact(){var sum=document.getElementById("cs").value.trim();if(!sum){alert("Adicione um resumo do contato.");return;}var ct={id:uid(),type:document.getElementById("ct").value,date:document.getElementById("cd").value,impact:document.getElementById("ci").value,summary:sum};var c=S.clients[S.sel];if(!c.contacts)c.contacts=[];c.contacts.push(ct);saveState();addAdminLog('contact_added',Object.assign(logClient(c),{contactType:ct.type,impact:ct.impact}));S.modal=null;S.genText="";render();}
 function delContact(ci,i){if(!confirm("Remover este contato?"))return;S.clients[ci].contacts.splice(i,1);saveState();render();}
 function saveKeyContact(){var name=document.getElementById("kn").value.trim();if(!name){alert("Informe o nome.");return;}var resp=document.getElementById("kresp")&&document.getElementById("kresp").checked;var kc={id:uid(),name:name,role:document.getElementById("kr").value.trim(),phone:document.getElementById("kp").value.trim(),email:document.getElementById("ke").value.trim(),responsible:!!resp};var c=S.clients[S.sel];if(!c.keyContacts)c.keyContacts=[];if(resp)c.keyContacts.forEach(function(k){k.responsible=false;});c.keyContacts.push(kc);saveState();S.modal=null;render();}
 function delKeyContact(ci,i){if(!confirm("Remover este contato-chave?"))return;S.clients[ci].keyContacts.splice(i,1);saveState();render();}
 function saveSettings(){S.apiKey=document.getElementById("sk").value.trim();localStorage.setItem("stays_api_key",S.apiKey);closeM();}
-async function changeRole(uid,role){await saveUserProfile(uid,{role:role});await loadAllUsers();render();}
+async function changeRole(uid,role){
+  var target=S.allUsers.find(function(u){return u.uid===uid;});
+  if(S.appUser.role==='gerente'&&isProtectedAdmin(target)){alert('Você não pode alterar esta conta.');await loadAllUsers();render();return;}
+  var oldRole=target&&target.role;
+  await saveUserProfile(uid,{role:role});
+  addAdminLog(oldRole==='pending'?'user_approved':'user_role_changed',{targetName:target&&target.name,targetEmail:target&&target.email,oldRole:oldRole,newRole:role});
+  await loadAllUsers();render();
+}
+async function setBypassMandatory(uid,val){if(S.appUser.role!=='admin')return;await saveUserProfile(uid,{canBypassMandatory:!!val});await loadAllUsers();render();}
 async function setResponsibleLeader(analystUid,newLeaderUid){
-  var oldLeader=S.allUsers.find(function(u){return u.role==="leader"&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
+  var _an=S.allUsers.find(function(u){return u.uid===analystUid;});
+  var _nl=newLeaderUid?S.allUsers.find(function(u){return u.uid===newLeaderUid;}):null;
+  addAdminLog('leader_assigned',{targetName:_an&&_an.name,leaderName:_nl?_nl.name:'(sem líder)'});
+  var oldLeader=S.allUsers.find(function(u){return(u.role==="leader"||u.role==="admin"||u.role==="gerente")&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
   if(oldLeader&&oldLeader.uid!==newLeaderUid){
     var pulled=(oldLeader.managedUsers||[]).filter(function(id){return id!==analystUid;});
     await saveUserProfile(oldLeader.uid,{managedUsers:pulled});
@@ -3053,9 +3193,8 @@ function settingsFollowOrderView(){
   return html;
 }
 function settingsView(){
-  var canAdmin=S.appUser.role==='admin';
   var cats=[{key:'followup',title:'Follow up',desc:'Ordem das perguntas e criação de perguntas'},{key:'archived',title:'Arquivados',desc:'Clientes arquivados'}];
-  if(canAdmin)cats.push({key:'adminlog',title:'Log de auditoria',desc:'Histórico de ações administrativas'});
+  cats.push({key:'adminlog',title:'Histórico de atividades',desc:'Quem fez o quê, e quando'});
   var chevron='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>';
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Configurações</h1>';
   html+='<div class="settings-wrap">';
@@ -3087,6 +3226,9 @@ function leaderMyQuestions(){
   if(S.appUser.role==='admin')return all;
   var managed=S.appUser.managedUsers||[];
   return all.filter(function(q){return managed.indexOf(q.createdBy)>=0;});
+}
+function leaderRelevantAnalysts(){
+  return S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
 }
 function leaderStartEdit(qid){
   if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid){S.leaderEditDraft=null;render();return;}
@@ -3121,8 +3263,10 @@ async function leaderSaveEdits(qid){
   if(!q)return;
   var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
   var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
+  var forcedMandatory=q.category?true:!!draft.mandatory;
+  var forcedShareWith=q.category?leaderRelevantAnalysts().map(function(u){return u.uid;}):draft.shareWith.slice();
   try{
-    await db.collection('custom_questions').doc(qid).update({text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),mandatory:!!draft.mandatory});
+    await db.collection('custom_questions').doc(qid).update({text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:forcedShareWith,mandatory:forcedMandatory});
     S.leaderEditDraft=null;
     await loadCustomQuestions();
     render();
@@ -3135,8 +3279,10 @@ async function leaderApproveQuestion(qid){
   if(!q)return;
   var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
   var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
+  var forcedMandatory=q.category?true:!!draft.mandatory;
+  var forcedShareWith=q.category?leaderRelevantAnalysts().map(function(u){return u.uid;}):draft.shareWith.slice();
   try{
-    await db.collection('custom_questions').doc(qid).update({status:'approved',text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),mandatory:!!draft.mandatory,approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
+    await db.collection('custom_questions').doc(qid).update({status:'approved',text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:forcedShareWith,mandatory:forcedMandatory,approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
     addAdminLog('question_approved',{questionText:draft.text.trim(),questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
     S.leaderEditDraft=null;
     await loadCustomQuestions();
@@ -3252,7 +3398,7 @@ function lpMrrPopover(){
 }
 function leaderQuestionsBody(mine){
   if(!mine.length)return'<p class="muted" style="margin:0">Nenhuma pergunta customizada dos seus analistas ainda.</p>';
-  var relevantAnalysts=S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
+  var relevantAnalysts=leaderRelevantAnalysts();
   var html='';
   mine.forEach(function(q){
     var creator=S.allUsers.find(function(u){return u.uid===q.createdBy;});
@@ -3273,14 +3419,18 @@ function leaderQuestionsBody(mine){
         html+='<button class="btn btn-sm" onclick="leaderRemoveEditAnswer('+i+')">×</button></div>';
       });
       html+='<button class="btn btn-sm" onclick="leaderAddEditAnswer()">+ Adicionar resposta</button>';
-      html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Obrigatória para os analistas? <span class="muted" style="font-weight:400">(só o líder define isso)</span></div><div class="wiz-opts" style="max-width:320px"><div class="wiz-opt'+(!draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(false)"><span class="wiz-opt-lbl">Opcional</span></div><div class="wiz-opt'+(draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(true)"><span class="wiz-opt-lbl">Obrigatória</span></div></div></div>';
-      if(relevantAnalysts.length){
-        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar com</div>';
-        relevantAnalysts.forEach(function(u){
-          var checked=draft.shareWith.indexOf(u.uid)>=0;
-          html+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="leaderToggleShare(\''+u.uid+'\')">'+e(u.name)+(u.uid===q.createdBy?' <span class="muted" style="font-size:11px">(solicitou)</span>':'')+'</label>';
-        });
-        html+='</div>';
+      if(q.category){
+        html+='<div class="alert alert-amber" style="margin-top:.75rem">Essa pergunta impacta uma categoria de score, então é sempre <strong>obrigatória</strong> e compartilhada com <strong>todos os seus analistas</strong> — pra manter o score comparável entre todo mundo. Sem opção de restringir isso aqui.</div>';
+      }else{
+        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Obrigatória para os analistas? <span class="muted" style="font-weight:400">(só o líder define isso)</span></div><div class="wiz-opts" style="max-width:320px"><div class="wiz-opt'+(!draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(false)"><span class="wiz-opt-lbl">Opcional</span></div><div class="wiz-opt'+(draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(true)"><span class="wiz-opt-lbl">Obrigatória</span></div></div></div>';
+        if(relevantAnalysts.length){
+          html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar com</div>';
+          relevantAnalysts.forEach(function(u){
+            var checked=draft.shareWith.indexOf(u.uid)>=0;
+            html+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="leaderToggleShare(\''+u.uid+'\')">'+e(u.name)+(u.uid===q.createdBy?' <span class="muted" style="font-size:11px">(solicitou)</span>':'')+'</label>';
+          });
+          html+='</div>';
+        }
       }
       html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;flex-wrap:wrap">';
       html+='<button class="btn btn-sm btn-danger" onclick="leaderDeleteQuestion(\''+q.id+'\')" title="Exclui permanentemente, só pra limpeza">'+svgIcon('trash',13)+' Excluir</button>';
