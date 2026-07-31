@@ -70,7 +70,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{}};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -109,7 +109,7 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
 });
 async function signInWithGoogle(){var p=new firebase.auth.GoogleAuthProvider();try{await auth.signInWithPopup(p);}catch(e){alert("Erro ao entrar: "+e.message);}}
 async function signInWithEmail(){var em=document.getElementById("login-email").value.trim(),pw=document.getElementById("login-pw").value;if(!em||!pw){alert("Preencha e-mail e senha.");return;}try{await auth.signInWithEmailAndPassword(em,pw);}catch(e){alert("Erro: "+(e.code==="auth/wrong-password"||e.code==="auth/user-not-found"?"E-mail ou senha incorretos.":e.message));}}
-async function doSignOut(){if(!confirm("Sair do Dashboard?"))return;if(S.clockInterval)clearInterval(S.clockInterval);await auth.signOut();}
+async function doSignOut(){if(!confirmDiscardIfDirty())return;if(!confirm("Sair do Dashboard?"))return;if(S.clockInterval)clearInterval(S.clockInterval);await auth.signOut();}
 // ============================================================
 // FIRESTORE
 // ============================================================
@@ -2203,12 +2203,24 @@ function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInte
 // ============================================================
 // ROTEAMENTO (URL por tela + botão voltar do navegador)
 // ============================================================
+function confirmDiscardIfDirty(){
+  if(S.wizOrderDirty){
+    if(!confirm('Você tem alterações não salvas na ordem do follow-up. Deseja sair sem salvar?'))return false;
+    S.wizOrderDirty=false;S.wizOrderDraft=null;
+  }
+  return true;
+}
+window.onbeforeunload=function(ev){if(S.wizOrderDirty){ev.preventDefault();ev.returnValue='';return'';}};
 function computeRoute(){
   if(S.view==='dashboard')return S.adminMode?'#/visao-geral':'#/';
   if(S.view==='admin')return'#/admin';
-  if(S.view==='archived')return'#/arquivados';
-  if(S.view==='adminlog')return'#/log-auditoria';
-  if(S.view==='wizsettings')return'#/configuracoes-followup';
+  if(S.view==='settings'){
+    var base='#/configuracoes';
+    if(S.settingsCat==='followup'){base+='/follow-up';if(S.settingsSub==='order')base+='/ordem';else if(S.settingsSub==='questions')base+='/perguntas';}
+    else if(S.settingsCat==='archived')base+='/arquivados';
+    else if(S.settingsCat==='adminlog')base+='/log-auditoria';
+    return base;
+  }
   if(S.view==='leaderpanel')return'#/painel-lider';
   if(S.view==='follow-wizard')return'#/follow-wizard';
   if(S.sel===null||S.sel===undefined)return'#/';
@@ -2225,9 +2237,14 @@ function applyRoute(hash){
   if(!parts.length){S.view='dashboard';S.adminMode=false;return;}
   if(parts[0]==='visao-geral'){S.view='dashboard';S.adminMode=true;return;}
   if(parts[0]==='admin'){S.view='admin';return;}
-  if(parts[0]==='arquivados'){S.view='archived';return;}
-  if(parts[0]==='log-auditoria'){S.view='adminlog';return;}
-  if(parts[0]==='configuracoes-followup'){S.view='wizsettings';return;}
+  if(parts[0]==='configuracoes'){
+    S.view='settings';
+    if(parts[1]==='follow-up'){S.settingsCat='followup';if(parts[2]==='ordem'){S.settingsSub='order';if(!S.wizOrderDraft)initWizOrderDraft();}else if(parts[2]==='perguntas'){S.settingsSub='questions';}else{S.settingsSub=null;}}
+    else if(parts[1]==='arquivados'){S.settingsCat='archived';S.settingsSub=null;}
+    else if(parts[1]==='log-auditoria'){S.settingsCat='adminlog';S.settingsSub=null;loadAdminLog();}
+    else{S.settingsCat=null;S.settingsSub=null;}
+    return;
+  }
   if(parts[0]==='painel-lider'){S.view='leaderpanel';return;}
   if(parts[0]==='follow-wizard'){if(S.wiz&&S.wiz.step!==undefined)S.view='follow-wizard';else S.view='dashboard';return;}
   if(parts[0]==='cliente'){
@@ -2248,7 +2265,13 @@ function syncRoute(){
   var route=computeRoute();
   if(location.hash!==route)history.pushState(null,'',route);
 }
-window.addEventListener('popstate',function(){applyRoute(location.hash);render();});
+window.addEventListener('popstate',function(){
+  if(S.wizOrderDirty){
+    if(!confirm('Você tem alterações não salvas na ordem do follow-up. Deseja sair sem salvar?')){history.pushState(null,'',computeRoute());return;}
+    S.wizOrderDirty=false;S.wizOrderDraft=null;
+  }
+  applyRoute(location.hash);render();
+});
 function animateScoreNumber(){
   if(!S.scoreAnimShown)S.scoreAnimShown={};
   var byCi={};
@@ -2303,15 +2326,13 @@ var isLeader=S.appUser&&S.appUser.role==='leader';
 var canAdmin=isAdmin;var canGeral=isAdmin||isLeader;
 var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">Stays CS</div>'
   +'<button class="sb-item'+(S.view==="dashboard"&&!S.adminMode?" sb-act":"")+'" onclick="goBack()">Contas</button>'
-  +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="S.view=\'dashboard\';S.adminMode=true;loadAllUsers().then(function(){render();})">Visão Geral</button>':"")
+  +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="goVisaoGeralAdmin()">Visão Geral</button>':"")
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
-  +'<button class="sb-item'+(S.view==="archived"?" sb-act":"")+'" onclick="goArchived()">Arquivados</button>'
-  +'<button class="sb-item'+(S.view==="wizsettings"?" sb-act":"")+'" onclick="goWizSettings()">Configurações de Follow-up</button>'
-  +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel de líder</button>':"")
-  +(canAdmin?'<button class="sb-item'+(S.view==="adminlog"?" sb-act":"")+'" onclick="goAdminLog()">Log de auditoria</button>':"")
+  +'<button class="sb-item'+(S.view==="settings"?" sb-act":"")+'" onclick="goSettings()">Configurações</button>'
+  +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel do líder</button>':"")
   +'<button class="sb-item sb-out" onclick="doSignOut()">Sair</button>'
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="archived"?archivedView():(S.view==="adminlog"?adminLogView():(S.view==="wizsettings"?wizSettingsView():(S.view==="leaderpanel"?leaderPanelView():adminView()))))))))))+"</div>"+(S.modal?modal():"")+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow"?followView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="settings"?settingsView():(S.view==="leaderpanel"?leaderPanelView():adminView()))))))))+"</div>"+(S.modal?modal():"")+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
@@ -2323,8 +2344,8 @@ function pendingView(){return'<div class="pending-wrap"><div class="pending-card
 // ============================================================
 function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Lider</span>':'<span class="analyst-badge">Analista</span>');var adminBtn=S.appUser.role==="admin"?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea='<span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(" ")[0])+"</span>"+roleBadge;if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
 if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
-if(S.view==="wizsettings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações de Follow-up</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
-if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel de líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
+if(S.view==="settings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
+if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel do líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="client"){if(S.view==="archived")return archivedNav();if(S.view==="adminlog")return archivedNav();
 var c=S.clients[S.sel];return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><strong style="font-size:14px;font-family:\'Roboto Slab\',serif">'+e((c.slug||c.name).toUpperCase())+'</strong><div class="nav-right">'+thSel+adminBtn+userArea+'<button class="btn btn-sm btn-danger" onclick="delClient('+S.sel+')">Excluir</button></div></nav>';}var c=S.clients[S.sel];
 if(S.view==="follow-wizard"){return'<nav class="nav"><button class="btn btn-sm" onclick="wizExitConfirm()">← '+e((c.slug||c.name).toUpperCase())+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow-up em andamento</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delInProgressFollow()">Excluir Follow</button></div></nav>';}
@@ -2897,13 +2918,15 @@ function mSettings(){return'<div class="modal-box"><div class="modal-title">Conf
 // ============================================================
 function openClientFollows(i){S.sel=i;S.view="client";S.clientTab="follows";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function toggleDropdown(id,ev){ev.stopPropagation();var el=document.getElementById(id);if(!el)return;var isOpen=el.style.display==="block";document.querySelectorAll(".dd-menu").forEach(function(d){d.style.display="none";});if(!isOpen){el.style.display="block";setTimeout(function(){document.addEventListener("click",function h(){el.style.display="none";document.removeEventListener("click",h);},{once:true});},0);}}
-function goBack(){S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";S.adminMode=false;render();}
+function goBack(){if(!confirmDiscardIfDirty())return;S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";S.adminMode=false;render();}
 function goBackToClient(){if(S.editFollow&&S.editFollowDirty&&!confirm("Você tem alterações não salvas nesta pergunta. Sair sem salvar?"))return;if(S.hasUnsavedChanges&&!confirm("Tem alteracoes nao salvas. Sair sem salvar?"))return;S.editFollow=null;S.editFollowDirty=false;S.hasUnsavedChanges=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
-function goArchived(){S.view="archived";render();}
-function goAdminLog(){loadAdminLog().then(function(){S.view="adminlog";render();});}
-function goWizSettings(){S.view="wizsettings";render();}
-function goLeaderPanel(){if(!S.allUsers||!S.allUsers.length){loadAllUsers().then(function(){S.view="leaderpanel";render();});}else{S.view="leaderpanel";render();}}
-function goAdmin(){S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
+function goLeaderPanel(){if(!confirmDiscardIfDirty())return;if(!S.allUsers||!S.allUsers.length){loadAllUsers().then(function(){S.view="leaderpanel";render();});}else{S.view="leaderpanel";render();}}
+function goAdmin(){if(!confirmDiscardIfDirty())return;S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
+function goVisaoGeralAdmin(){if(!confirmDiscardIfDirty())return;S.view='dashboard';S.adminMode=true;loadAllUsers().then(function(){render();});}
+function goSettings(){if(!confirmDiscardIfDirty())return;S.view="settings";render();}
+function selectSettingsCat(cat){if(!confirmDiscardIfDirty())return;S.settingsCat=cat;S.settingsSub=null;if(cat==='adminlog'){loadAdminLog().then(function(){render();});}else{render();}}
+function selectSettingsSub(sub){if(!confirmDiscardIfDirty())return;S.settingsSub=sub;if(sub==='order')initWizOrderDraft();render();}
+function initWizOrderDraft(){S.wizOrderDraft={first:getWizOrder('first'),recurring:getWizOrder('recurring')};S.wizOrderDirty=false;S.wizOrderTab='first';}
 function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function openFollow(fi){S.hasUnsavedChanges=false;S.editFollow=null;S.editFollowDirty=false;S.selFollow=fi;var c=S.clients[S.sel];var f=c.follows[fi];S.view=(f&&f.wizard)?"follow-view":"follow";S.genText="";S.importMsg="";render();}
@@ -3046,18 +3069,6 @@ function getStepHumorKey(k){
 function customStepsFromAnswers(a){return Object.keys((a&&a.custom)||{}).map(function(qid){return'custom_'+qid;});}
 function wizOrderDragStart(ev,type,idx){S.wizOrderDrag={type:type,idx:idx};if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';try{ev.dataTransfer.setData('text/plain',String(idx));}catch(e){}}}
 function wizOrderDragOver(ev){ev.preventDefault();}
-function wizOrderDrop(ev,type,idx){
-  ev.preventDefault();
-  if(!S.wizOrderDrag||S.wizOrderDrag.type!==type)return;
-  var from=S.wizOrderDrag.idx;
-  S.wizOrderDrag=null;
-  if(from===idx)return;
-  var list=getWizOrder(type);
-  var moved=list.splice(from,1)[0];
-  list.splice(idx,0,moved);
-  saveWizOrderList(type,list);
-  render();
-}
 function qBuilderInit(){S.qBuilder={text:'',appliesTo:'both',category:'',position:'',answers:[{label:'',humor:null},{label:'',humor:null}]};}
 function qBuilderSetField(field,val){if(!S.qBuilder)qBuilderInit();S.qBuilder[field]=val;if(field!=='text'&&field!=='position')render();}
 function qBuilderAddAnswer(){if(!S.qBuilder)qBuilderInit();S.qBuilder.answers.push({label:'',humor:null});render();}
@@ -3088,10 +3099,8 @@ function wizOrderBadge(k){
   return'<span class="badge b-risk">Obrigatória</span>';
 }
 function toggleQBuilderOpen(){S.qBuilderOpen=!S.qBuilderOpen;if(S.qBuilderOpen&&!S.qBuilder)qBuilderInit();render();}
-function toggleWizOrderOpen(type){if(!S.wizOrderOpen)S.wizOrderOpen={};S.wizOrderOpen[type]=!S.wizOrderOpen[type];render();}
-function wizSettingsView(){
-  var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Configurações de Follow-up</h1>';
-  html+='<div class="section-hdr"><span>Nova pergunta customizada</span></div>';
+function settingsFollowQuestionsView(){
+  var html='<div class="section-hdr" style="margin-top:0"><span>Nova pergunta customizada</span></div>';
   if(!S.qBuilderOpen){
     html+='<div class="card" style="padding:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--t2)">Deseja adicionar uma nova pergunta ao seu fluxo de Follow-up?</span><button class="btn-primary" onclick="toggleQBuilderOpen()">+ Nova pergunta</button></div>';
   }else{
@@ -3126,22 +3135,72 @@ function wizSettingsView(){
     });
     html+='</div>';
   }
-  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div><p class="muted" style="font-size:12px;margin-bottom:.75rem">Clique no fluxo pra abrir e arraste pelas barrinhas para reordenar.</p>';
-  if(!S.wizOrderOpen)S.wizOrderOpen={};
-  ['first','recurring'].forEach(function(type){
-    var isOpen=!!S.wizOrderOpen[type];
-    var order=getWizOrder(type);
-    html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleWizOrderOpen(\''+type+'\')"><div style="font-size:13px;font-weight:600">'+(type==='first'?'Primeiro follow':'Follow recorrente')+' <span class="muted" style="font-weight:400">('+order.length+' perguntas)</span></div><span style="color:var(--t3)">'+(isOpen?'▲':'▼')+'</span></div>';
-    if(isOpen){
-      html+='<div style="margin-top:.75rem">';
-      order.forEach(function(k,idx){
-        html+='<div draggable="true" ondragstart="wizOrderDragStart(event,\''+type+'\','+idx+')" ondragover="wizOrderDragOver(event)" ondrop="wizOrderDrop(event,\''+type+'\','+idx+')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:grab"><span style="color:var(--t3);font-size:14px;line-height:1;user-select:none">☰</span><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span>'+wizOrderBadge(k)+'</div>';
-      });
-      html+='</div>';
-    }
-    html+='</div>';
+  return html;
+}
+function saveWizOrderChanges(){
+  saveWizOrderList('first',S.wizOrderDraft.first);
+  saveWizOrderList('recurring',S.wizOrderDraft.recurring);
+  S.wizOrderDirty=false;
+  render();
+}
+function wizOrderDraftDrop(ev,type,idx){
+  ev.preventDefault();
+  if(!S.wizOrderDrag||S.wizOrderDrag.type!==type)return;
+  var from=S.wizOrderDrag.idx;
+  S.wizOrderDrag=null;
+  if(from===idx)return;
+  var list=S.wizOrderDraft[type];
+  var moved=list.splice(from,1)[0];
+  list.splice(idx,0,moved);
+  S.wizOrderDirty=true;
+  render();
+}
+function settingsFollowOrderView(){
+  if(!S.wizOrderDraft)initWizOrderDraft();
+  var type=S.wizOrderTab==='recurring'?'recurring':'first';
+  var order=S.wizOrderDraft[type];
+  var html='';
+  if(S.wizOrderDirty){
+    html+='<div class="alert alert-green" style="justify-content:space-between"><span>Você tem alterações não salvas na ordem.</span><button class="btn-save" onclick="saveWizOrderChanges()">Salvar alterações</button></div>';
+  }
+  html+='<div class="section-hdr" style="margin-top:0"><span>Ordem do follow</span></div>';
+  html+='<p class="muted" style="font-size:12px;margin-bottom:.75rem">Escolha o fluxo e arraste pelas barrinhas para reordenar.</p>';
+  html+='<div class="view-toggle" style="max-width:320px"><button class="vt-btn'+(type==='first'?' active':'')+'" onclick="S.wizOrderTab=\'first\';render()">Primeiro follow</button><button class="vt-btn'+(type==='recurring'?' active':'')+'" onclick="S.wizOrderTab=\'recurring\';render()">Follow recorrente</button></div>';
+  html+='<div class="card" style="padding:.5rem 1.25rem;margin-top:.75rem">';
+  order.forEach(function(k,idx){
+    html+='<div draggable="true" ondragstart="wizOrderDragStart(event,\''+type+'\','+idx+')" ondragover="wizOrderDragOver(event)" ondrop="wizOrderDraftDrop(event,\''+type+'\','+idx+')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:grab"><span style="color:var(--t3);font-size:14px;line-height:1;user-select:none">☰</span><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span>'+wizOrderBadge(k)+'</div>';
   });
+  html+='</div>';
+  return html;
+}
+function settingsView(){
+  var canAdmin=S.appUser.role==='admin';
+  var cats=[{key:'followup',title:'Follow up',desc:'Ordem das perguntas e criação de perguntas'},{key:'archived',title:'Arquivados',desc:'Clientes arquivados'}];
+  if(canAdmin)cats.push({key:'adminlog',title:'Log de auditoria',desc:'Histórico de ações administrativas'});
+  var chevron='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>';
+  var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Configurações</h1>';
+  html+='<div class="settings-wrap">';
+  html+='<div class="settings-col1">'+cats.map(function(c){
+    return'<div class="settings-cat-row'+(S.settingsCat===c.key?' active':'')+'" onclick="selectSettingsCat(\''+c.key+'\')"><div><div class="settings-cat-title">'+c.title+'</div><div class="settings-cat-desc">'+c.desc+'</div></div>'+chevron+'</div>';
+  }).join('')+'</div>';
+  if(S.settingsCat==='followup'){
+    var subs=[{key:'order',title:'Ordem do follow'},{key:'questions',title:'Perguntas do Follow'}];
+    html+='<div class="settings-col2">'+subs.map(function(s){
+      return'<div class="settings-sub-row'+(S.settingsSub===s.key?' active':'')+'" onclick="selectSettingsSub(\''+s.key+'\')"><div class="settings-cat-title">'+s.title+'</div>'+chevron+'</div>';
+    }).join('')+'</div>';
+  }
+  html+='<div class="settings-col3">';
+  if(S.settingsCat==='archived')html+=archivedView();
+  else if(S.settingsCat==='adminlog')html+=adminLogView();
+  else if(S.settingsCat==='followup'){
+    if(S.settingsSub==='order')html+=settingsFollowOrderView();
+    else if(S.settingsSub==='questions')html+=settingsFollowQuestionsView();
+    else html+='<p class="muted">Selecione "Ordem do follow" ou "Perguntas do Follow" ao lado.</p>';
+  }else{
+    html+='<p class="muted">Selecione uma categoria ao lado.</p>';
+  }
+  html+='</div>';
+  html+='</div>';
   return html;
 }
 function leaderMyQuestions(){
@@ -3551,7 +3610,7 @@ function leaderVisaoGeral(){
   return html;
 }
 function leaderPanelView(){
-  return'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel de líder</h1>'+leaderVisaoGeral();
+  return'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel do líder</h1>'+leaderVisaoGeral();
 }
 function infoNewUser(){var name=document.getElementById("un").value.trim(),email=document.getElementById("ue").value.trim();if(!name||!email){alert("Preencha nome e e-mail.");return;}alert("Perfeito! Informe "+name+" ("+email+") para acessar "+window.location.origin+" e fazer login com o Google ou criar uma conta com esse e-mail. Assim que o perfil for criado, ele aparecera aqui como Pendente para voce aprovar.");S.modal=null;render();}
 function runImport(){var text=document.getElementById("imp").value.trim();if(!text)return;if(S.selFollow===null){alert("Abra um follow-up primeiro.");closeM();return;}var imported=importTextFn(text,S.sel,S.selFollow);saveState();S.modal=null;S.genText="";S.importMsg=imported>0?("OK: "+imported+" indicadores importados."):"Nenhum indicador reconhecido. Verifique o formato do texto.";render();}
