@@ -70,7 +70,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list'};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{}};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -3243,13 +3243,36 @@ function lpTeamGroups(){
 function lpFlatten(byA){var out=[];Object.keys(byA).forEach(function(k){out=out.concat(byA[k]);});return out;}
 function lpFilteredClients(clients){
   var f=S.lpFilters;
+  var q=(S.lpSearch||'').trim().toLowerCase();
   return clients.filter(function(c){
     if(f.cat.length&&f.cat.indexOf(c.categoria)<0)return false;
     if(f.plan.length&&f.plan.indexOf(c.plan)<0)return false;
     if(f.country.length&&f.country.indexOf(c.clientCountry)<0)return false;
     if(f.city.length&&f.city.indexOf(c.clientCity)<0)return false;
+    if(q){var slug=(c.slug||c.name||'').toLowerCase();if(slug.indexOf(q)!==0)return false;}
     return true;
   });
+}
+function lpSetSearch(v){
+  S.lpSearch=v;S.lpPage={};
+  var el=document.getElementById('lp-search-input');
+  var sel=el?[el.selectionStart,el.selectionEnd]:null;
+  render();
+  var el2=document.getElementById('lp-search-input');
+  if(el2){el2.focus();if(sel)el2.setSelectionRange(sel[0],sel[1]);}
+}
+function lpSetPageSize(mode,size){S.lpPageSize[mode]=size;S.lpPage={};S.lpOpenPop=null;render();}
+function lpGoPage(oid,delta,maxPage){var cur=(S.lpPage[oid]||0)+delta;if(cur<0)cur=0;if(cur>maxPage)cur=maxPage;S.lpPage[oid]=cur;render();}
+function lpPageSizeControl(){
+  var mode=S.lpViewMode==='cards'?'cards':'list';
+  var options=mode==='cards'?[10,25,50]:[20,50,100,150];
+  var cur=S.lpPageSize[mode];
+  var open=S.lpOpenPop==='pagesize';
+  return'<div style="display:flex;justify-content:center;margin-top:14px">'
+    +'<div class="lp-info-card" style="max-width:180px;text-align:center" onclick="lpTogglePop(\'pagesize\')">'
+    +'<div class="lp-info-val">Limite por tela: '+cur+'</div>'
+    +(open?'<div class="lp-pop" style="left:50%;transform:translateX(-50%);min-width:120px">'+options.map(function(n){return'<div style="padding:6px 14px;cursor:pointer;font-size:13px;text-align:center;'+(n===cur?'font-weight:700;color:var(--b600)':'')+'" onclick="lpSetPageSize(\''+mode+'\','+n+')">'+n+'</div>';}).join('')+'</div>':'')
+    +'</div></div>';
 }
 function lpTogglePop(type){S.lpOpenPop=(S.lpOpenPop===type)?null:type;render();}
 function lpClosePop(){S.lpOpenPop=null;render();}
@@ -3374,21 +3397,42 @@ function lpAlertColumn(teamClients){
   return html;
 }
 function lpSetViewMode(m){S.lpViewMode=m;render();}
-function lpClientTable(cs){
-  var hdr='<div class="lp-cli-hdr"><div>Cliente</div><div>Categoria</div><div>Saude</div><div>MRR</div><div>Status</div><div>Follow-up</div></div>';
-  var rows=cs.map(function(c){
+function lpClientTable(cs,oid,mode){
+  mode=mode==='cards'?'cards':'list';
+  var pageSize=S.lpPageSize[mode]||(mode==='cards'?10:20);
+  var totalPages=Math.max(1,Math.ceil(cs.length/pageSize));
+  var curPage=Math.min(S.lpPage[oid]||0,totalPages-1);
+  var slice=cs.slice(curPage*pageSize,curPage*pageSize+pageSize);
+  var cols=mode==='cards'
+    ?'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,.9fr)'
+    :'minmax(0,1.3fr) minmax(0,.9fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr)';
+  var hdrLbls=mode==='cards'?['Cliente','Categoria','Saude','MRR']:['Cliente','Categoria','Saude','MRR','Status','Follow-up'];
+  var hdr='<div class="lp-cli-hdr" style="grid-template-columns:'+cols+'">'+hdrLbls.map(function(h){return'<div>'+h+'</div>';}).join('')+'</div>';
+  var rows=slice.map(function(c){
     var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
     var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
-    return'<div class="lp-cli-row">'
-      +'<div><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></div>'
-      +'<div>'+catBdg(c)+'</div>'
-      +'<div style="font-weight:700;color:'+chC+'">'+score+'</div>'
-      +'<div style="font-weight:500">'+formatMRR(c.mrr)+'</div>'
+    var cliCell='<div><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></div>';
+    var catCell='<div>'+catBdg(c)+'</div>';
+    var mrrCell='<div style="font-weight:500">'+formatMRR(c.mrr)+'</div>';
+    if(mode==='cards'){
+      var scoreCell='<div style="font-weight:800;font-size:16px;color:'+chC+'">'+score+'</div>';
+      return'<div class="lp-cli-row" style="grid-template-columns:'+cols+'">'+cliCell+catCell+scoreCell+mrrCell+'</div>';
+    }
+    var scoreCellList='<div style="font-weight:700;color:'+chC+'">'+score+'</div>';
+    return'<div class="lp-cli-row" style="grid-template-columns:'+cols+'">'+cliCell+catCell+scoreCellList+mrrCell
       +'<div>'+statusBdg(c.onboardingStatus)+'</div>'
       +'<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>'
       +'</div>';
   }).join('');
-  return'<div class="lp-cli-grid">'+hdr+rows+'</div>';
+  var pager='';
+  if(totalPages>1){
+    pager='<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 0 2px">'
+      +'<button class="btn btn-sm" '+(curPage===0?'disabled':'')+' onclick="lpGoPage(\''+oid+'\',-1,'+(totalPages-1)+')">‹</button>'
+      +'<span class="muted" style="font-size:11px">Página '+(curPage+1)+' de '+totalPages+'</span>'
+      +'<button class="btn btn-sm" '+(curPage===totalPages-1?'disabled':'')+' onclick="lpGoPage(\''+oid+'\',1,'+(totalPages-1)+')">›</button>'
+      +'</div>';
+  }
+  return'<div class="lp-cli-grid">'+hdr+rows+pager+'</div>';
 }
 function lpAnalystCardHTML(r){
   return'<div class="lp-analyst-card">'
@@ -3414,23 +3458,27 @@ function lpAnalystCardHTML(r){
     +(r.inad>0?'<div class="lp-sec-item lp-sec-alert-amber"><span class="lp-sec-val">'+r.inad+'</span><span class="lp-sec-lbl">inadimp.</span></div>':'')
     +(r.atrasados>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+r.atrasados+'</span><span class="lp-sec-lbl">atrasados</span></div>':'')
     +'</div>'
-    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs)+'</div>'
+    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs,r.oid,'cards')+'</div>'
     +'</div>';
 }
 function lpAnalystListHTML(r){
+  var rightCluster='<div style="display:flex;align-items:center;gap:18px;margin-right:6px;flex-shrink:0">'
+    +(r.churn>0?'<div style="text-align:center"><div style="font-size:22px;font-weight:700;color:#ce1e5a;line-height:1">'+r.churn+'</div><div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em">churn</div></div>':'')
+    +'<div style="text-align:center"><div style="font-size:34px;font-weight:700;color:'+r.hC+';line-height:1">'+r.avgScore+'</div><div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em">score</div></div>'
+    +'</div>';
   return'<div class="analyst-card">'
     +'<div class="analyst-card-hdr" onclick="toggleAnalyst(\''+r.oid+'\')">'
     +'<div style="width:36px;height:36px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
     +(r.analyst.photo?'<img src="'+e(r.analyst.photo)+'" width="36" height="36" style="object-fit:cover" referrerpolicy="no-referrer">':e((r.analyst.name||"?")[0].toUpperCase()))
-    +'</div><div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+r.cs.length+' clientes · MRR '+formatMRR(r.aMRR)+' · Score médio: <span style="font-weight:700;color:'+r.hC+'">'+r.avgScore+'</span>'
-    +(r.churn>0?' · <span style="color:#ce1e5a;font-weight:600">'+r.churn+' churn</span>':'')
+    +'</div><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+r.cs.length+' clientes · MRR '+formatMRR(r.aMRR)
     +(r.inad>0?' · <span style="color:#f3b02a;font-weight:600">'+r.inad+' inadimp.</span>':'')
     +(r.atrasados>0?' · <span style="color:#ce1e5a;font-weight:600">'+r.atrasados+' atrasados</span>':'')
     +'</div></div>'
+    +rightCluster
     +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="transform:'+(r.isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .4s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
     +'</div>'
-    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs)+'</div>'
+    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs,r.oid,'list')+'</div>'
     +'</div>';
 }
 function leaderVisaoGeral(){
@@ -3465,8 +3513,9 @@ function leaderVisaoGeral(){
   html+='</div></div>';
 
   var viewMode=S.lpViewMode==='cards'?'cards':'list';
-  html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
-  html+='<div style="font-weight:600;font-size:13px;color:var(--t2)">Visão geral (Analistas)</div>';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+  html+='<div style="font-weight:600;font-size:13px;color:var(--t2)">Analistas</div>';
+  html+='<input type="text" id="lp-search-input" placeholder="Buscar por sigla..." value="'+e(S.lpSearch)+'" oninput="lpSetSearch(this.value)" style="max-width:200px;width:200px;font-size:12px;padding:6px 10px">';
   html+='<div class="view-toggle lp-view-toggle" style="margin-bottom:0"><button class="vt-btn'+(viewMode==='list'?' active':'')+'" onclick="lpSetViewMode(\'list\')">Lista</button><button class="vt-btn'+(viewMode==='cards'?' active':'')+'" onclick="lpSetViewMode(\'cards\')">Cards</button></div>';
   html+='</div>';
   if(!Object.keys(filteredByA).length){
@@ -3494,6 +3543,7 @@ function leaderVisaoGeral(){
     }else{
       html+=rows.map(lpAnalystListHTML).join('');
     }
+    html+=lpPageSizeControl();
   }
   html+='</div>';
   html+=lpAlertColumn(teamClients);
