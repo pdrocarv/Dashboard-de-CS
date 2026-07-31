@@ -3341,45 +3341,68 @@ async function qBuilderSubmit(){
     render();
   }catch(e){console.error(e);alert('Erro ao enviar pergunta para aprovação: '+(e.code||'')+' '+(e.message||e));}
 }
+function wizOrderBadge(k){
+  if(k.indexOf('custom_')===0){
+    var q=(S.customQuestions||[]).find(function(x){return x.id===k.slice(7);});
+    if(!q)return'';
+    var mandLbl=q.mandatory?'<span class="badge b-risk">Obrigatória</span>':'<span class="badge b-na">Opcional</span>';
+    return'<span class="badge b-blue">'+e(customQCatLabel(q.category))+'</span> '+mandLbl;
+  }
+  return'<span class="badge b-risk">Obrigatória</span>';
+}
+function toggleQBuilderOpen(){S.qBuilderOpen=!S.qBuilderOpen;if(S.qBuilderOpen&&!S.qBuilder)qBuilderInit();render();}
+function toggleWizOrderOpen(type){if(!S.wizOrderOpen)S.wizOrderOpen={};S.wizOrderOpen[type]=!S.wizOrderOpen[type];render();}
 function wizSettingsView(){
-  if(!S.qBuilder)qBuilderInit();
-  var qb=S.qBuilder;
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Configurações de Follow-up</h1>';
-  html+='<div class="section-hdr"><span>Nova pergunta customizada</span></div><div class="card" style="padding:1.25rem;margin-bottom:1.5rem">';
-  html+='<div class="form-row"><label class="form-lbl">Texto da pergunta</label><input id="qb-text" type="text" value="'+e(qb.text)+'" oninput="qBuilderSetField(\'text\',this.value)" placeholder="Ex: O cliente usa o app mobile?"></div>';
-  html+='<div class="grid2"><div class="form-row"><label class="form-lbl">Aplica a</label><select onchange="qBuilderSetField(\'appliesTo\',this.value)"><option value="both"'+(qb.appliesTo==='both'?' selected':'')+'>Primeiro follow e Recorrente</option><option value="first"'+(qb.appliesTo==='first'?' selected':'')+'>Só Primeiro follow</option><option value="recurring"'+(qb.appliesTo==='recurring'?' selected':'')+'>Só Recorrente</option></select></div>';
-  html+='<div class="form-row"><label class="form-lbl">Categoria de score</label><select onchange="qBuilderSetField(\'category\',this.value)">'+CUSTOM_Q_CATS.map(function(c){return'<option value="'+c.key+'"'+(qb.category===c.key?' selected':'')+'>'+c.label+'</option>';}).join('')+'</select></div></div>';
-  var curFirstLen=getWizOrder('first').length,curRecLen=getWizOrder('recurring').length;
-  html+='<div class="form-row"><label class="form-lbl">Posição desejada no fluxo <span style="color:var(--t3);font-weight:400">(opcional)</span></label><input type="number" min="1" style="width:120px" value="'+e(qb.position)+'" oninput="qBuilderSetField(\'position\',this.value)" placeholder="Ex: 10"><div style="font-size:11px;color:var(--t3);margin-top:4px">Hoje: '+curFirstLen+' perguntas no Primeiro follow e '+curRecLen+' no Recorrente. Se você preencher uma posição, quando a pergunta for aprovada ela entra ali e empurra as perguntas seguintes uma casa pra baixo — sem preencher, ela entra no fim do fluxo.</div></div>';
-  html+='<div style="margin-top:.75rem"><label class="form-lbl">Respostas'+(qb.category?' (defina o humor de cada uma)':'')+'</label>';
-  qb.answers.forEach(function(a,i){
-    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="text" style="flex:1" value="'+e(a.label)+'" placeholder="Resposta '+(i+1)+'" oninput="qBuilderSetAnswer('+i+',\'label\',this.value)">';
-    if(qb.category){
-      html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="qBuilderSetAnswer('+i+',\'humor\','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
-    }
-    html+='<button class="btn btn-sm" onclick="qBuilderRemoveAnswer('+i+')">×</button></div>';
-  });
-  html+='<button class="btn btn-sm" onclick="qBuilderAddAnswer()">+ Adicionar resposta</button></div>';
-  html+='<div style="margin-top:1rem;text-align:right"><button class="btn-primary" onclick="qBuilderSubmit()">Enviar para aprovação</button></div>';
-  html+='</div>';
-  var mine=(S.customQuestions||[]).filter(function(q){return q.createdBy===S.appUser.uid;});
+  html+='<div class="section-hdr"><span>Nova pergunta customizada</span></div>';
+  if(!S.qBuilderOpen){
+    html+='<div class="card" style="padding:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--t2)">Deseja adicionar uma nova pergunta ao seu fluxo de Follow-up?</span><button class="btn-primary" onclick="toggleQBuilderOpen()">+ Nova pergunta</button></div>';
+  }else{
+    if(!S.qBuilder)qBuilderInit();
+    var qb=S.qBuilder;
+    html+='<div class="card" style="padding:1.25rem;margin-bottom:1.5rem">';
+    html+='<div class="form-row"><label class="form-lbl">Texto da pergunta</label><input id="qb-text" type="text" value="'+e(qb.text)+'" oninput="qBuilderSetField(\'text\',this.value)" placeholder="Ex: O cliente usa o app mobile?"></div>';
+    html+='<div class="grid2"><div class="form-row"><label class="form-lbl">Aplica a</label><select onchange="qBuilderSetField(\'appliesTo\',this.value)"><option value="both"'+(qb.appliesTo==='both'?' selected':'')+'>Primeiro follow e Recorrente</option><option value="first"'+(qb.appliesTo==='first'?' selected':'')+'>Só Primeiro follow</option><option value="recurring"'+(qb.appliesTo==='recurring'?' selected':'')+'>Só Recorrente</option></select></div>';
+    html+='<div class="form-row"><label class="form-lbl">Categoria de score</label><select onchange="qBuilderSetField(\'category\',this.value)">'+CUSTOM_Q_CATS.map(function(c){return'<option value="'+c.key+'"'+(qb.category===c.key?' selected':'')+'>'+c.label+'</option>';}).join('')+'</select></div></div>';
+    var curFirstLen=getWizOrder('first').length,curRecLen=getWizOrder('recurring').length;
+    html+='<div class="form-row"><label class="form-lbl">Posição desejada no fluxo <span style="color:var(--t3);font-weight:400">(opcional)</span></label><input type="number" min="1" style="width:120px" value="'+e(qb.position)+'" oninput="qBuilderSetField(\'position\',this.value)" placeholder="Ex: 10"><div style="font-size:11px;color:var(--t3);margin-top:4px">Hoje: '+curFirstLen+' perguntas no Primeiro follow e '+curRecLen+' no Recorrente. Se você preencher uma posição, quando a pergunta for aprovada ela entra ali e empurra as perguntas seguintes uma casa pra baixo — sem preencher, ela entra no fim do fluxo.</div></div>';
+    html+='<div style="margin-top:.75rem"><label class="form-lbl">Respostas'+(qb.category?' (defina o humor de cada uma)':'')+'</label>';
+    qb.answers.forEach(function(a,i){
+      html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="text" style="flex:1" value="'+e(a.label)+'" placeholder="Resposta '+(i+1)+'" oninput="qBuilderSetAnswer('+i+',\'label\',this.value)">';
+      if(qb.category){
+        html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="qBuilderSetAnswer('+i+',\'humor\','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
+      }
+      html+='<button class="btn btn-sm" onclick="qBuilderRemoveAnswer('+i+')">×</button></div>';
+    });
+    html+='<button class="btn btn-sm" onclick="qBuilderAddAnswer()">+ Adicionar resposta</button></div>';
+    html+='<div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-sm" onclick="toggleQBuilderOpen()">Cancelar</button><button class="btn-primary" onclick="qBuilderSubmit()">Enviar para aprovação</button></div>';
+    html+='</div>';
+  }
+  var mine=(S.customQuestions||[]).filter(function(q){return q.createdBy===S.appUser.uid&&q.status!=='rejected';});
   html+='<div class="section-hdr"><span>Minhas perguntas ('+mine.length+')</span></div>';
-  if(!mine.length){html+='<p class="muted" style="margin-bottom:1.5rem">Nenhuma pergunta customizada criada ainda.</p>';}
+  if(!mine.length){html+='<p class="muted" style="margin-bottom:1.5rem">Nenhuma pergunta customizada aprovada ou pendente ainda.</p>';}
   else{
     html+='<div class="card" style="padding:0;margin-bottom:1.5rem">';
     mine.forEach(function(q){
-      var stBadge=q.status==='approved'?'<span class="badge b-ok">Aprovada</span>':(q.status==='rejected'?'<span class="badge b-risk">Rejeitada</span>':'<span class="badge b-warn">Aguardando aprovação</span>');
+      var stBadge=q.status==='approved'?'<span class="badge b-ok">Aprovada</span>':'<span class="badge b-warn">Aguardando aprovação</span>';
       html+='<div class="user-row"><div style="flex:1"><div style="font-weight:500">'+e(q.text)+'</div><div class="muted" style="font-size:11px">'+customQCatLabel(q.category)+' · '+(q.appliesTo==='both'?'Primeiro e Recorrente':(q.appliesTo==='first'?'Só Primeiro':'Só Recorrente'))+'</div></div>'+stBadge+'</div>';
     });
     html+='</div>';
   }
-  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div><p class="muted" style="font-size:12px;margin-bottom:.75rem">Clique e arraste pelas barrinhas para reordenar.</p>';
+  html+='<div class="section-hdr"><span>Ordem das perguntas</span></div><p class="muted" style="font-size:12px;margin-bottom:.75rem">Clique no fluxo pra abrir e arraste pelas barrinhas para reordenar.</p>';
+  if(!S.wizOrderOpen)S.wizOrderOpen={};
   ['first','recurring'].forEach(function(type){
+    var isOpen=!!S.wizOrderOpen[type];
     var order=getWizOrder(type);
-    html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem"><div style="font-size:13px;font-weight:600;margin-bottom:.75rem">'+(type==='first'?'Primeiro follow':'Follow recorrente')+'</div>';
-    order.forEach(function(k,idx){
-      html+='<div draggable="true" ondragstart="wizOrderDragStart(event,\''+type+'\','+idx+')" ondragover="wizOrderDragOver(event)" ondrop="wizOrderDrop(event,\''+type+'\','+idx+')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:grab"><span style="color:var(--t3);font-size:14px;line-height:1;user-select:none">☰</span><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span></div>';
-    });
+    html+='<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleWizOrderOpen(\''+type+'\')"><div style="font-size:13px;font-weight:600">'+(type==='first'?'Primeiro follow':'Follow recorrente')+' <span class="muted" style="font-weight:400">('+order.length+' perguntas)</span></div><span style="color:var(--t3)">'+(isOpen?'▲':'▼')+'</span></div>';
+    if(isOpen){
+      html+='<div style="margin-top:.75rem">';
+      order.forEach(function(k,idx){
+        html+='<div draggable="true" ondragstart="wizOrderDragStart(event,\''+type+'\','+idx+')" ondragover="wizOrderDragOver(event)" ondrop="wizOrderDrop(event,\''+type+'\','+idx+')" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:grab"><span style="color:var(--t3);font-size:14px;line-height:1;user-select:none">☰</span><span style="flex:1;font-size:13px">'+(idx+1)+'. '+e(wizOrderLabel(k))+'</span>'+wizOrderBadge(k)+'</div>';
+      });
+      html+='</div>';
+    }
     html+='</div>';
   });
   return html;
@@ -3394,10 +3417,11 @@ function leaderStartEdit(qid){
   if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid){S.leaderEditDraft=null;render();return;}
   var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
   if(!q)return;
-  S.leaderEditDraft={qid:qid,text:q.text,answers:q.answers.map(function(a){return{label:a.label,humor:a.humor};}),shareWith:(q.sharedWith||[]).slice()};
+  S.leaderEditDraft={qid:qid,text:q.text,answers:q.answers.map(function(a){return{label:a.label,humor:a.humor};}),shareWith:(q.sharedWith||[]).slice(),mandatory:!!q.mandatory};
   render();
 }
 function leaderCancelEdit(){S.leaderEditDraft=null;render();}
+function leaderSetEditMandatory(val){if(!S.leaderEditDraft)return;S.leaderEditDraft.mandatory=val;render();}
 function leaderSetEditText(val){if(!S.leaderEditDraft)return;S.leaderEditDraft.text=val;}
 function leaderSetEditAnswerLabel(idx,val){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers[idx].label=val;}
 function leaderSetEditAnswerHumor(idx,humor){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers[idx].humor=humor;render();}
@@ -3423,7 +3447,7 @@ async function leaderSaveEdits(qid){
   var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
   var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
   try{
-    await db.collection('custom_questions').doc(qid).update({text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice()});
+    await db.collection('custom_questions').doc(qid).update({text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),mandatory:!!draft.mandatory});
     S.leaderEditDraft=null;
     await loadCustomQuestions();
     render();
@@ -3437,7 +3461,7 @@ async function leaderApproveQuestion(qid){
   var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
   var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
   try{
-    await db.collection('custom_questions').doc(qid).update({status:'approved',text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
+    await db.collection('custom_questions').doc(qid).update({status:'approved',text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),mandatory:!!draft.mandatory,approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
     addAdminLog('question_approved',{questionText:draft.text.trim(),questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
     S.leaderEditDraft=null;
     await loadCustomQuestions();
@@ -3455,6 +3479,17 @@ async function leaderRejectQuestion(qid){
     await loadCustomQuestions();
     render();
   }catch(e){console.error(e);alert('Erro ao rejeitar: '+(e.code||'')+' '+(e.message||e));}
+}
+async function leaderDeleteQuestion(qid){
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return;
+  if(!confirm('Excluir definitivamente a pergunta "'+q.text+'"? Isso não pode ser desfeito.'))return;
+  try{
+    await db.collection('custom_questions').doc(qid).delete();
+    if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid)S.leaderEditDraft=null;
+    await loadCustomQuestions();
+    render();
+  }catch(e){console.error(e);alert('Erro ao excluir: '+(e.code||'')+' '+(e.message||e));}
 }
 function leaderPanelView(){
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel de líder</h1>';
@@ -3482,6 +3517,7 @@ function leaderPanelView(){
         html+='<button class="btn btn-sm" onclick="leaderRemoveEditAnswer('+i+')">×</button></div>';
       });
       html+='<button class="btn btn-sm" onclick="leaderAddEditAnswer()">+ Adicionar resposta</button>';
+      html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Obrigatória para os analistas? <span class="muted" style="font-weight:400">(só o líder define isso)</span></div><div class="wiz-opts" style="max-width:320px"><div class="wiz-opt'+(!draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(false)"><span class="wiz-opt-lbl">Opcional</span></div><div class="wiz-opt'+(draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(true)"><span class="wiz-opt-lbl">Obrigatória</span></div></div></div>';
       if(relevantAnalysts.length){
         html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar com</div>';
         relevantAnalysts.forEach(function(u){
@@ -3490,7 +3526,8 @@ function leaderPanelView(){
         });
         html+='</div>';
       }
-      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem">';
+      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;flex-wrap:wrap">';
+      html+='<button class="btn btn-sm btn-danger" onclick="leaderDeleteQuestion(\''+q.id+'\')" title="Exclui permanentemente, só pra limpeza">'+svgIcon('trash',13)+' Excluir</button>';
       html+='<button class="btn btn-sm" onclick="leaderCancelEdit()">Cancelar</button>';
       if(q.status!=='rejected')html+='<button class="btn btn-sm btn-danger" onclick="leaderRejectQuestion(\''+q.id+'\')">Rejeitar</button>';
       html+='<button class="btn btn-sm" onclick="leaderSaveEdits(\''+q.id+'\')">Salvar alterações</button>';
