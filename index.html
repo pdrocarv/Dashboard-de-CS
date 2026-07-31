@@ -3384,38 +3384,62 @@ function wizSettingsView(){
   });
   return html;
 }
-function leaderPendingQueue(){
-  var all=(S.customQuestions||[]).filter(function(q){return q.status==='pending';});
+function leaderMyQuestions(){
+  var all=(S.customQuestions||[]).slice();
   if(S.appUser.role==='admin')return all;
   var managed=S.appUser.managedUsers||[];
   return all.filter(function(q){return managed.indexOf(q.createdBy)>=0;});
 }
-function leaderToggleReview(qid){
-  if(S.leaderReviewDraft&&S.leaderReviewDraft.qid===qid){S.leaderReviewDraft=null;render();return;}
+function leaderStartEdit(qid){
+  if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid){S.leaderEditDraft=null;render();return;}
   var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
   if(!q)return;
-  S.leaderReviewDraft={qid:qid,answers:q.answers.map(function(a){return{label:a.label,humor:a.humor};}),shareWith:[]};
+  S.leaderEditDraft={qid:qid,text:q.text,answers:q.answers.map(function(a){return{label:a.label,humor:a.humor};}),shareWith:(q.sharedWith||[]).slice()};
   render();
 }
-function leaderSetReviewHumor(idx,humor){if(!S.leaderReviewDraft)return;S.leaderReviewDraft.answers[idx].humor=humor;render();}
+function leaderCancelEdit(){S.leaderEditDraft=null;render();}
+function leaderSetEditText(val){if(!S.leaderEditDraft)return;S.leaderEditDraft.text=val;}
+function leaderSetEditAnswerLabel(idx,val){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers[idx].label=val;}
+function leaderSetEditAnswerHumor(idx,humor){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers[idx].humor=humor;render();}
+function leaderAddEditAnswer(){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers.push({label:'',humor:null});render();}
+function leaderRemoveEditAnswer(idx){if(!S.leaderEditDraft)return;S.leaderEditDraft.answers.splice(idx,1);render();}
 function leaderToggleShare(uid){
-  if(!S.leaderReviewDraft)return;
-  var i=S.leaderReviewDraft.shareWith.indexOf(uid);
-  if(i>=0)S.leaderReviewDraft.shareWith.splice(i,1);else S.leaderReviewDraft.shareWith.push(uid);
+  if(!S.leaderEditDraft)return;
+  var i=S.leaderEditDraft.shareWith.indexOf(uid);
+  if(i>=0)S.leaderEditDraft.shareWith.splice(i,1);else S.leaderEditDraft.shareWith.push(uid);
   render();
+}
+function validateLeaderDraft(q,draft){
+  if(!draft.text.trim())return'Escreva o texto da pergunta.';
+  var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
+  if(validAnswers.length<2)return'Mantenha pelo menos 2 respostas.';
+  if(q.category&&validAnswers.some(function(a){return a.humor===null||a.humor===undefined;}))return'Defina o humor de todas as respostas.';
+  return null;
+}
+async function leaderSaveEdits(qid){
+  var draft=S.leaderEditDraft;if(!draft||draft.qid!==qid)return;
+  var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+  if(!q)return;
+  var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
+  var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
+  try{
+    await db.collection('custom_questions').doc(qid).update({text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice()});
+    S.leaderEditDraft=null;
+    await loadCustomQuestions();
+    render();
+  }catch(e){console.error(e);alert('Erro ao salvar alterações: '+(e.code||'')+' '+(e.message||e));}
 }
 async function leaderApproveQuestion(qid){
-  var draft=S.leaderReviewDraft;
-  if(!draft||draft.qid!==qid){alert('Abra a pergunta pra revisar o humor antes de aprovar.');return;}
+  var draft=S.leaderEditDraft;
+  if(!draft||draft.qid!==qid){alert('Abra a pergunta pra revisar antes de aprovar.');return;}
   var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
   if(!q)return;
-  if(q.category&&draft.answers.some(function(a){return a.humor===null||a.humor===undefined;})){alert('Defina o humor de todas as respostas antes de aprovar.');return;}
-  var sharedWith=(q.sharedWith||[]).slice();
-  draft.shareWith.forEach(function(uid){if(sharedWith.indexOf(uid)<0)sharedWith.push(uid);});
+  var err=validateLeaderDraft(q,draft);if(err){alert(err);return;}
+  var validAnswers=draft.answers.filter(function(a){return a.label.trim();});
   try{
-    await db.collection('custom_questions').doc(qid).update({status:'approved',answers:draft.answers,sharedWith:sharedWith,approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
-    addAdminLog('question_approved',{questionText:q.text,questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
-    S.leaderReviewDraft=null;
+    await db.collection('custom_questions').doc(qid).update({status:'approved',text:draft.text.trim(),answers:validAnswers.map(function(a){return{label:a.label.trim(),humor:q.category?a.humor:null};}),sharedWith:draft.shareWith.slice(),approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
+    addAdminLog('question_approved',{questionText:draft.text.trim(),questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
+    S.leaderEditDraft=null;
     await loadCustomQuestions();
     render();
   }catch(e){console.error(e);alert('Erro ao aprovar: '+(e.code||'')+' '+(e.message||e));}
@@ -3427,42 +3451,51 @@ async function leaderRejectQuestion(qid){
   try{
     await db.collection('custom_questions').doc(qid).update({status:'rejected',approvedBy:S.appUser.uid,approvedByName:S.appUser.name,approvedAt:new Date().toISOString()});
     addAdminLog('question_rejected',{questionText:q.text,questionId:qid,createdByName:q.createdByName,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
-    if(S.leaderReviewDraft&&S.leaderReviewDraft.qid===qid)S.leaderReviewDraft=null;
+    if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid)S.leaderEditDraft=null;
     await loadCustomQuestions();
     render();
   }catch(e){console.error(e);alert('Erro ao rejeitar: '+(e.code||'')+' '+(e.message||e));}
 }
 function leaderPanelView(){
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel de líder</h1>';
-  var queue=leaderPendingQueue();
-  html+='<div class="section-hdr"><span>Perguntas aguardando aprovação ('+queue.length+')</span></div>';
-  if(!queue.length){html+='<p class="muted">Nenhuma pergunta pendente no momento.</p>';return html;}
-  var managedAnalysts=S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
-  queue.forEach(function(q){
+  var mine=leaderMyQuestions();
+  var pendingCount=mine.filter(function(q){return q.status==='pending';}).length;
+  html+='<div class="section-hdr"><span>Perguntas personalizadas ('+mine.length+')'+(pendingCount?' · '+pendingCount+' aguardando aprovação':'')+'</span></div>';
+  if(!mine.length){html+='<p class="muted">Nenhuma pergunta customizada dos seus analistas ainda.</p>';return html;}
+  var relevantAnalysts=S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
+  mine.forEach(function(q){
     var creator=S.allUsers.find(function(u){return u.uid===q.createdBy;});
-    var isOpen=S.leaderReviewDraft&&S.leaderReviewDraft.qid===q.id;
+    var isOpen=S.leaderEditDraft&&S.leaderEditDraft.qid===q.id;
+    var stBadge=q.status==='approved'?'<span class="badge b-ok">Aprovada</span>':(q.status==='rejected'?'<span class="badge b-risk">Rejeitada</span>':'<span class="badge b-warn">Aguardando aprovação</span>');
     html+='<div class="card" style="padding:1.25rem;margin-bottom:1rem">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600;font-size:14px">'+e(q.text)+'</div><div class="muted" style="font-size:11px;margin-top:2px">Proposta por '+e((creator&&creator.name)||q.createdByName||'?')+' · '+customQCatLabel(q.category)+' · '+(q.appliesTo==='both'?'Primeiro e Recorrente':(q.appliesTo==='first'?'Só Primeiro':'Só Recorrente'))+'</div></div><button class="btn btn-sm" onclick="leaderToggleReview(\''+q.id+'\')">'+(isOpen?'Fechar':'Revisar')+'</button></div>';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600;font-size:14px">'+e(q.text)+' '+stBadge+'</div><div class="muted" style="font-size:11px;margin-top:2px">Proposta por '+e((creator&&creator.name)||q.createdByName||'?')+' · '+customQCatLabel(q.category)+' · '+(q.appliesTo==='both'?'Primeiro e Recorrente':(q.appliesTo==='first'?'Só Primeiro':'Só Recorrente'))+'</div></div><button class="btn btn-sm" onclick="leaderStartEdit(\''+q.id+'\')">'+(isOpen?'Fechar':'Editar')+'</button></div>';
     if(isOpen){
-      var draft=S.leaderReviewDraft;
+      var draft=S.leaderEditDraft;
       html+='<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--bd)">';
-      html+='<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Respostas'+(q.category?' — confirme o humor de cada uma':'')+'</div>';
+      html+='<div class="form-row"><label class="form-lbl">Texto da pergunta</label><input type="text" value="'+e(draft.text)+'" oninput="leaderSetEditText(this.value)"></div>';
+      html+='<div style="font-size:12px;font-weight:600;color:var(--t2);margin:.75rem 0 .5rem">Respostas'+(q.category?' — confirme o humor de cada uma':'')+'</div>';
       draft.answers.forEach(function(a,i){
-        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:13px">'+e(a.label)+'</span>';
+        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="text" style="flex:1" value="'+e(a.label)+'" oninput="leaderSetEditAnswerLabel('+i+',this.value)">';
         if(q.category){
-          html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="leaderSetReviewHumor('+i+','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
+          html+='<div style="display:flex;gap:3px">'+FKEYS.map(function(k,hi){var fc=FCOLORS[k];var isActive=a.humor===hi;return'<button type="button" title="'+FLABELS[hi]+'" style="background:'+fc.bg+';border:'+(isActive?'2px solid '+fc.bd:'1px solid transparent')+';border-radius:6px;padding:2px 4px;cursor:pointer" onclick="leaderSetEditAnswerHumor('+i+','+hi+')">'+face(k,16)+'</button>';}).join('')+'</div>';
         }
-        html+='</div>';
+        html+='<button class="btn btn-sm" onclick="leaderRemoveEditAnswer('+i+')">×</button></div>';
       });
-      if(managedAnalysts.length){
-        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar também com</div>';
-        managedAnalysts.filter(function(u){return u.uid!==q.createdBy;}).forEach(function(u){
+      html+='<button class="btn btn-sm" onclick="leaderAddEditAnswer()">+ Adicionar resposta</button>';
+      if(relevantAnalysts.length){
+        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar com</div>';
+        relevantAnalysts.forEach(function(u){
           var checked=draft.shareWith.indexOf(u.uid)>=0;
-          html+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="leaderToggleShare(\''+u.uid+'\')">'+e(u.name)+'</label>';
+          html+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="leaderToggleShare(\''+u.uid+'\')">'+e(u.name)+(u.uid===q.createdBy?' <span class="muted" style="font-size:11px">(solicitou)</span>':'')+'</label>';
         });
         html+='</div>';
       }
-      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem"><button class="btn btn-sm btn-danger" onclick="leaderRejectQuestion(\''+q.id+'\')">Rejeitar</button><button class="btn-primary" onclick="leaderApproveQuestion(\''+q.id+'\')">Aprovar</button></div>';
+      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem">';
+      html+='<button class="btn btn-sm" onclick="leaderCancelEdit()">Cancelar</button>';
+      if(q.status!=='rejected')html+='<button class="btn btn-sm btn-danger" onclick="leaderRejectQuestion(\''+q.id+'\')">Rejeitar</button>';
+      html+='<button class="btn btn-sm" onclick="leaderSaveEdits(\''+q.id+'\')">Salvar alterações</button>';
+      if(q.status!=='approved')html+='<button class="btn-primary" onclick="leaderApproveQuestion(\''+q.id+'\')">Aprovar</button>';
+      html+='</div>';
       html+='</div>';
     }
     html+='</div>';
