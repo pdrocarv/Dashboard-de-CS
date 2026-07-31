@@ -100,6 +100,7 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
       await loadCustomQuestions();
       S.appReady=true;
       migrateFromLocalStorage();
+      applyRoute(location.hash);
       render();
     }catch(err){console.error("Auth error:",err);S.appReady=true;render();}
   } else {
@@ -2198,7 +2199,56 @@ function getLastWizardFollow(c){
   return wizFollows[0]||null;
 }
 function toggleAnalyst(uid){S.expandedAnalysts=S.expandedAnalysts||{};S.expandedAnalysts[uid]=!S.expandedAnalysts[uid];render();}
-function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}var app=document.getElementById("app");if(!app)return;app.innerHTML=buildHTML();if(S.view==="client"||S.view==="follow")startClocks();animateScoreNumber();}
+function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}var app=document.getElementById("app");if(!app)return;app.innerHTML=buildHTML();if(S.view==="client"||S.view==="follow")startClocks();animateScoreNumber();syncRoute();}
+// ============================================================
+// ROTEAMENTO (URL por tela + botão voltar do navegador)
+// ============================================================
+function computeRoute(){
+  if(S.view==='dashboard')return S.adminMode?'#/visao-geral':'#/';
+  if(S.view==='admin')return'#/admin';
+  if(S.view==='archived')return'#/arquivados';
+  if(S.view==='adminlog')return'#/log-auditoria';
+  if(S.view==='wizsettings')return'#/configuracoes-followup';
+  if(S.view==='leaderpanel')return'#/painel-lider';
+  if(S.view==='follow-wizard')return'#/follow-wizard';
+  if(S.sel===null||S.sel===undefined)return'#/';
+  var c=S.clients[S.sel];if(!c)return'#/';
+  if(S.view==='client')return'#/cliente/'+c.id+(S.clientTab==='follows'?'/follows':'');
+  if(S.view==='follow-charts')return'#/cliente/'+c.id+'/graficos';
+  if((S.view==='follow'||S.view==='follow-view')&&S.selFollow!==null&&S.selFollow!==undefined){
+    return'#/cliente/'+c.id+'/'+(S.view==='follow-view'?'follow-view':'follow')+'/'+S.selFollow;
+  }
+  return'#/cliente/'+c.id;
+}
+function applyRoute(hash){
+  var parts=String(hash||'').replace(/^#\/?/,'').split('/').filter(Boolean);
+  if(!parts.length){S.view='dashboard';S.adminMode=false;return;}
+  if(parts[0]==='visao-geral'){S.view='dashboard';S.adminMode=true;return;}
+  if(parts[0]==='admin'){S.view='admin';return;}
+  if(parts[0]==='arquivados'){S.view='archived';return;}
+  if(parts[0]==='log-auditoria'){S.view='adminlog';return;}
+  if(parts[0]==='configuracoes-followup'){S.view='wizsettings';return;}
+  if(parts[0]==='painel-lider'){S.view='leaderpanel';return;}
+  if(parts[0]==='follow-wizard'){if(S.wiz&&S.wiz.step!==undefined)S.view='follow-wizard';else S.view='dashboard';return;}
+  if(parts[0]==='cliente'){
+    var cid=parts[1];
+    var idx=(S.clients||[]).findIndex(function(c){return c.id===cid;});
+    if(idx<0){S.view='dashboard';S.adminMode=false;return;}
+    S.sel=idx;
+    if(parts[2]==='follows'){S.view='client';S.clientTab='follows';return;}
+    if(parts[2]==='graficos'){S.view='follow-charts';return;}
+    if(parts[2]==='follow'&&parts[3]!==undefined){S.view='follow';S.selFollow=parseInt(parts[3]);return;}
+    if(parts[2]==='follow-view'&&parts[3]!==undefined){S.view='follow-view';S.selFollow=parseInt(parts[3]);return;}
+    S.view='client';S.clientTab='info';return;
+  }
+  S.view='dashboard';
+}
+function syncRoute(){
+  if(!S.appUser||S.appUser.unauthorized||S.appUser.role==='pending')return;
+  var route=computeRoute();
+  if(location.hash!==route)history.pushState(null,'',route);
+}
+window.addEventListener('popstate',function(){applyRoute(location.hash);render();});
 function animateScoreNumber(){
   if(!S.scoreAnimShown)S.scoreAnimShown={};
   var byCi={};
