@@ -354,6 +354,7 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .ah-row:nth-child(even){background:var(--surf2)}
 .ah-time{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:38px}
 .ah-txt{min-width:0;color:var(--t2);line-height:1.5}
+.ah-chip{flex-shrink:0;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:9999px;white-space:nowrap;align-self:center}
 @media (max-width:900px){.ah-wrap{flex-direction:column}.ah-filters{width:auto;border-right:none;border-bottom:1px solid var(--bd)}}
 
 /* ── Sidebar redesign ── */

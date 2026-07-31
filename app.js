@@ -74,7 +74,24 @@ async function loadClients(){
     var snap=await q.get();
     S.clients=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     S.clients=migrateClients(S.clients);
+    purgeExpiredDeleted();
   }catch(e){console.error("Load clients:",e);S.clients=[];}
+}
+const LIXEIRA_DIAS=7;
+// Cliente excluído fica na Lixeira (Arquivados) por 7 dias e depois é removido de vez.
+function trashDaysLeft(c){
+  if(!c||!c.deletedAt)return null;
+  var left=LIXEIRA_DIAS-Math.floor((Date.now()-c.deletedAt)/86400000);
+  return left>0?left:0;
+}
+function purgeExpiredDeleted(){
+  var expired=S.clients.filter(function(c){return c.deletedAt&&trashDaysLeft(c)===0;});
+  if(!expired.length)return;
+  expired.forEach(function(c){
+    var i=S.clients.indexOf(c);
+    if(i>=0)S.clients.splice(i,1);
+    deleteClientFromDB(c.id);
+  });
 }
 async function loadAdminLog(){try{var snap=await db.collection('admin_log').orderBy('at','desc').limit(500).get();S.adminLog=snap.docs.map(function(d){return d.data();});}catch(e){console.error('loadAdminLog:',e);S.adminLog=[];}}
 async function loadAllUsers(){try{var s=await db.collection("users").get();S.allUsers=s.docs.map(function(d){return Object.assign({uid:d.id},d.data());});}catch(e){console.error(e);}}
@@ -82,6 +99,11 @@ async function loadCustomQuestions(){try{var s=await db.collection("custom_quest
 async function saveState(){
   if(!S.appUser||S.appUser.role==="pending")return;
   var c=S.sel!==null?S.clients[S.sel]:null;if(!c)return;
+  try{var d=JSON.parse(JSON.stringify(c));if(!d.ownerId)d.ownerId=S.appUser.uid;await db.collection("clients").doc(c.id).set(d);}catch(e){console.error("Save:",e);}
+}
+// saveState() salva só o cliente selecionado; use este quando a ação não parte da tela do cliente.
+async function saveClient(c){
+  if(!c||!S.appUser||S.appUser.role==="pending")return;
   try{var d=JSON.parse(JSON.stringify(c));if(!d.ownerId)d.ownerId=S.appUser.uid;await db.collection("clients").doc(c.id).set(d);}catch(e){console.error("Save:",e);}
 }
 async function deleteClientFromDB(cid){try{await db.collection("clients").doc(cid).delete();}catch(e){console.error(e);}}
@@ -1251,7 +1273,8 @@ function wizStepMandatory(stepKey){
   if(stepKey.indexOf('custom_')===0){var q=(S.customQuestions||[]).find(function(x){return x.id===stepKey.slice(7);});return!!(q&&q.mandatory);}
   return true;
 }
-function wizCanSkipMandatory(){return S.appUser&&(S.appUser.role==='admin'||S.appUser.canBypassMandatory===true);}
+// Admin, Gerente e Líder sempre podem pular perguntas obrigatórias; analista nunca.
+function wizCanSkipMandatory(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
 function wizTryAdvance(target){
   var effSteps=getWizOrder(S.wiz.type);
   var stepKey=effSteps[S.wiz.step];
@@ -2353,15 +2376,18 @@ if(!archived.length){
 }
 html+=archived.map(function(c){
   var ci=S.clients.indexOf(c);
+  var left=trashDaysLeft(c);
+  var badge=left!==null?'<span class="badge b-risk" style="margin-left:8px">Removido em '+left+' dia'+(left===1?'':'s')+'</span>':'';
   return'<div class="archived-card">'
     +'<div style="flex:1">'
-    +'<div style="font-weight:600;font-size:14px">'+e((c.slug||c.name).toUpperCase())+'</div>'
+    +'<div style="font-weight:600;font-size:14px">'+e((c.slug||c.name).toUpperCase())+badge+'</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'
     +(c.churnCase&&c.churnCase.caseNumber?'Caso #'+e(c.churnCase.caseNumber)+' · ':'')
-    +'Arquivado em '+e(c.archivedAt||'—')+' por '+e(c.archivedByName||'—')
+    +(left!==null?'Excluído':'Arquivado')+' em '+e(c.archivedAt||'—')+' por '+e(c.archivedByName||'—')
     +'</div>'
     +'</div>'
-    +(S.appUser.role==='admin'?
+    +'<button class="btn btn-sm" onclick="restoreClient('+ci+')">Restaurar</button>'
+    +(S.appUser.role==='admin'||S.appUser.role==='gerente'?
       '<button class="btn btn-sm btn-danger" onclick="permanentDelete('+ci+')">Excluir permanentemente</button>'
     :'')
     +'</div>';
@@ -2372,22 +2398,52 @@ var c=S.clients[ci];
 if(!confirm('EXCLUSÃO PERMANENTE\n\nVocê está prestes a excluir permanentemente "'+c.name+'".\n\nEsta ação é IRREVERSÍVEL. Os dados serão removidos para sempre.\n\nDigite "CONFIRMAR" para prosseguir:'))return;
 var typed=prompt('Digite CONFIRMAR para excluir permanentemente:');
 if(typed!=='CONFIRMAR'){alert('Exclusão cancelada.');return;}
-addAdminLog('permanent_delete',{clientName:c.name,clientId:c.id,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
+addAdminLog('permanent_delete',logClient(c));
 var cid=c.id;
 S.clients.splice(ci,1);
 deleteClientFromDB(cid);
 render();}
 function archivedNav(){return'<nav class="nav" style="padding-left:60px"><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Arquivados</span><div class="nav-right"><select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(S.theme==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(S.theme==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(S.theme==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select><span style="font-size:12px;color:var(--t2)">'+e(S.appUser.name.split(' ')[0])+'</span></div></nav>';}
-var ACTION_LABELS={
-  client_edited:'editou os dados de',client_deleted:'excluiu o cliente',archive_client:'arquivou',permanent_delete:'excluiu permanentemente',
-  follow_completed:'finalizou um follow-up de',follow_deleted:'excluiu um follow-up de',
-  contact_added:'registrou um contato com',activity_added:'registrou uma atividade em',activity_archived:'arquivou uma atividade de',
-  reminder_added:'criou um lembrete para',reminder_deleted:'excluiu um lembrete de',reminder_completed:'concluiu um lembrete de',reminder_archived:'arquivou um lembrete de',
-  churn_opened:'abriu um caso de churn em',churn_recovery:'colocou em recuperação',churn_resolved:'resolveu o caso de churn de',
-  inadimplencia_added:'registrou fatura em aberto de',inadimplencia_paid:'marcou fatura como paga de',
-  question_approved:'aprovou uma pergunta customizada',question_rejected:'rejeitou uma pergunta customizada',
-  user_approved:'aprovou o acesso de',user_role_changed:'alterou a função de',leader_assigned:'definiu o líder responsável de'
+// Cada ação tem uma categoria (pra agrupar/filtrar) e uma frase em português.
+var ACT_CATS={
+  clientes:{label:'Clientes',color:'#1d9fbf',bg:'#e8f7fb'},
+  exclusoes:{label:'Exclusões',color:'#ce1e5a',bg:'#fdeef3'},
+  followups:{label:'Follow-ups',color:'#1f943c',bg:'#e8f5ec'},
+  atividades:{label:'Contatos e atividades',color:'#7c3aed',bg:'#f3e8ff'},
+  lembretes:{label:'Lembretes',color:'#0f5a6e',bg:'#e5f5f7'},
+  churn:{label:'Churn',color:'#b91c1c',bg:'#fde8e8'},
+  financeiro:{label:'Financeiro',color:'#c2410c',bg:'#fff3e0'},
+  perguntas:{label:'Perguntas',color:'#a06b0a',bg:'#fef7e8'},
+  acessos:{label:'Usuários e acessos',color:'#4c1d95',bg:'#f0ebfb'}
 };
+var ACTIONS={
+  client_edited:{cat:'clientes',label:'editou os dados de'},
+  client_restored:{cat:'clientes',label:'restaurou'},
+  follow_completed:{cat:'followups',label:'finalizou um follow-up de'},
+  contact_added:{cat:'atividades',label:'registrou um contato com'},
+  activity_added:{cat:'atividades',label:'registrou uma atividade em'},
+  activity_archived:{cat:'atividades',label:'arquivou uma atividade de'},
+  reminder_added:{cat:'lembretes',label:'criou um lembrete para'},
+  reminder_completed:{cat:'lembretes',label:'concluiu um lembrete de'},
+  reminder_archived:{cat:'lembretes',label:'arquivou um lembrete de'},
+  churn_opened:{cat:'churn',label:'abriu um caso de churn em'},
+  churn_recovery:{cat:'churn',label:'colocou em recuperação'},
+  churn_resolved:{cat:'churn',label:'resolveu o caso de churn de'},
+  archive_client:{cat:'churn',label:'arquivou por churn'},
+  inadimplencia_added:{cat:'financeiro',label:'registrou fatura em aberto de'},
+  inadimplencia_paid:{cat:'financeiro',label:'marcou fatura como paga de'},
+  question_approved:{cat:'perguntas',label:'aprovou uma pergunta customizada'},
+  question_rejected:{cat:'perguntas',label:'rejeitou uma pergunta customizada'},
+  user_approved:{cat:'acessos',label:'aprovou o acesso de'},
+  user_role_changed:{cat:'acessos',label:'alterou a função de'},
+  leader_assigned:{cat:'acessos',label:'definiu o líder responsável de'},
+  client_deleted:{cat:'exclusoes',label:'excluiu o cliente'},
+  follow_deleted:{cat:'exclusoes',label:'excluiu um follow-up de'},
+  reminder_deleted:{cat:'exclusoes',label:'excluiu um lembrete de'},
+  permanent_delete:{cat:'exclusoes',label:'excluiu permanentemente'}
+};
+function actLabel(a){return(ACTIONS[a]&&ACTIONS[a].label)||a;}
+function actCat(a){return(ACTIONS[a]&&ACTIONS[a].cat)||null;}
 function lpVisibleLog(){
   var all=(S.adminLog||[]).slice();
   var r=S.appUser.role;
@@ -2395,6 +2451,15 @@ function lpVisibleLog(){
   return all.sort(function(a,b){return(b.at||0)-(a.at||0);});
 }
 function ahSetFilter(k,v){S.ahFilters[k]=v;render();}
+// Campo de data nativo dispara 'change' a cada dígito do ano (o navegador aceita "2" como ano
+// válido), e um render() no meio da digitação destruiria o input. Só re-renderiza quando o ano
+// está completo — assim funciona tanto digitando quanto pelo calendário.
+function ahSetDate(k,v){
+  S.ahFilters[k]=v;
+  if(!v){render();return;}
+  var y=parseInt(String(v).split('-')[0],10);
+  if(y>=1000){var el=document.activeElement;render();if(el&&el.id)  {var again=document.getElementById(el.id);if(again)again.focus();}}
+}
 function ahClearFilters(){S.ahFilters={from:'',to:'',user:'',action:''};render();}
 function adminLogView(){
   var canSeeAll=['admin','gerente','leader'].indexOf(S.appUser.role)>=0;
@@ -2402,10 +2467,13 @@ function adminLogView(){
   var f=S.ahFilters;
   var all=lpVisibleLog();
   var userOpts=Array.from(new Set(all.map(function(l){return(l.data&&l.data.by)||'';}).filter(Boolean))).sort();
-  var actionOpts=Array.from(new Set(all.map(function(l){return l.action;}).filter(Boolean))).sort();
+  var presentActions=Array.from(new Set(all.map(function(l){return l.action;}).filter(Boolean)));
   var rows=all.filter(function(l){
     if(f.user&&((l.data&&l.data.by)||'')!==f.user)return false;
-    if(f.action&&l.action!==f.action)return false;
+    if(f.action){
+      if(f.action.indexOf('cat:')===0){if(actCat(l.action)!==f.action.slice(4))return false;}
+      else if(l.action!==f.action)return false;
+    }
     if(f.from&&l.at&&new Date(l.at)<new Date(f.from+'T00:00:00'))return false;
     if(f.to&&l.at&&new Date(l.at)>new Date(f.to+'T23:59:59'))return false;
     return true;
@@ -2413,12 +2481,23 @@ function adminLogView(){
   var html='<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Histórico de atividades</h1>';
   html+='<div class="ah-wrap">';
   html+='<div class="ah-filters">';
-  html+='<div class="form-row"><label class="form-lbl">De</label><input type="date" value="'+e(f.from)+'" onchange="ahSetFilter(\'from\',this.value)"></div>';
-  html+='<div class="form-row"><label class="form-lbl">Até</label><input type="date" value="'+e(f.to)+'" onchange="ahSetFilter(\'to\',this.value)"></div>';
+  html+='<div class="form-row"><label class="form-lbl">De</label><input id="ah-from" type="date" value="'+e(f.from)+'" oninput="ahSetDate(\'from\',this.value)" onblur="render()"></div>';
+  html+='<div class="form-row"><label class="form-lbl">Até</label><input id="ah-to" type="date" value="'+e(f.to)+'" oninput="ahSetDate(\'to\',this.value)" onblur="render()"></div>';
   if(canSeeAll){
     html+='<div class="form-row"><label class="form-lbl">Usuário</label><select onchange="ahSetFilter(\'user\',this.value)"><option value="">Todos</option>'+userOpts.map(function(u){return'<option'+(f.user===u?' selected':'')+'>'+e(u)+'</option>';}).join('')+'</select></div>';
   }
-  html+='<div class="form-row"><label class="form-lbl">Tipo de ação</label><select onchange="ahSetFilter(\'action\',this.value)"><option value="">Todas</option>'+actionOpts.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(ACTION_LABELS[a]||a)+'</option>';}).join('')+'</select></div>';
+  var grouped='';
+  Object.keys(ACT_CATS).forEach(function(ck){
+    var acts=presentActions.filter(function(a){return actCat(a)===ck;}).sort();
+    if(!acts.length)return;
+    grouped+='<optgroup label="'+e(ACT_CATS[ck].label)+'">';
+    grouped+='<option value="cat:'+ck+'"'+(f.action==='cat:'+ck?' selected':'')+'>Todas de '+e(ACT_CATS[ck].label)+'</option>';
+    grouped+=acts.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(actLabel(a))+'</option>';}).join('');
+    grouped+='</optgroup>';
+  });
+  var uncat=presentActions.filter(function(a){return!actCat(a);}).sort();
+  if(uncat.length)grouped+='<optgroup label="Outras">'+uncat.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(a)+'</option>';}).join('')+'</optgroup>';
+  html+='<div class="form-row"><label class="form-lbl">Tipo de ação</label><select onchange="ahSetFilter(\'action\',this.value)"><option value="">Todas</option>'+grouped+'</select></div>';
   html+='<button class="btn btn-sm" onclick="ahClearFilters()">Limpar filtros</button>';
   if(!canSeeAll)html+='<p class="muted" style="margin-top:12px;font-size:11px">Você vê apenas as suas próprias atividades.</p>';
   html+='</div>';
@@ -2433,7 +2512,9 @@ function adminLogView(){
       if(dayKey!==lastDay){html+='<div class="ah-day">'+e(dayKey)+'</div>';lastDay=dayKey;}
       var time=d?d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'--:--';
       var who=(l.data&&l.data.by)||'—';
-      var verb=ACTION_LABELS[l.action]||l.action;
+      var verb=actLabel(l.action);
+      var ck=actCat(l.action);
+      var chip=ck?'<span class="ah-chip" style="background:'+ACT_CATS[ck].bg+';color:'+ACT_CATS[ck].color+'">'+e(ACT_CATS[ck].label)+'</span>':'';
       var subject='';
       if(l.data&&l.data.clientId){
         var idx=(S.clients||[]).findIndex(function(c){return c.id===l.data.clientId;});
@@ -2447,7 +2528,7 @@ function adminLogView(){
       else if(l.data&&l.data.leaderName)extra=' <span class="muted">→ '+e(l.data.leaderName)+'</span>';
       else if(l.data&&l.data.month)extra=' <span class="muted">('+e(l.data.month)+'/'+e(l.data.year)+')</span>';
       else if(l.data&&l.data.title)extra=' <span class="muted">— '+e(l.data.title)+'</span>';
-      html+='<div class="ah-row"><span class="ah-time">'+time+'</span><span class="ah-txt"><span style="color:var(--b600);font-weight:600">'+e(who)+'</span> '+verb+subject+extra+'</span></div>';
+      html+='<div class="ah-row"><span class="ah-time">'+time+'</span>'+chip+'<span class="ah-txt"><span style="color:var(--b600);font-weight:600">'+e(who)+'</span> '+verb+subject+extra+'</span></div>';
     });
   }
   html+='</div></div>';
@@ -2654,14 +2735,17 @@ function adminView(){
       var leaderOpts=role==="analyst"?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+S.allUsers.filter(function(x){return x.role==="leader"||x.role==="admin"||x.role==="gerente";}).map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>':'';
       var roleSelect;
       if(protectedUser&&!isTrueAdmin){
-        roleSelect='<span class="muted" style="font-size:11px" title="Só o admin pode alterar esta conta">Protegido</span>';
+        roleSelect='';
       }else if(u.uid!==S.appUser.uid){
-        roleSelect='<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao"><option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="gerente"'+(u.role==="gerente"?" selected":"")+'>Gerente</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option><option value="testuser"'+(u.role==="testuser"?" selected":"")+'>Usuario teste</option></select>';
+        var opts='<option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="gerente"'+(u.role==="gerente"?" selected":"")+'>Gerente</option>';
+        if(isTrueAdmin)opts+='<option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option>';
+        else if(u.role==="admin")opts='<option value="admin" selected>Admin</option>'+opts;
+        opts+='<option value="testuser"'+(u.role==="testuser"?" selected":"")+'>Usuario teste</option>';
+        roleSelect='<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao">'+opts+'</select>';
       }else{
         roleSelect='<span class="muted" style="font-size:11px">Voce</span>';
       }
-      var bypassChk=isTrueAdmin?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap" title="Permite pular perguntas obrigatorias no wizard sem responder"><input type="checkbox" '+(u.canBypassMandatory?'checked':'')+' onchange="setBypassMandatory(\''+u.uid+'\',this.checked)"> Pula obrigatorias</label>':'';
-      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+leaderOpts+bypassChk+roleSelect+'</div>';
+      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+leaderOpts+roleSelect+'</div>';
     });
     html+='</div>';
   });
@@ -2799,7 +2883,7 @@ S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,s
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='recovery';
-saveState();addAdminLog('churn_recovery',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber,days:days}));closeM();render();}
+saveClient(S.clients[ci]);addAdminLog('churn_recovery',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber,days:days}));closeM();render();}
 function closeChurnResolved(ci){
 if(!confirm('Fechar caso de churn como RESOLVIDO? '+S.clients[ci].name+' voltará ao score normal.'))return;
 if(!S.clients[ci].churnHistory)S.clients[ci].churnHistory=[];
@@ -2807,14 +2891,14 @@ S.clients[ci].churnHistory.push({caseNumber:S.clients[ci].churnCase.caseNumber,s
 S.clients[ci].churnCase.active=false;
 S.clients[ci].churnCase.closedAt=new Date().toLocaleDateString('pt-BR');
 S.clients[ci].churnCase.closeReason='resolved';
-saveState();addAdminLog('churn_resolved',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber}));closeM();render();}
+saveClient(S.clients[ci]);addAdminLog('churn_resolved',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber}));closeM();render();}
 function closeChurnConfirmed(ci){
 if(!confirm('ATENÇÃO: Esta ação irá ARQUIVAR '+S.clients[ci].name+'.\n\nO cliente sairá da carteira e ficará na página de Arquivados. Esta ação não pode ser desfeita facilmente.\n\nTem certeza?'))return;
 var archived={...S.clients[ci],archived:true,archivedAt:new Date().toLocaleDateString('pt-BR'),archivedBy:S.appUser.uid,archivedByName:S.appUser.name};
 S.clients[ci]=archived;
-saveState();closeM();
+saveClient(archived);closeM();
 goBack();
-addAdminLog('archive_client',{clientName:archived.name,clientId:archived.id,by:S.appUser.name,at:new Date().toLocaleDateString('pt-BR')});
+addAdminLog('archive_client',{clientId:archived.id,clientName:archived.slug||archived.name});
 render();}
 /* ── ACTIVITY FUNCTIONS ── */
 function saveActivity(ci){
@@ -2926,10 +3010,10 @@ return html+'</div>';}
 function addAdminLog(action,data){var d=Object.assign({},data||{});if(!d.by)d.by=S.appUser&&S.appUser.name;if(!d.at)d.at=new Date().toLocaleDateString('pt-BR');var log={id:uid(),action:action,data:d,byUid:(S.appUser&&S.appUser.uid)||null,at:Date.now()};db.collection('admin_log').add(log).catch(function(e){console.error('Log error:',e);});}
 function logClient(c){return{clientId:c&&c.id,clientName:c&&(c.slug||c.name)};}
 
-function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveState();addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
+function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveClient(S.clients[ci]);addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
 function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
-function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveState();addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
-function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveState();addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
+function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveClient(S.clients[ci]);addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
+function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveClient(S.clients[ci]);addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
 
 function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div><p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
@@ -2997,7 +3081,30 @@ function saveEditClient(){
   saveState();addAdminLog('client_edited',logClient(c));showSaved();S.modal=null;render();
 }
 function showSaved(){S.savedMsg=true;render();setTimeout(function(){S.savedMsg=false;render();},2500);}
-function delClient(i){if(!confirm("Tem certeza que deseja excluir \""+S.clients[i].name+"\"?\n\nEsta ação é permanente e irá remover todos os dados, follow-ups e histórico do cliente. Não pode ser desfeita."))return;var cid=S.clients[i].id;addAdminLog('client_deleted',logClient(S.clients[i]));S.clients.splice(i,1);deleteClientFromDB(cid);goBack();}
+function delClient(i){
+  var c=S.clients[i];
+  if(!confirm('Excluir "'+c.name+'"?\n\nO cliente vai para Arquivados e pode ser restaurado por '+LIXEIRA_DIAS+' dias. Depois disso é removido definitivamente.'))return;
+  c.archived=true;
+  c.deletedAt=Date.now();
+  c.archivedAt=new Date().toLocaleDateString('pt-BR');
+  c.archivedBy=S.appUser.uid;
+  c.archivedByName=S.appUser.name;
+  saveClient(c);
+  addAdminLog('client_deleted',logClient(c));
+  goBack();
+}
+function restoreClient(ci){
+  var c=S.clients[ci];
+  if(!confirm('Restaurar "'+c.name+'" para a carteira?'))return;
+  c.archived=false;
+  c.deletedAt=null;
+  c.archivedAt=null;
+  c.archivedBy=null;
+  c.archivedByName=null;
+  saveClient(c);
+  addAdminLog('client_restored',logClient(c));
+  render();
+}
 function delFollow(ci,fi){
   var c=S.clients[ci],f=c.follows[fi];
   if(!confirm("Tem certeza que deseja excluir este Follow-Up de "+formatDate(f.date)+"?"))return;
@@ -3015,13 +3122,15 @@ function delKeyContact(ci,i){if(!confirm("Remover este contato-chave?"))return;S
 function saveSettings(){S.apiKey=document.getElementById("sk").value.trim();localStorage.setItem("stays_api_key",S.apiKey);closeM();}
 async function changeRole(uid,role){
   var target=S.allUsers.find(function(u){return u.uid===uid;});
-  if(S.appUser.role==='gerente'&&isProtectedAdmin(target)){alert('Você não pode alterar esta conta.');await loadAllUsers();render();return;}
+  if(S.appUser.role!=='admin'){
+    if(isProtectedAdmin(target)){await loadAllUsers();render();return;}
+    if(role==='admin'||(target&&target.role==='admin')){alert('Só o administrador pode definir ou alterar contas de Admin.');await loadAllUsers();render();return;}
+  }
   var oldRole=target&&target.role;
   await saveUserProfile(uid,{role:role});
   addAdminLog(oldRole==='pending'?'user_approved':'user_role_changed',{targetName:target&&target.name,targetEmail:target&&target.email,oldRole:oldRole,newRole:role});
   await loadAllUsers();render();
 }
-async function setBypassMandatory(uid,val){if(S.appUser.role!=='admin')return;await saveUserProfile(uid,{canBypassMandatory:!!val});await loadAllUsers();render();}
 async function setResponsibleLeader(analystUid,newLeaderUid){
   var _an=S.allUsers.find(function(u){return u.uid===analystUid;});
   var _nl=newLeaderUid?S.allUsers.find(function(u){return u.uid===newLeaderUid;}):null;
