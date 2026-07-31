@@ -270,7 +270,7 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 @media (max-width:900px){.lp-wrap{grid-template-columns:1fr}}
 .lp-shell{background:var(--surf2);border:1px solid var(--bd);border-radius:18px;padding:18px}
 .lp-top-row{display:flex;gap:14px;margin-bottom:1.25rem;flex-wrap:wrap}
-.lp-score-card{width:130px;flex-shrink:0;border:2px solid #1f943c;border-radius:18px;background:var(--surf3);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px;text-align:center;gap:2px}
+.lp-score-card{width:130px;flex-shrink:0;border:2px solid;border-radius:18px;background:var(--surf3);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px;text-align:center;gap:2px}
 .lp-score-card-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
 .lp-score-card-num{font-size:44px;font-weight:700;font-family:"Roboto Slab",serif;line-height:1;margin:4px 0}
 .lp-score-card-sub{font-size:9px;color:var(--t3)}
@@ -321,6 +321,8 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-alert-client-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:13px}
 .lp-alert-client-row:hover{background:rgba(255,255,255,.28)}
 .lp-alert-yellow .lp-alert-client-row,.lp-alert-yellow .lp-alert-client-row:hover{background:rgba(0,0,0,.08)}
+.lp-alert-cyan .lp-alert-body{color:var(--t)}
+.lp-view-toggle{max-width:220px;margin-bottom:1rem}
 
 /* ── Sidebar redesign ── */
 .sidebar-strip{position:fixed;left:0;top:0;bottom:0;width:4px;background:rgba(180,176,176,.5);z-index:100;overflow:hidden;display:flex;flex-direction:column;transition:width .38s cubic-bezier(0.16,1,0.3,1),background .3s ease,box-shadow .35s ease}

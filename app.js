@@ -70,7 +70,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false}};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",followView:"categorized",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,chOpen:null,hasUnsavedChanges:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list'};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
@@ -1499,7 +1499,7 @@ function followChartsView(){
   var c=S.clients[S.sel],ci=S.sel;
   var wizFollows=(c.follows||[]).filter(function(f){return f.wizard;}).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
   var html='<div class="wiz-wrap" style="max-width:900px">';
-  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem"><button class="btn btn-sm" onclick="goBackToClient()">← Voltar</button><div style="font-size:15px;font-weight:500">Acompanhamento de follow-ups — '+e(c.name)+'</div></div>';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem"><button class="btn btn-sm" onclick="goBackToClient()">← Voltar</button><div style="font-size:15px;font-weight:500">Acompanhamento de follow-ups — '+e((c.slug||c.name).toUpperCase())+'</div></div>';
   if(wizFollows.length<1){
     return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('arrow_up',36)+'</div><p style="color:var(--t2)">Nenhum follow-up registrado ainda.</p></div></div>';
   }
@@ -2326,10 +2326,10 @@ if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="
 if(S.view==="wizsettings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações de Follow-up</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel de líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="client"){if(S.view==="archived")return archivedNav();if(S.view==="adminlog")return archivedNav();
-var c=S.clients[S.sel];return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><strong style="font-size:14px;font-family:\'Roboto Slab\',serif">'+e(c.name)+'</strong><div class="nav-right">'+thSel+adminBtn+userArea+'<button class="btn btn-sm btn-danger" onclick="delClient('+S.sel+')">Excluir</button></div></nav>';}var c=S.clients[S.sel];
-if(S.view==="follow-wizard"){return'<nav class="nav"><button class="btn btn-sm" onclick="wizExitConfirm()">← '+e(c.name)+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow-up em andamento</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delInProgressFollow()">Excluir Follow</button></div></nav>';}
-if(S.view==="follow-charts"){return'<nav class="nav"><button class="btn btn-sm" onclick="goBackToClient()">← '+e(c.name)+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Acompanhamento em gráficos</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
-var f=c.follows[S.selFollow];return'<nav class="nav"><button class="btn btn-sm" onclick="goBackToClient()">← '+e(c.name)+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow Up — '+formatDate(f&&f.date)+'</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delFollow('+S.sel+','+S.selFollow+')">Excluir Follow</button></div></nav>';}
+var c=S.clients[S.sel];return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><strong style="font-size:14px;font-family:\'Roboto Slab\',serif">'+e((c.slug||c.name).toUpperCase())+'</strong><div class="nav-right">'+thSel+adminBtn+userArea+'<button class="btn btn-sm btn-danger" onclick="delClient('+S.sel+')">Excluir</button></div></nav>';}var c=S.clients[S.sel];
+if(S.view==="follow-wizard"){return'<nav class="nav"><button class="btn btn-sm" onclick="wizExitConfirm()">← '+e((c.slug||c.name).toUpperCase())+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow-up em andamento</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delInProgressFollow()">Excluir Follow</button></div></nav>';}
+if(S.view==="follow-charts"){return'<nav class="nav"><button class="btn btn-sm" onclick="goBackToClient()">← '+e((c.slug||c.name).toUpperCase())+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Acompanhamento em gráficos</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
+var f=c.follows[S.selFollow];return'<nav class="nav"><button class="btn btn-sm" onclick="goBackToClient()">← '+e((c.slug||c.name).toUpperCase())+'</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Follow Up — '+formatDate(f&&f.date)+'</span><div class="nav-right">'+thSel+userArea+'<button class="btn btn-sm btn-danger" onclick="delFollow('+S.sel+','+S.selFollow+')">Excluir Follow</button></div></nav>';}
 // ============================================================
 // DASHBOARD VIEW
 // ============================================================
@@ -2369,7 +2369,7 @@ html+=archived.map(function(c){
   var ci=S.clients.indexOf(c);
   return'<div class="archived-card">'
     +'<div style="flex:1">'
-    +'<div style="font-weight:600;font-size:14px">'+e(c.name)+'</div>'
+    +'<div style="font-weight:600;font-size:14px">'+e((c.slug||c.name).toUpperCase())+'</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'
     +(c.churnCase&&c.churnCase.caseNumber?'Caso #'+e(c.churnCase.caseNumber)+' · ':'')
     +'Arquivado em '+e(c.archivedAt||'—')+' por '+e(c.archivedByName||'—')
@@ -2460,7 +2460,7 @@ Object.entries(filteredByA).forEach(function(entry){
       var ci=S.clients.indexOf(c),score=calcScore(c),h=hl(score),fu=fuSt(c);
       var hC=h==="risk"?"#ce1e5a":(h==="warn"?"#f3b02a":"#1f943c");
       return'<tr style="border-top:1px solid var(--bd)">'
-        +'<td style="padding:9px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e(c.name)+'</button></td>'
+        +'<td style="padding:9px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></td>'
         +'<td style="padding:9px 8px">'+catBdg(c)+'</td>'
         +'<td style="padding:9px 8px"><span style="font-weight:700;color:'+hC+'">'+score+'</span></td>'
         +'<td style="padding:9px 8px;font-weight:500">'+formatMRR(c.mrr)+'</td>'
@@ -2879,7 +2879,7 @@ return html+'</div>';}
 function addAdminLog(action,data){var log={id:uid(),action:action,data:data,at:Date.now()};db.collection('admin_log').add(log).catch(function(e){console.error('Log error:',e);});}
 
 function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveState();closeM();render();}
-function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e(c.name)+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
+function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
 function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveState();S.modal='inad-'+ci;render();}
 function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveState();S.modal='inad-'+ci;render();}
 
@@ -3345,7 +3345,7 @@ function lpAlertColumn(teamClients){
   html+='<div class="lp-alert-title">Alertas de Churn</div><div class="lp-alert-num">'+churnClients.length+'</div>';
   if(S.lpOpen.churn){
     html+='<div class="lp-alert-body" onclick="event.stopPropagation()">';
-    html+=churnClients.length?churnClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="openM(\'churn-alert\','+ci+')"><span>'+e(c.name)+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente em churn no momento.</p>';
+    html+=churnClients.length?churnClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="openM(\'churn-alert\','+ci+')"><span>'+e((c.slug||c.name).toUpperCase())+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente em churn no momento.</p>';
     html+='</div>';
   }
   html+='</div>';
@@ -3354,7 +3354,7 @@ function lpAlertColumn(teamClients){
   html+='<div class="lp-alert-title">Inadimplentes</div><div class="lp-alert-num">'+inadClients.length+'</div>';
   if(S.lpOpen.inad){
     html+='<div class="lp-alert-body" onclick="event.stopPropagation()">';
-    html+=inadClients.length?inadClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="S.modal=\'inad-\'+'+ci+';render()"><span>'+e(c.name)+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente inadimplente no momento.</p>';
+    html+=inadClients.length?inadClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="S.modal=\'inad-\'+'+ci+';render()"><span>'+e((c.slug||c.name).toUpperCase())+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente inadimplente no momento.</p>';
     html+='</div>';
   }
   html+='</div>';
@@ -3372,6 +3372,74 @@ function lpAlertColumn(teamClients){
   html+='</div>';
   html+='</div>';
   return html;
+}
+function lpSetViewMode(m){S.lpViewMode=m;render();}
+function lpClientTable(cs){
+  return'<div style="padding:4px 16px 16px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--surf2)">'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Cliente</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Categoria</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Saude</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">MRR</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Status</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Follow-up</th>'
+    +'</tr></thead><tbody>'
+    +cs.map(function(c){
+      var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
+      var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
+      return'<tr style="border-top:1px solid var(--bd)">'
+        +'<td style="padding:9px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></td>'
+        +'<td style="padding:9px 8px">'+catBdg(c)+'</td>'
+        +'<td style="padding:9px 8px"><span style="font-weight:700;color:'+chC+'">'+score+'</span></td>'
+        +'<td style="padding:9px 8px;font-weight:500">'+formatMRR(c.mrr)+'</td>'
+        +'<td style="padding:9px 8px">'+statusBdg(c.onboardingStatus)+'</td>'
+        +'<td style="padding:9px 8px"><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'
+        +'</tr>';
+    }).join("")
+    +'</tbody></table></div>';
+}
+function lpAnalystCardHTML(r){
+  return'<div class="lp-analyst-card">'
+    +'<div class="lp-analyst-hdr" onclick="toggleAnalyst(\''+r.oid+'\')">'
+    +'<div style="width:34px;height:34px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
+    +(r.analyst.photo?'<img src="'+e(r.analyst.photo)+'" width="34" height="34" style="object-fit:cover" referrerpolicy="no-referrer">':e((r.analyst.name||"?")[0].toUpperCase()))
+    +'</div><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
+    +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="margin-left:auto;transform:'+(r.isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .3s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
+    +'</div>'
+    +'<div class="lp-score-block" style="background:'+r.hBg+'">'
+    +'<div class="lp-score-num" style="color:'+r.hC+'">'+r.avgScore+'</div>'
+    +'<div class="lp-score-lbl">Score médio</div>'
+    +'</div>'
+    +'<div class="lp-risk-bar" title="'+r.riskCount+' risco · '+r.warnCount+' atenção · '+r.okCount+' estável">'
+    +(r.riskCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.riskCount)+'%;background:#ce1e5a"></div>':'')
+    +(r.warnCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.warnCount)+'%;background:#f3b02a"></div>':'')
+    +(r.okCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.okCount)+'%;background:#1f943c"></div>':'')
+    +'</div>'
+    +'<div class="lp-secondary-row">'
+    +'<div class="lp-sec-item"><span class="lp-sec-val">'+r.cs.length+'</span><span class="lp-sec-lbl">clientes</span></div>'
+    +'<div class="lp-sec-item"><span class="lp-sec-val">'+formatMRR(r.aMRR)+'</span><span class="lp-sec-lbl">MRR</span></div>'
+    +(r.churn>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+r.churn+'</span><span class="lp-sec-lbl">churn</span></div>':'')
+    +(r.inad>0?'<div class="lp-sec-item lp-sec-alert-amber"><span class="lp-sec-val">'+r.inad+'</span><span class="lp-sec-lbl">inadimp.</span></div>':'')
+    +(r.atrasados>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+r.atrasados+'</span><span class="lp-sec-lbl">atrasados</span></div>':'')
+    +'</div>'
+    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs)+'</div>'
+    +'</div>';
+}
+function lpAnalystListHTML(r){
+  return'<div class="analyst-card">'
+    +'<div class="analyst-card-hdr" onclick="toggleAnalyst(\''+r.oid+'\')">'
+    +'<div style="width:36px;height:36px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
+    +(r.analyst.photo?'<img src="'+e(r.analyst.photo)+'" width="36" height="36" style="object-fit:cover" referrerpolicy="no-referrer">':e((r.analyst.name||"?")[0].toUpperCase()))
+    +'</div><div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+r.cs.length+' clientes · MRR '+formatMRR(r.aMRR)+' · Score médio: <span style="font-weight:700;color:'+r.hC+'">'+r.avgScore+'</span>'
+    +(r.churn>0?' · <span style="color:#ce1e5a;font-weight:600">'+r.churn+' churn</span>':'')
+    +(r.inad>0?' · <span style="color:#f3b02a;font-weight:600">'+r.inad+' inadimp.</span>':'')
+    +(r.atrasados>0?' · <span style="color:#ce1e5a;font-weight:600">'+r.atrasados+' atrasados</span>':'')
+    +'</div></div>'
+    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="transform:'+(r.isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .4s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
+    +'</div>'
+    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs)+'</div>'
+    +'</div>';
 }
 function leaderVisaoGeral(){
   var groups=lpTeamGroups();
@@ -3394,7 +3462,7 @@ function leaderVisaoGeral(){
   var html='<div class="lp-wrap"><div class="lp-shell">';
   html+='<div class="section-hdr" style="margin-bottom:14px"><span>Visão geral do time</span></div>';
   html+='<div class="lp-top-row">';
-  html+='<div class="lp-score-card"><div class="lp-score-card-lbl">Score de CS</div><div class="lp-score-card-num" style="color:'+sColor+'">'+(filteredTeam.length?scoreAvg:'—')+'</div><div class="lp-score-card-sub">média ponderada do time</div></div>';
+  html+='<div class="lp-score-card" style="border-color:'+sColor+'"><div class="lp-score-card-lbl">Score de CS</div><div class="lp-score-card-num" style="color:'+sColor+'">'+(filteredTeam.length?scoreAvg:'—')+'</div><div class="lp-score-card-sub">média ponderada do time</div></div>';
   html+='<div class="lp-info-grid">';
   html+='<div class="lp-info-card no-click"><div class="lp-info-val">'+filteredTeam.length+'</div><div class="lp-info-lbl">Clientes</div></div>';
   html+='<div class="lp-info-card'+(S.lpMrrSort?' active':'')+'" onclick="lpTogglePop(\'mrr\')"><div class="lp-info-val">'+formatMRR(totMRR)+'</div><div class="lp-info-lbl">MRR</div>'+(S.lpOpenPop==='mrr'?lpMrrPopover():'')+'</div>';
@@ -3404,12 +3472,15 @@ function leaderVisaoGeral(){
   html+='<div class="lp-info-card'+((S.lpFilters.country.length||S.lpFilters.city.length)?' active':'')+'" onclick="lpTogglePop(\'loc\')"><div class="lp-info-val">'+((S.lpFilters.country.length||S.lpFilters.city.length)?[].concat(S.lpFilters.country,S.lpFilters.city).join(', '):'Todas as localizações')+'</div><div class="lp-info-lbl">Localização</div>'+(S.lpOpenPop==='loc'?lpLocationPopover(teamClients):'')+'</div>';
   html+='</div></div>';
 
-  html+='<div style="font-weight:600;font-size:13px;color:var(--t2);margin-bottom:10px">Visão geral (Analistas)</div>';
+  var viewMode=S.lpViewMode==='cards'?'cards':'list';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
+  html+='<div style="font-weight:600;font-size:13px;color:var(--t2)">Visão geral (Analistas)</div>';
+  html+='<div class="view-toggle lp-view-toggle" style="margin-bottom:0"><button class="vt-btn'+(viewMode==='list'?' active':'')+'" onclick="lpSetViewMode(\'list\')">Lista</button><button class="vt-btn'+(viewMode==='cards'?' active':'')+'" onclick="lpSetViewMode(\'cards\')">Cards</button></div>';
+  html+='</div>';
   if(!Object.keys(filteredByA).length){
     html+='<p class="muted">Nenhum cliente encontrado com os filtros atuais.</p>';
   }else{
-    html+='<div class="lp-analyst-grid">';
-    Object.keys(filteredByA).sort(function(u1,u2){var n1=(analystOptions.find(function(a){return a.uid===u1;})||{}).name||'';var n2=(analystOptions.find(function(a){return a.uid===u2;})||{}).name||'';return n1.localeCompare(n2);}).forEach(function(oid){
+    var rows=Object.keys(filteredByA).sort(function(u1,u2){var n1=(analystOptions.find(function(a){return a.uid===u1;})||{}).name||'';var n2=(analystOptions.find(function(a){return a.uid===u2;})||{}).name||'';return n1.localeCompare(n2);}).map(function(oid){
       var cs=filteredByA[oid].slice();
       if(S.lpMrrSort==='desc')cs.sort(function(a,b){return(parseFloat(b.mrr)||0)-(parseFloat(a.mrr)||0);});
       else if(S.lpMrrSort==='asc')cs.sort(function(a,b){return(parseFloat(a.mrr)||0)-(parseFloat(b.mrr)||0);});
@@ -3424,56 +3495,13 @@ function leaderVisaoGeral(){
       var churn=cs.filter(isChurnAlert).length,inad=cs.filter(isInadimplente).length;
       var atrasados=cs.filter(function(c){var fu=fuSt(c);return fu.days!==null&&fu.days<0;}).length;
       var isOpen=!!(S.expandedAnalysts&&S.expandedAnalysts[oid]);
-      var pct=function(n){return cs.length?(n/cs.length*100):0;};
-      html+='<div class="lp-analyst-card">'
-        +'<div class="lp-analyst-hdr" onclick="toggleAnalyst(\''+oid+'\')">'
-        +'<div style="width:34px;height:34px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
-        +(analyst.photo?'<img src="'+e(analyst.photo)+'" width="34" height="34" style="object-fit:cover" referrerpolicy="no-referrer">':e((analyst.name||"?")[0].toUpperCase()))
-        +'</div><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(analyst.name)+'</div>'
-        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="margin-left:auto;transform:'+(isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .3s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
-        +'</div>'
-        +'<div class="lp-score-block" style="background:'+hBg+'">'
-        +'<div class="lp-score-num" style="color:'+hC+'">'+avgScore+'</div>'
-        +'<div class="lp-score-lbl">Score médio</div>'
-        +'</div>'
-        +'<div class="lp-risk-bar" title="'+riskCount+' risco · '+warnCount+' atenção · '+okCount+' estável">'
-        +(riskCount?'<div class="lp-risk-seg" style="width:'+pct(riskCount)+'%;background:#ce1e5a"></div>':'')
-        +(warnCount?'<div class="lp-risk-seg" style="width:'+pct(warnCount)+'%;background:#f3b02a"></div>':'')
-        +(okCount?'<div class="lp-risk-seg" style="width:'+pct(okCount)+'%;background:#1f943c"></div>':'')
-        +'</div>'
-        +'<div class="lp-secondary-row">'
-        +'<div class="lp-sec-item"><span class="lp-sec-val">'+cs.length+'</span><span class="lp-sec-lbl">clientes</span></div>'
-        +'<div class="lp-sec-item"><span class="lp-sec-val">'+formatMRR(aMRR)+'</span><span class="lp-sec-lbl">MRR</span></div>'
-        +(churn>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+churn+'</span><span class="lp-sec-lbl">churn</span></div>':'')
-        +(inad>0?'<div class="lp-sec-item lp-sec-alert-amber"><span class="lp-sec-val">'+inad+'</span><span class="lp-sec-lbl">inadimp.</span></div>':'')
-        +(atrasados>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+atrasados+'</span><span class="lp-sec-lbl">atrasados</span></div>':'')
-        +'</div>'
-        +'<div class="analyst-clients'+(isOpen?' open':'')+'">'
-        +'<div style="padding:4px 16px 16px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-        +'<thead><tr style="background:var(--surf2)">'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Cliente</th>'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Categoria</th>'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Saude</th>'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">MRR</th>'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Status</th>'
-        +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Follow-up</th>'
-        +'</tr></thead><tbody>'
-        +cs.map(function(c){
-          var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
-          var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
-          return'<tr style="border-top:1px solid var(--bd)">'
-            +'<td style="padding:9px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e(c.name)+'</button></td>'
-            +'<td style="padding:9px 8px">'+catBdg(c)+'</td>'
-            +'<td style="padding:9px 8px"><span style="font-weight:700;color:'+chC+'">'+score+'</span></td>'
-            +'<td style="padding:9px 8px;font-weight:500">'+formatMRR(c.mrr)+'</td>'
-            +'<td style="padding:9px 8px">'+statusBdg(c.onboardingStatus)+'</td>'
-            +'<td style="padding:9px 8px"><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'
-            +'</tr>';
-        }).join("")
-        +'</tbody></table></div></div>'
-        +'</div>';
+      return{oid:oid,cs:cs,analyst:analyst,aMRR:aMRR,avgScore:avgScore,hC:hC,hBg:hBg,riskCount:riskCount,warnCount:warnCount,okCount:okCount,churn:churn,inad:inad,atrasados:atrasados,isOpen:isOpen,pct:function(n){return cs.length?(n/cs.length*100):0;}};
     });
-    html+='</div>';
+    if(viewMode==='cards'){
+      html+='<div class="lp-analyst-grid">'+rows.map(lpAnalystCardHTML).join('')+'</div>';
+    }else{
+      html+=rows.map(lpAnalystListHTML).join('');
+    }
   }
   html+='</div>';
   html+=lpAlertColumn(teamClients);
