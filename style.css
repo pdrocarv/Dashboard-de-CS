@@ -262,7 +262,7 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .st-ongoing{background:#fef7e8;color:#a06b0a;border:1px solid #f3b02a}
 .st-done{background:#e8f5ec;color:#145f27;border:1px solid #1f943c}
 .analyst-card{background:var(--surf);border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;overflow:hidden}
-.analyst-card-hdr{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;transition:background .15s}
+.analyst-card-hdr{display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;transition:background .15s}
 .analyst-card-hdr:hover{background:var(--surf2)}
 
 /* ── Painel de líder: Visão geral do time ── */
