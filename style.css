@@ -323,6 +323,12 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-alert-yellow .lp-alert-client-row,.lp-alert-yellow .lp-alert-client-row:hover{background:rgba(0,0,0,.08)}
 .lp-alert-cyan .lp-alert-body{color:var(--t)}
 .lp-view-toggle{max-width:220px;margin-bottom:1rem}
+.lp-cli-grid{padding:2px 12px 10px;overflow:hidden}
+.lp-cli-hdr,.lp-cli-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.9fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr);gap:8px;align-items:center}
+.lp-cli-hdr>div,.lp-cli-row>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-cli-hdr{padding:4px 6px 6px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--bd)}
+.lp-cli-row{padding:6px;font-size:12px;border-bottom:1px solid var(--bd)}
+.lp-cli-row:last-child{border-bottom:none}
 
 /* ── Sidebar redesign ── */
 .sidebar-strip{position:fixed;left:0;top:0;bottom:0;width:4px;background:rgba(180,176,176,.5);z-index:100;overflow:hidden;display:flex;flex-direction:column;transition:width .38s cubic-bezier(0.16,1,0.3,1),background .3s ease,box-shadow .35s ease}

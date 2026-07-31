@@ -3375,28 +3375,20 @@ function lpAlertColumn(teamClients){
 }
 function lpSetViewMode(m){S.lpViewMode=m;render();}
 function lpClientTable(cs){
-  return'<div style="padding:2px 12px 10px"><div style="max-height:280px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-    +'<thead><tr style="background:var(--surf2)">'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">Cliente</th>'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">Categoria</th>'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">Saude</th>'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">MRR</th>'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">Status</th>'
-    +'<th style="position:sticky;top:0;background:var(--surf2);padding:5px 8px;text-align:left;font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase">Follow-up</th>'
-    +'</tr></thead><tbody>'
-    +cs.map(function(c){
-      var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
-      var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
-      return'<tr style="border-top:1px solid var(--bd)">'
-        +'<td style="padding:5px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></td>'
-        +'<td style="padding:5px 8px">'+catBdg(c)+'</td>'
-        +'<td style="padding:5px 8px"><span style="font-weight:700;color:'+chC+'">'+score+'</span></td>'
-        +'<td style="padding:5px 8px;font-weight:500">'+formatMRR(c.mrr)+'</td>'
-        +'<td style="padding:5px 8px">'+statusBdg(c.onboardingStatus)+'</td>'
-        +'<td style="padding:5px 8px"><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'
-        +'</tr>';
-    }).join("")
-    +'</tbody></table></div></div>';
+  var hdr='<div class="lp-cli-hdr"><div>Cliente</div><div>Categoria</div><div>Saude</div><div>MRR</div><div>Status</div><div>Follow-up</div></div>';
+  var rows=cs.map(function(c){
+    var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
+    var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
+    return'<div class="lp-cli-row">'
+      +'<div><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></div>'
+      +'<div>'+catBdg(c)+'</div>'
+      +'<div style="font-weight:700;color:'+chC+'">'+score+'</div>'
+      +'<div style="font-weight:500">'+formatMRR(c.mrr)+'</div>'
+      +'<div>'+statusBdg(c.onboardingStatus)+'</div>'
+      +'<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>'
+      +'</div>';
+  }).join('');
+  return'<div class="lp-cli-grid">'+hdr+rows+'</div>';
 }
 function lpAnalystCardHTML(r){
   return'<div class="lp-analyst-card">'
