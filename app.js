@@ -108,7 +108,8 @@ async function saveClient(c){
   try{var d=JSON.parse(JSON.stringify(c));if(!d.ownerId)d.ownerId=S.appUser.uid;await db.collection("clients").doc(c.id).set(d);}catch(e){console.error("Save:",e);}
 }
 async function deleteClientFromDB(cid){try{await db.collection("clients").doc(cid).delete();}catch(e){console.error(e);}}
-async function saveUserProfile(uid,data){try{await db.collection("users").doc(uid).update(data);}catch(e){console.error(e);}}
+// Propaga o erro: quem chama precisa saber se a gravação falhou pra não dizer "Salvo".
+async function saveUserProfile(uid,data){await db.collection("users").doc(uid).update(data);}
 async function migrateFromLocalStorage(){
   var old=null;try{old=JSON.parse(localStorage.getItem("stays_cs_v4"))||JSON.parse(localStorage.getItem("stays_cs_v3"));}catch(e){}
   if(!old||!old.clients||!old.clients.length||S.clients.length>0)return;
@@ -2990,14 +2991,22 @@ function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-ke
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
 // Lider/gerente/admin escolhem de quem é o cliente; analista só cria pra si.
 function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
+// Carteira de cliente é só de quem tem a função Analista. Gerente, líder e usuário
+// teste não aparecem como responsável em lugar nenhum.
+function analystUsers(){
+  return(S.allUsers||[]).filter(function(u){return u.role==='analyst';})
+    .sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+}
+function analystOptionsHTML(selected,placeholder){
+  var list=analystUsers();
+  var opts='<option value="">'+e(placeholder||'— selecionar analista —')+'</option>';
+  return opts+list.map(function(u){return'<option value="'+u.uid+'"'+(selected===u.uid?' selected':'')+'>'+e(u.name)+'</option>';}).join('');
+}
 function newClientOwnerRow(){
   if(!canAssignOwner())return'';
-  return'<div class="form-row"><label class="form-lbl">Analista responsável</label><select id="mown">'
-    +'<option value="'+S.appUser.uid+'">'+e(S.appUser.name)+' (você)</option>'
-    +(S.allUsers||[]).filter(function(u){return u.uid!==S.appUser.uid&&['analyst','leader','gerente','admin','testuser'].indexOf(u.role)>=0;})
-      .sort(function(a,b){return String(a.name).localeCompare(String(b.name));})
-      .map(function(u){return'<option value="'+u.uid+'">'+e(u.name)+'</option>';}).join('')
-    +'</select></div>';
+  var list=analystUsers();
+  if(!list.length)return'<div class="alert alert-amber" style="margin-bottom:12px">Nenhum usuário com a função <strong>Analista</strong> cadastrado ainda. Crie o acesso do analista em Gestão antes de cadastrar clientes por aqui.</div>';
+  return'<div class="form-row"><label class="form-lbl">Analista responsável <span style="color:#ce1e5a">*</span></label><select id="mown">'+analystOptionsHTML('')+'</select></div>';
 }
 function openLeaderNewClient(){if(!confirmDiscardIfDirty())return;openM('add-client');}
 function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(c.plan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(x){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(x);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Editar cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="en" type="text" value="'+e(c.name)+'"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS)</label><input id="eslug" type="text" value="'+e(c.slug||"")+'" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="ec"><option value="">Selecionar...</option>'+countries.map(function(x){return'<option'+(c.country===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="eu" type="number" min="1" value="'+e(c.units||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="epl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="emrr" type="text" inputmode="decimal" value="'+e(c.mrr!==undefined&&c.mrr!==null&&c.mrr!==""?String(c.mrr).replace(".",","):"")+'"></div><div class="form-row"><label class="form-lbl">Dias sem atividade <span style="color:var(--t3);font-weight:400;font-size:11px">(cliente sem logar)</span></label><input id="edia" type="number" min="0" placeholder="ex: 12" value="'+e(c.daysInactive||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="ecl"><option value="">Selecionar...</option>'+allCountries.map(function(x){return'<option'+(c.clientCountry===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="ecly" type="text" value="'+e(c.clientCity||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="ecat"><option value="">Selecionar...</option><option value="elite"'+(c.categoria==='elite'?' selected':'')+'>Elite</option><option value="gold"'+(c.categoria==='gold'?' selected':'')+'>'+(isHispano(c)?'High Value':'Gold')+'</option><option value="silver"'+(c.categoria==='silver'?' selected':'')+'>'+(isHispano(c)?'Core A-B':'Silver')+'</option><option value="bronze"'+(c.categoria==='bronze'?' selected':'')+'>'+(isHispano(c)?'Pareto':'Bronze')+'</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="est"><option value="">Selecionar...</option><option value="Em andamento"'+(c.onboardingStatus==='Em andamento'?' selected':'')+'>Em andamento</option><option value="Completed"'+(c.onboardingStatus==='Completed'?' selected':'')+'>Completed</option></select></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveEditClient()">Salvar</button></div></div>';}
@@ -3037,6 +3046,7 @@ function addClient(){
   var clientCountry=document.getElementById("mcl").value,clientCity=document.getElementById("mcly").value.trim();
   var categoria=document.getElementById('mcat').value;var onboardingStatus=document.getElementById('mst').value;
   var ownEl=document.getElementById('mown');
+  if(ownEl&&!ownEl.value){alert('Selecione o analista responsável pelo cliente.');return;}
   var ownerId=(ownEl&&ownEl.value)||S.appUser.uid;
   var dupSlug=S.clients.find(function(c){return String(c.slug||'').toLowerCase()===slug;});
   if(dupSlug){alert('Já existe um cliente com a sigla "'+slug.toUpperCase()+'" ('+dupSlug.name+').\n\nA sigla é o identificador único do cliente — use outra.');return;}
@@ -3114,7 +3124,8 @@ async function changeRole(uid,role){
     if(role==='admin'||(target&&target.role==='admin')){alert('Só o administrador pode definir ou alterar contas de Admin.');await loadAllUsers();render();return;}
   }
   var oldRole=target&&target.role;
-  await saveUserProfile(uid,{role:role});
+  try{await saveUserProfile(uid,{role:role});}
+  catch(err){alert('Não foi possível alterar a função: '+err.message);await loadAllUsers();render();return;}
   addAdminLog(oldRole==='pending'?'user_approved':'user_role_changed',{targetName:target&&target.name,targetEmail:target&&target.email,oldRole:oldRole,newRole:role});
   await loadAllUsers();render();
 }
@@ -3123,16 +3134,18 @@ async function setResponsibleLeader(analystUid,newLeaderUid){
   var _nl=newLeaderUid?S.allUsers.find(function(u){return u.uid===newLeaderUid;}):null;
   addAdminLog('leader_assigned',{targetName:_an&&_an.name,leaderName:_nl?_nl.name:'(sem líder)'});
   var oldLeader=S.allUsers.find(function(u){return(u.role==="leader"||u.role==="admin"||u.role==="gerente")&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
-  if(oldLeader&&oldLeader.uid!==newLeaderUid){
-    var pulled=(oldLeader.managedUsers||[]).filter(function(id){return id!==analystUid;});
-    await saveUserProfile(oldLeader.uid,{managedUsers:pulled});
-  }
-  if(newLeaderUid){
-    var newLeader=S.allUsers.find(function(u){return u.uid===newLeaderUid;});
-    var pushed=(newLeader&&newLeader.managedUsers)||[];
-    if(pushed.indexOf(analystUid)<0)pushed=pushed.concat([analystUid]);
-    await saveUserProfile(newLeaderUid,{managedUsers:pushed});
-  }
+  try{
+    if(oldLeader&&oldLeader.uid!==newLeaderUid){
+      var pulled=(oldLeader.managedUsers||[]).filter(function(id){return id!==analystUid;});
+      await saveUserProfile(oldLeader.uid,{managedUsers:pulled});
+    }
+    if(newLeaderUid){
+      var newLeader=S.allUsers.find(function(u){return u.uid===newLeaderUid;});
+      var pushed=(newLeader&&newLeader.managedUsers)||[];
+      if(pushed.indexOf(analystUid)<0)pushed=pushed.concat([analystUid]);
+      await saveUserProfile(newLeaderUid,{managedUsers:pushed});
+    }
+  }catch(err){alert('Não foi possível alterar o líder responsável: '+err.message);}
   await loadAllUsers();
   render();
 }
@@ -3783,18 +3796,31 @@ function resizeImageFile(file,max){
     r.readAsDataURL(file);
   });
 }
-// Sobe pro Storage; se o bucket nao estiver liberado, guarda a propria imagem
-// reduzida (uns 20KB) no perfil, pra criacao de usuario nunca travar por causa da foto.
-async function uploadAvatar(uid,dataUrl){
-  if(!dataUrl)return'';
-  if(storage){
-    try{
-      var ref=storage.ref('avatars/'+uid+'.jpg');
-      await ref.putString(dataUrl,'data_url',{contentType:'image/jpeg'});
-      return await ref.getDownloadURL();
-    }catch(err){console.warn('Storage indisponível, usando imagem embutida:',err);}
+// Nenhuma etapa de rede pode pendurar a tela pra sempre: se estourar o tempo,
+// o erro aparece e o botao volta a funcionar.
+function withTimeout(p,ms,label){
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise(function(_,rej){setTimeout(function(){rej(new Error('Tempo esgotado ao '+label+'. Verifique a conexão e tente de novo.'));},ms);})
+  ]);
+}
+// A foto vai EMBUTIDA no perfil (uns 20KB depois de reduzida) e só depois, em
+// segundo plano, o sistema tenta movê-la pro Storage. Se o bucket não estiver
+// liberado, o SDK do Storage fica retentando calado por minutos — por isso ele
+// nunca entra no caminho crítico de criar usuário ou salvar perfil.
+async function upgradeAvatarToStorage(uidVal,dataUrl){
+  if(!storage||!dataUrl||dataUrl.indexOf('data:')!==0)return;
+  try{
+    var ref=storage.ref('avatars/'+uidVal+'.jpg');
+    await withTimeout(ref.putString(dataUrl,'data_url',{contentType:'image/jpeg'}),15000,'subir a foto');
+    var url=await withTimeout(ref.getDownloadURL(),15000,'obter o link da foto');
+    await withTimeout(db.collection('users').doc(uidVal).update({photo:url}),15000,'salvar o link da foto');
+    var u=(S.allUsers||[]).find(function(x){return x.uid===uidVal;});
+    if(u)u.photo=url;
+    if(S.appUser&&S.appUser.uid===uidVal)S.appUser.photo=url;
+  }catch(err){
+    console.warn('Foto ficou embutida no perfil (Storage indisponível):',err);
   }
-  return dataUrl;
 }
 function udInit(){S.userDraft={name:'',email:'',role:'analyst',title:'',photo:''};}
 function udSet(field,val){if(!S.userDraft)udInit();S.userDraft[field]=val;}
@@ -3832,22 +3858,35 @@ async function createUserAccount(btn){
   try{
     // App secundário: cria a conta sem derrubar a sessão do admin logado.
     secondary=firebase.apps.find(function(a){return a.name==='userCreator';})||firebase.initializeApp(firebaseConfig,'userCreator');
-    var cred=await secondary.auth().createUserWithEmailAndPassword(email,pw);
+    var cred=await withTimeout(secondary.auth().createUserWithEmailAndPassword(email,pw),20000,'criar a conta de login');
     var newUid=cred.user.uid;
-    var photo=await uploadAvatar(newUid,d.photo);
-    var profile={name:name,email:email,photo:photo,title:(d.title||'').trim(),role:d.role||'analyst',managedUsers:[],createdAt:new Date().toISOString(),createdBy:S.appUser.uid,createdByName:S.appUser.name};
-    await db.collection('users').doc(newUid).set(profile);
-    await secondary.auth().signOut();
+    // Foto entra embutida; a subida pro Storage acontece depois, sem segurar a tela.
+    var profile={name:name,email:email,photo:d.photo||'',title:(d.title||'').trim(),role:d.role||'analyst',managedUsers:[],createdAt:new Date().toISOString(),createdBy:S.appUser.uid,createdByName:S.appUser.name};
+    await withTimeout(db.collection('users').doc(newUid).set(profile),20000,'salvar o perfil no banco');
+    try{await withTimeout(secondary.auth().signOut(),8000,'encerrar a sessão temporária');}catch(errOut){console.warn(errOut);}
     addAdminLog('user_created',{targetName:name,targetEmail:email,newRole:profile.role});
-    await loadAllUsers();
+    try{await withTimeout(loadAllUsers(),15000,'atualizar a lista de usuários');}catch(errList){console.warn(errList);}
+    upgradeAvatarToStorage(newUid,d.photo);
     S.userDraft=null;
     S.newUserCreds={name:name,email:email,password:pw,role:profile.role};
     S.modal='user-created';render();
   }catch(err){
     console.error('createUserAccount:',err);
-    var msg=err.code==='auth/email-already-in-use'?'Este e-mail já tem uma conta de login criada. Peça pro analista entrar com ele, que o perfil aparece aqui como Pendente.'
-      :(err.code==='auth/weak-password'?'A senha gerada foi rejeitada. Tente novamente.':'Não foi possível criar o acesso: '+err.message);
-    alert(msg);
+    if(err.code==='auth/email-already-in-use'){
+      // Acontece quando uma tentativa anterior criou o login mas não chegou a
+      // salvar o perfil. A senha daquela tentativa se perdeu, então o caminho é
+      // o próprio usuário definir a dele pelo e-mail de redefinição.
+      if(confirm('Já existe uma conta de login com '+email+', mas sem perfil no dashboard — provavelmente de uma tentativa anterior que falhou no meio.\n\nQuer enviar um e-mail de definição de senha para '+email+'?\n\nA pessoa escolhe a própria senha, entra no dashboard e aparece aqui como Pendente para você aprovar.')){
+        try{
+          await withTimeout(auth.sendPasswordResetEmail(email),15000,'enviar o e-mail');
+          addAdminLog('user_password_reset',{targetName:name,targetEmail:email});
+          alert('E-mail enviado para '+email+'.\n\nAssim que a pessoa definir a senha e entrar, ela aparece na lista como Pendente.');
+          S.userDraft=null;closeM();return;
+        }catch(errMail){alert('Não foi possível enviar o e-mail: '+errMail.message);}
+      }
+    }else{
+      alert(err.code==='auth/weak-password'?'A senha gerada foi rejeitada. Tente novamente.':'Não foi possível criar o acesso: '+err.message);
+    }
     if(btn){btn.disabled=false;btn.textContent='Criar acesso';}
   }
 }
@@ -3906,14 +3945,15 @@ async function saveProfile(btn){
   if(!name){alert('Informe seu nome.');return;}
   if(btn){btn.disabled=true;btn.textContent='Salvando...';}
   try{
-    var photo=d.photo;
-    if(photo&&photo.indexOf('data:')===0)photo=await uploadAvatar(S.appUser.uid,photo);
-    await saveUserProfile(S.appUser.uid,{name:name,title:(d.title||'').trim(),photo:photo||''});
-    S.appUser.name=name;S.appUser.title=(d.title||'').trim();S.appUser.photo=photo||'';
-    var me=S.allUsers.find(function(u){return u.uid===S.appUser.uid;});
+    var photo=d.photo||'';
+    // Salva já com a foto embutida; o Storage é tentado depois, em segundo plano.
+    await withTimeout(saveUserProfile(S.appUser.uid,{name:name,title:(d.title||'').trim(),photo:photo}),20000,'salvar o perfil');
+    S.appUser.name=name;S.appUser.title=(d.title||'').trim();S.appUser.photo=photo;
+    var me=(S.allUsers||[]).find(function(u){return u.uid===S.appUser.uid;});
     if(me){me.name=S.appUser.name;me.title=S.appUser.title;me.photo=S.appUser.photo;}
     addAdminLog('profile_updated',{targetName:name});
     S.profileDraft=null;S.modal=null;showSaved();
+    upgradeAvatarToStorage(S.appUser.uid,photo);
   }catch(err){alert('Não foi possível salvar o perfil: '+err.message);if(btn){btn.disabled=false;btn.textContent='Salvar';}}
 }
 // ============================================================
@@ -4125,11 +4165,7 @@ async function ciConfirm(btn){
 }
 function openClientImport(){if(!confirmDiscardIfDirty())return;ciInit();S.view='import-clients';render();}
 function closeClientImport(){S.impClients=null;S.view='leaderpanel';render();}
-function ciAnalystOptions(selected){
-  var users=(S.allUsers||[]).filter(function(u){return['analyst','leader','admin','gerente','testuser'].indexOf(u.role)>=0;})
-    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-  return'<option value="">— escolher —</option>'+users.map(function(u){return'<option value="'+u.uid+'"'+(selected===u.uid?' selected':'')+'>'+e(u.name)+'</option>';}).join('');
-}
+function ciAnalystOptions(selected){return analystOptionsHTML(selected,'— escolher analista —');}
 function clientImportView(){
   if(!S.impClients)ciInit();
   var st=S.impClients;
@@ -4238,8 +4274,7 @@ function mLpClientActions(){
   var c=S.clients.find(function(x){return x.id===S.lpClientMenu;});
   if(!c)return'<div class="modal-box"><div class="modal-title">Cliente não encontrado</div><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="lpCloseClientActions()">Fechar</button></div></div>';
   var owner=(S.allUsers||[]).find(function(u){return u.uid===c.ownerId;});
-  var opts=(S.allUsers||[]).filter(function(u){return u.uid!==c.ownerId&&['analyst','leader','gerente','admin','testuser'].indexOf(u.role)>=0;})
-    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));})
+  var opts=analystUsers().filter(function(u){return u.uid!==c.ownerId;})
     .map(function(u){return'<option value="'+u.uid+'">'+e(u.name)+'</option>';}).join('');
   return'<div class="modal-box" style="max-width:430px"><div class="modal-hdr"><h2 class="modal-title" style="margin:0">'+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="lpCloseClientActions()">×</button></div>'
     +'<p class="muted" style="font-size:12.5px;margin-bottom:14px">'+e(c.name)+'<br>Analista responsável: <strong>'+e(owner?owner.name:'sem analista')+'</strong></p>'
