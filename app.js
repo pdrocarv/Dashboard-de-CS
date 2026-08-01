@@ -21,7 +21,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,adminMode:false,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',action:''}};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',cat:'',action:''}};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 const PROTECTED_ADMIN_EMAILS=['pedro.ferreira@stays.net','pdroc.ferreira@gmail.com'];
@@ -2212,7 +2212,7 @@ function confirmDiscardIfDirty(){
 }
 window.onbeforeunload=function(ev){if(S.wizOrderDirty){ev.preventDefault();ev.returnValue='';return'';}};
 function computeRoute(){
-  if(S.view==='dashboard')return S.adminMode?'#/visao-geral':'#/';
+  if(S.view==='dashboard')return'#/';
   if(S.view==='admin')return'#/admin';
   if(S.view==='settings'){
     var base='#/configuracoes';
@@ -2234,8 +2234,7 @@ function computeRoute(){
 }
 function applyRoute(hash){
   var parts=String(hash||'').replace(/^#\/?/,'').split('/').filter(Boolean);
-  if(!parts.length){S.view='dashboard';S.adminMode=false;return;}
-  if(parts[0]==='visao-geral'){S.view='dashboard';S.adminMode=true;return;}
+  if(!parts.length){S.view='dashboard';return;}
   if(parts[0]==='admin'){S.view='admin';return;}
   if(parts[0]==='configuracoes'){
     S.view='settings';
@@ -2250,7 +2249,7 @@ function applyRoute(hash){
   if(parts[0]==='cliente'){
     var cid=parts[1];
     var idx=(S.clients||[]).findIndex(function(c){return c.id===cid;});
-    if(idx<0){S.view='dashboard';S.adminMode=false;return;}
+    if(idx<0){S.view='dashboard';return;}
     S.sel=idx;
     if(parts[2]==='follows'){S.view='client';S.clientTab='follows';return;}
     if(parts[2]==='graficos'){S.view='follow-charts';return;}
@@ -2313,8 +2312,7 @@ var isLeader=S.appUser&&S.appUser.role==='leader';
 var isGerente=S.appUser&&S.appUser.role==='gerente';
 var canAdmin=isAdmin||isGerente;var canGeral=isAdmin||isGerente||isLeader;
 var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">Stays CS</div>'
-  +'<button class="sb-item'+(S.view==="dashboard"&&!S.adminMode?" sb-act":"")+'" onclick="goBack()">Contas</button>'
-  +(canGeral?'<button class="sb-item'+(S.adminMode?" sb-act":"")+'" onclick="goVisaoGeralAdmin()">Visão Geral</button>':"")
+  +'<button class="sb-item'+(S.view==="dashboard"?" sb-act":"")+'" onclick="goBack()">Contas</button>'
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
   +'<button class="sb-item'+(S.view==="settings"?" sb-act":"")+'" onclick="goSettings()">Configurações</button>'
   +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel do líder</button>':"")
@@ -2342,7 +2340,7 @@ var f=c.follows[S.selFollow];return'<nav class="nav"><button class="btn btn-sm" 
 // ============================================================
 // DASHBOARD VIEW
 // ============================================================
-function dashView(){if(S.adminMode&&S.appUser.role==="admin")return adminDashView();
+function dashView(){
 var all=S.clients.filter(function(c){return !c.archived;});
 var filt=all.filter(function(c){if(S.filterCountry&&getListingCountry(c)!==S.filterCountry)return false;if(S.filterRisk&&hl(calcScore(c))!==S.filterRisk)return false;if(S.filterPlan&&(c.plan||"")!==S.filterPlan)return false;if(S.filterFollowUp){var fu=fuSt(c);if(S.filterFollowUp==="overdue"&&(fu.days===null||fu.days>=0))return false;if(S.filterFollowUp==="soon"&&(fu.days===null||fu.days<0||fu.days>15))return false;}if(S.filterAnalyst&&c.ownerId!==S.filterAnalyst)return false;if(S.filterStatus&&(c.onboardingStatus||'')!==S.filterStatus)return false;if(S.filterCategoria&&(c.categoria||'')!==S.filterCategoria)return false;
 if(S.filterAlertStatus){if(S.filterAlertStatus==='churn'&&!isChurnAlert(c))return false;if(S.filterAlertStatus==='inadimplente'&&!isInadimplente(c))return false;if(S.filterAlertStatus==='ativo'&&(isChurnAlert(c)||isInadimplente(c)||isInRecovery(c)))return false;if(S.filterAlertStatus==='recuperacao'&&!isInRecovery(c))return false;}return true;});
@@ -2368,6 +2366,7 @@ var archived=S.clients.filter(function(c){return c.archived;});
 var html='<div class="flex-between" style="margin-bottom:1.25rem">'
   +'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Arquivados</h1>'
   +'</div>';
+html+='<div class="alert alert-amber" style="margin-bottom:1rem">'+svgIcon('alert',14)+' Itens excluídos ficam aqui por '+LIXEIRA_DIAS+' dias e depois são removidos permanentemente. Restaure antes desse prazo se precisar recuperar. Clientes arquivados por churn não têm prazo e ficam guardados até você decidir.</div>';
 if(!archived.length){
   return html+'<div class="card" style="padding:3rem;text-align:center">'
     +'<div style="font-size:36px;margin-bottom:1rem">'+svgIcon('folder',36)+'</div>'
@@ -2451,6 +2450,8 @@ function lpVisibleLog(){
   return all.sort(function(a,b){return(b.at||0)-(a.at||0);});
 }
 function ahSetFilter(k,v){S.ahFilters[k]=v;render();}
+// Filtro em árvore: trocar de categoria zera o tipo de ação (que só existe dentro dela).
+function ahSetCat(v){S.ahFilters.cat=v;S.ahFilters.action='';render();}
 // Campo de data nativo dispara 'change' a cada dígito do ano (o navegador aceita "2" como ano
 // válido), e um render() no meio da digitação destruiria o input. Só re-renderiza quando o ano
 // está completo — assim funciona tanto digitando quanto pelo calendário.
@@ -2460,20 +2461,18 @@ function ahSetDate(k,v){
   var y=parseInt(String(v).split('-')[0],10);
   if(y>=1000){var el=document.activeElement;render();if(el&&el.id)  {var again=document.getElementById(el.id);if(again)again.focus();}}
 }
-function ahClearFilters(){S.ahFilters={from:'',to:'',user:'',action:''};render();}
+function ahClearFilters(){S.ahFilters={from:'',to:'',user:'',cat:'',action:''};render();}
 function adminLogView(){
   var canSeeAll=['admin','gerente','leader'].indexOf(S.appUser.role)>=0;
-  if(!S.ahFilters)S.ahFilters={from:'',to:'',user:'',action:''};
+  if(!S.ahFilters)S.ahFilters={from:'',to:'',user:'',cat:'',action:''};
   var f=S.ahFilters;
   var all=lpVisibleLog();
   var userOpts=Array.from(new Set(all.map(function(l){return(l.data&&l.data.by)||'';}).filter(Boolean))).sort();
   var presentActions=Array.from(new Set(all.map(function(l){return l.action;}).filter(Boolean)));
   var rows=all.filter(function(l){
     if(f.user&&((l.data&&l.data.by)||'')!==f.user)return false;
-    if(f.action){
-      if(f.action.indexOf('cat:')===0){if(actCat(l.action)!==f.action.slice(4))return false;}
-      else if(l.action!==f.action)return false;
-    }
+    if(f.cat&&actCat(l.action)!==f.cat)return false;
+    if(f.action&&l.action!==f.action)return false;
     if(f.from&&l.at&&new Date(l.at)<new Date(f.from+'T00:00:00'))return false;
     if(f.to&&l.at&&new Date(l.at)>new Date(f.to+'T23:59:59'))return false;
     return true;
@@ -2486,18 +2485,17 @@ function adminLogView(){
   if(canSeeAll){
     html+='<div class="form-row"><label class="form-lbl">Usuário</label><select onchange="ahSetFilter(\'user\',this.value)"><option value="">Todos</option>'+userOpts.map(function(u){return'<option'+(f.user===u?' selected':'')+'>'+e(u)+'</option>';}).join('')+'</select></div>';
   }
-  var grouped='';
-  Object.keys(ACT_CATS).forEach(function(ck){
-    var acts=presentActions.filter(function(a){return actCat(a)===ck;}).sort();
-    if(!acts.length)return;
-    grouped+='<optgroup label="'+e(ACT_CATS[ck].label)+'">';
-    grouped+='<option value="cat:'+ck+'"'+(f.action==='cat:'+ck?' selected':'')+'>Todas de '+e(ACT_CATS[ck].label)+'</option>';
-    grouped+=acts.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(actLabel(a))+'</option>';}).join('');
-    grouped+='</optgroup>';
-  });
-  var uncat=presentActions.filter(function(a){return!actCat(a);}).sort();
-  if(uncat.length)grouped+='<optgroup label="Outras">'+uncat.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(a)+'</option>';}).join('')+'</optgroup>';
-  html+='<div class="form-row"><label class="form-lbl">Tipo de ação</label><select onchange="ahSetFilter(\'action\',this.value)"><option value="">Todas</option>'+grouped+'</select></div>';
+  // Árvore: só aparecem categorias que têm registro; o tipo de ação depende da categoria escolhida.
+  var catKeys=Object.keys(ACT_CATS).filter(function(ck){return presentActions.some(function(a){return actCat(a)===ck;});});
+  var catSel='<div class="form-row"><label class="form-lbl">Categoria</label><select onchange="ahSetCat(this.value)"><option value="">Todas</option>'
+    +catKeys.map(function(ck){return'<option value="'+ck+'"'+(f.cat===ck?' selected':'')+'>'+e(ACT_CATS[ck].label)+'</option>';}).join('')
+    +'</select></div>';
+  var actsInCat=f.cat?presentActions.filter(function(a){return actCat(a)===f.cat;}).sort():[];
+  var actSel='<div class="form-row"><label class="form-lbl">Tipo de ação</label><select '+(f.cat?'':'disabled')+' onchange="ahSetFilter(\'action\',this.value)"><option value="">'
+    +(f.cat?'Todas de '+e(ACT_CATS[f.cat].label):'Selecione uma categoria')+'</option>'
+    +actsInCat.map(function(a){return'<option value="'+e(a)+'"'+(f.action===a?' selected':'')+'>'+e(actLabel(a))+'</option>';}).join('')
+    +'</select></div>';
+  html+=catSel+actSel;
   html+='<button class="btn btn-sm" onclick="ahClearFilters()">Limpar filtros</button>';
   if(!canSeeAll)html+='<p class="muted" style="margin-top:12px;font-size:11px">Você vê apenas as suas próprias atividades.</p>';
   html+='</div>';
@@ -2513,8 +2511,6 @@ function adminLogView(){
       var time=d?d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'--:--';
       var who=(l.data&&l.data.by)||'—';
       var verb=actLabel(l.action);
-      var ck=actCat(l.action);
-      var chip=ck?'<span class="ah-chip" style="background:'+ACT_CATS[ck].bg+';color:'+ACT_CATS[ck].color+'">'+e(ACT_CATS[ck].label)+'</span>':'';
       var subject='';
       if(l.data&&l.data.clientId){
         var idx=(S.clients||[]).findIndex(function(c){return c.id===l.data.clientId;});
@@ -2528,77 +2524,12 @@ function adminLogView(){
       else if(l.data&&l.data.leaderName)extra=' <span class="muted">→ '+e(l.data.leaderName)+'</span>';
       else if(l.data&&l.data.month)extra=' <span class="muted">('+e(l.data.month)+'/'+e(l.data.year)+')</span>';
       else if(l.data&&l.data.title)extra=' <span class="muted">— '+e(l.data.title)+'</span>';
-      html+='<div class="ah-row"><span class="ah-time">'+time+'</span>'+chip+'<span class="ah-txt"><span style="color:var(--b600);font-weight:600">'+e(who)+'</span> '+verb+subject+extra+'</span></div>';
+      html+='<div class="ah-row"><span class="ah-time">'+time+'</span><span class="ah-txt"><span style="color:var(--b600);font-weight:600">'+e(who)+'</span> '+verb+subject+extra+'</span></div>';
     });
   }
   html+='</div></div>';
   return html;
 }
-function adminDashView(){
-var byA={};
-S.clients.forEach(function(c){var o=c.ownerId||"?";if(!byA[o])byA[o]=[];byA[o].push(c);});
-var tot=S.clients.reduce(function(acc,c){return acc+(parseFloat(c.mrr)||0);},0);
-var churnAlerts=calcChurnAlerts(S.clients);
-var inadimp=calcInadimplentes(S.clients);
-var isLeader=S.appUser.role==="leader";
-var analystUids=isLeader?(S.appUser.managedUsers||[]):Object.keys(byA);
-var filteredByA={};analystUids.forEach(function(uid){if(byA[uid])filteredByA[uid]=byA[uid];});
-if(!isLeader)filteredByA=byA;
-var analystCount=Object.keys(filteredByA).length;
-var html='<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Visao Geral</h1>'
-  +(S.appUser.role==="admin"?'<button class="btn" onclick="S.adminMode=false;render()">← Minha carteira</button>':"")
-  +'</div>'
-  +'<div class="metrics" style="margin-top:1.25rem">'
-  +'<div class="metric"><div class="metric-lbl">Total clientes</div><div class="metric-val mv-d">'+S.clients.length+'</div></div>'
-  +'<div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(tot)+'</div></div>'
-  +'<div class="metric"><div class="metric-lbl">Analistas</div><div class="metric-val mv-d">'+analystCount+'</div></div>'
-  +'<div class="metric"><div class="metric-lbl">Alertas de Churn</div><div class="metric-val mv-r">'+churnAlerts+'</div></div>'
-  +'<div class="metric"><div class="metric-lbl">Inadimplentes</div><div class="metric-val mv-a">'+inadimp+'</div></div>'
-  +'</div><div style="margin-top:1.5rem">';
-Object.entries(filteredByA).forEach(function(entry){
-  var oid=entry[0],cs=entry[1];
-  var analyst=S.allUsers.find(function(u){return u.uid===oid;})||{name:"ID:"+oid.slice(0,6)};
-  var aMRR=cs.reduce(function(acc,c){return acc+(parseFloat(c.mrr)||0);},0);
-  var avgScore=Math.round(cs.reduce(function(acc,c){return acc+calcScore(c);},0)/cs.length);
-  var churn=calcChurnAlerts(cs);var inad=calcInadimplentes(cs);
-  var isOpen=!!(S.expandedAnalysts&&S.expandedAnalysts[oid]);
-  html+='<div class="analyst-card">'
-    +'<div class="analyst-card-hdr" onclick="toggleAnalyst(\''+oid+'\')">'
-    +'<div style="width:36px;height:36px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
-    +(analyst.photo?'<img src="'+e(analyst.photo)+'" width="36" height="36" style="object-fit:cover" referrerpolicy="no-referrer">':e((analyst.name||"?")[0].toUpperCase()))
-    +'</div><div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(analyst.name)+'</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+cs.length+' clientes · MRR '+formatMRR(aMRR)+' · Score medio: '+avgScore
-    +(churn>0?' · <span style="color:#ce1e5a;font-weight:600">'+churn+' churn</span>':'')
-    +(inad>0?' · <span style="color:#f3b02a;font-weight:600">'+inad+' inadimp.</span>':'')
-    +'</div></div>'
-    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="transform:'+(isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .4s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
-    +'</div>'
-    +'<div class="analyst-clients'+(isOpen?' open':'')+'">'
-    +'<div style="padding:4px 20px 20px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-    +'<thead><tr style="background:var(--surf2)">'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Cliente</th>'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Categoria</th>'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Saude</th>'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">MRR</th>'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Status</th>'
-    +'<th style="padding:8px;text-align:left;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase">Follow-up</th>'
-    +'</tr></thead><tbody>'
-    +cs.map(function(c){
-      var ci=S.clients.indexOf(c),score=calcScore(c),h=hl(score),fu=fuSt(c);
-      var hC=h==="risk"?"#ce1e5a":(h==="warn"?"#f3b02a":"#1f943c");
-      return'<tr style="border-top:1px solid var(--bd)">'
-        +'<td style="padding:9px 8px"><button class="btn-link" onclick="openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></td>'
-        +'<td style="padding:9px 8px">'+catBdg(c)+'</td>'
-        +'<td style="padding:9px 8px"><span style="font-weight:700;color:'+hC+'">'+score+'</span></td>'
-        +'<td style="padding:9px 8px;font-weight:500">'+formatMRR(c.mrr)+'</td>'
-        +'<td style="padding:9px 8px">'+statusBdg(c.onboardingStatus)+'</td>'
-        +'<td style="padding:9px 8px"><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'
-        +'</tr>';
-    }).join("")
-    +'</tbody></table></div></div></div>';
-});
-return html+'</div>';}
-
 function clientView(){
 var c=S.clients[S.sel],ci=S.sel;
 var score=calcScore(c),h=healthColor(c),fu=fuSt(c);
@@ -3027,16 +2958,14 @@ function mSettings(){return'<div class="modal-box"><div class="modal-title">Conf
 // ============================================================
 function openClientFollows(i){S.sel=i;S.view="client";S.clientTab="follows";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function toggleDropdown(id,ev){ev.stopPropagation();var el=document.getElementById(id);if(!el)return;var isOpen=el.style.display==="block";document.querySelectorAll(".dd-menu").forEach(function(d){d.style.display="none";});if(!isOpen){el.style.display="block";setTimeout(function(){document.addEventListener("click",function h(){el.style.display="none";document.removeEventListener("click",h);},{once:true});},0);}}
-function goBack(){if(!confirmDiscardIfDirty())return;S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";S.adminMode=false;render();}
+function goBack(){if(!confirmDiscardIfDirty())return;S.view="dashboard";S.sel=null;S.selFollow=null;S.genText="";S.importMsg="";render();}
 function goBackToClient(){if(S.editFollow&&S.editFollowDirty&&!confirm("Você tem alterações não salvas nesta pergunta. Sair sem salvar?"))return;S.editFollow=null;S.editFollowDirty=false;S.view="client";S.selFollow=null;S.genText="";S.importMsg="";render();}
 function goLeaderPanel(){if(!confirmDiscardIfDirty())return;if(!S.allUsers||!S.allUsers.length){loadAllUsers().then(function(){S.view="leaderpanel";render();});}else{S.view="leaderpanel";render();}}
 function goAdmin(){if(!confirmDiscardIfDirty())return;S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
-function goVisaoGeralAdmin(){if(!confirmDiscardIfDirty())return;S.view='dashboard';S.adminMode=true;loadAllUsers().then(function(){render();});}
 function goSettings(){if(!confirmDiscardIfDirty())return;S.view="settings";render();}
 function selectSettingsCat(cat){if(!confirmDiscardIfDirty())return;S.settingsCat=cat;S.settingsSub=null;if(cat==='adminlog'){loadAdminLog().then(function(){render();});}else{render();}}
 function selectSettingsSub(sub){if(!confirmDiscardIfDirty())return;S.settingsSub=sub;if(sub==='order')initWizOrderDraft();render();}
 function initWizOrderDraft(){S.wizOrderDraft={first:getWizOrder('first'),recurring:getWizOrder('recurring')};S.wizOrderDirty=false;S.wizOrderTab='first';}
-function toggleAdminMode(){S.adminMode=!S.adminMode;if(S.adminMode)loadAllUsers().then(function(){render();});else render();}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function openFollow(fi){S.editFollow=null;S.editFollowDirty=false;S.selFollow=fi;S.view="follow-view";S.genText="";S.importMsg="";render();}
 function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);render();}
