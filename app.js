@@ -22,7 +22,7 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 // ============================================================
 // ESTADO E AUTH
 // ============================================================
-const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',cat:'',action:''},profileMenuOpen:false,userDraft:null,profileDraft:null,newUserCreds:null,busyMsg:'',impClients:null,lpClientMenu:null,lpToast:''};
+const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',cat:'',action:''},profileMenuOpen:false,userDraft:null,profileDraft:null,newUserCreds:null,busyMsg:'',impClients:null,lpClientMenu:null,lpToast:'',lpPeriod:{key:'30d'},lpPeriodDraft:null,lpBand:'',lpQueue:null,lpChurnBig:false,lpChurnMode:'mes',impFollow:null,_lastView:null,_lastModal:null};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
 // pedro.ferreira@stays.net e o admin master: ninguem muda a funcao dele, nem ele mesmo.
@@ -2981,7 +2981,7 @@ render();
 
 function showRecoveryOptions(ci){
 var c=S.clients[ci];
-document.querySelector('.modal-box').innerHTML='<div class="modal-hdr"><h2 class="modal-title">'+svgIcon('info_circle',14)+' Em recuperação</h2><button class="modal-x" onclick="closeM()">×</button></div>'
+document.querySelector('.modal-box').innerHTML='<div class="modal-hdr"><h2 class="modal-title">'+svgIcon('info_circle',14)+' Em recuperação</h2><button class="modal-close press" onclick="closeMSoft()">Fechar</button></div>'
   +'<p style="font-size:13px;color:var(--t2);margin-bottom:14px">Por quantos dias deseja observar este cliente antes de retornar ao normal?</p>'
   +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'
   +[5,10,20,30,40,50].map(function(d){return'<button class="btn" style="padding:12px;font-size:14px;font-weight:700" onclick="setRecoveryMode('+ci+','+d+')">'+d+' dias</button>';}).join('')
@@ -3136,11 +3136,11 @@ function addAdminLog(action,data){var d=Object.assign({},data||{});if(!d.by)d.by
 function logClient(c){return{clientId:c&&c.id,clientName:c&&(c.slug||c.name)};}
 
 function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveClient(S.clients[ci]);addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
-function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
+function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-close press" onclick="closeMSoft()">Fechar</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
 function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveClient(S.clients[ci]);addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
 function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');S.clients[ci].inadimplencia[idx].paidAtTs=Date.now();saveClient(S.clients[ci]);addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
 
-function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
+function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="overlayBackdropClick(event,this)">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
 // Lider/gerente/admin escolhem de quem é o cliente; analista só cria pra si.
 function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
@@ -3751,10 +3751,15 @@ function lpPeriodDef(){
 }
 function lpSetPeriod(k){S.lpPeriod={key:k};S.lpOpenPop=null;render();}
 function lpPeriodRange(){
+  var p=lpPeriod();
+  var iso=function(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;};
+  if(p.key==='custom'&&p.from&&p.to){
+    var dias=Math.max(1,Math.round((new Date(p.to)-new Date(p.from))/86400000));
+    return{fromISO:p.from,toISO:p.to,days:dias,label:formatDate(p.from)+' a '+formatDate(p.to)};
+  }
   var d=lpPeriodDef();
   var to=new Date();
   var from=new Date(to.getTime()-d.days*86400000);
-  var iso=function(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;};
   return{fromISO:iso(from),toISO:iso(to),days:d.days,label:d.label};
 }
 // Meses cobertos pelo periodo, pro grafico de churn e pras metas da planilha.
@@ -3775,7 +3780,8 @@ function lpTeamGoalRows(){
 }
 function lpSetBand(b){S.lpBand=(S.lpBand===b?'':b);S.lpPage={};render();}
 function lpClearBand(){S.lpBand='';render();}
-function lpToggleChurnBig(){S.lpChurnBig=!S.lpChurnBig;render();}
+function lpToggleChurnBig(){if(S.lpChurnBig){lpCloseChurnBig();return;}S.lpChurnBig=true;render();}
+function lpCloseChurnBig(){dismissOverlay(function(){S.lpChurnBig=false;render();});}
 function lpOpenQueue(k){S.lpQueue=(!k||S.lpQueue===k)?null:k;render();}
 function lpCloseQueue(){S.lpQueue=null;render();}
 
@@ -3794,15 +3800,22 @@ function lpScoreCard(teamClients){
   var open=S.lpOpenPop==='period';
   var html='<div class="lp-card lp-score-panel" style="border-top:3px solid '+col+'">';
   html+='<div class="lp-card-head"><span class="lp-eyebrow">Score de CS do time</span>';
-  html+='<div style="position:relative"><button class="lp-pill press" onclick="lpTogglePop(\'period\')">'+e(r.label)+'<span style="font-size:9px;margin-left:4px">▾</span></button>';
+  html+='<div class="lp-head-tools">';
+  html+='<button class="lp-icon-btn press" title="Exportar o score e o cálculo para planilha" onclick="lpExportScore()">'+svgIcon('share',14)+'</button>';
+  html+='<div style="position:relative"><button class="lp-pill press" onclick="lpTogglePop(\'period\')">'+svgIcon('calendar',13)+'<span style="margin:0 3px">'+e(r.label)+'</span><span style="font-size:9px">▾</span></button>';
   if(open){
-    html+='<div class="lp-pop glass fade-rise" style="right:0;left:auto;min-width:170px" onclick="event.stopPropagation()">';
+    var d=S.lpPeriodDraft||{from:r.fromISO,to:r.toISO};
+    html+='<div class="lp-pop glass" style="right:0;left:auto;min-width:250px" onclick="event.stopPropagation()">';
     LP_PERIODS.forEach(function(p){
       html+='<button class="lp-pop-item'+(lpPeriod().key===p.key?' on':'')+'" onclick="lpSetPeriod(\''+p.key+'\')">'+e(p.label)+'</button>';
     });
+    html+='<div class="lp-pop-sep">Período personalizado</div>';
+    html+='<div class="lp-pop-dates"><label>De<input type="date" value="'+e(d.from||'')+'" oninput="lpSetCustomPart(\'from\',this.value)"></label>'
+      +'<label>Até<input type="date" value="'+e(d.to||'')+'" oninput="lpSetCustomPart(\'to\',this.value)"></label></div>';
+    html+='<button class="lp-pop-apply press" onclick="lpApplyCustom()">Aplicar período</button>';
     html+='</div>';
   }
-  html+='</div></div>';
+  html+='</div></div></div>';
   html+='<div class="lp-score-row"><span class="lp-score-big score-num-live" data-score="'+(now===null?0:now)+'" style="color:'+col+'">'+(now===null?'—':now)+'</span>';
   if(delta!==null&&delta!==0){
     var up=delta>0;
@@ -3902,13 +3915,26 @@ function lpChurnBigOverlay(teamClients){
   var first=series.find(function(s){return s.score!==null;});
   var last=series.slice().reverse().find(function(s){return s.score!==null;});
   var trend=(first&&last&&first!==last)?(last.score-first.score):null;
-  var html='<div class="modal-ov" onclick="if(event.target===this)lpToggleChurnBig()">';
+  var html='<div class="modal-ov" onclick="if(event.target===this)lpCloseChurnBig()">';
   html+='<div class="modal-box lp-big-box" style="max-width:960px">';
   html+='<div class="modal-hdr"><div><h2 class="modal-title" style="margin:0">Churn e saúde ao longo do tempo</h2>'
     +'<div class="muted" style="font-size:12px;margin-top:2px">Clientes perdidos por mês e score médio do time · todo o histórico disponível</div></div>'
-    +'<button class="modal-x" onclick="lpToggleChurnBig()">×</button></div>';
-  html+='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos</span><span><i class="ln" style="background:var(--b600)"></i>Score médio</span></div>';
-  html+='<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+'</svg></div>';
+    +'<button class="modal-close press" onclick="lpCloseChurnBig()">Fechar</button></div>';
+  // Três leituras da mesma coisa: quantos saíram, quanto isso custou e quem perdeu.
+  var modo=S.lpChurnMode||'mes';
+  html+='<div class="lp-chart-bar"><div class="lp-seg">'
+    +'<button class="'+(modo==='mes'?'on':'')+'" onclick="lpSetChurnMode(\'mes\')">Por mês</button>'
+    +'<button class="'+(modo==='mrr'?'on':'')+'" onclick="lpSetChurnMode(\'mrr\')">MRR perdido</button>'
+    +'<button class="'+(modo==='analista'?'on':'')+'" onclick="lpSetChurnMode(\'analista\')">Por analista</button></div>'
+    +'<button class="btn btn-sm press" onclick="lpExportChurn()">'+svgIcon('share',13)+' Exportar</button></div>';
+  if(modo==='mes'){
+    html+='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos</span><span><i class="ln" style="background:var(--b600)"></i>Score médio</span></div>';
+    html+='<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+'</svg></div>';
+  }else if(modo==='mrr'){
+    html+=lpChartMrr(data,W,H,padL,padR,padT,padB);
+  }else{
+    html+=lpChartPorAnalista(data);
+  }
   html+='<div class="lp-big-foot">';
   html+='<div class="lp-kv"><span>Total perdido no histórico</span><strong>'+totC+' cliente'+(totC===1?'':'s')+' · '+formatMRR(totM)+'</strong></div>';
   if(trend!==null)html+='<div class="lp-kv"><span>Score do time no histórico</span><strong style="color:'+(trend>=0?'var(--gn600)':'var(--rd600)')+'">'+(trend>=0?'+':'')+trend+' pts</strong></div>';
@@ -4271,39 +4297,41 @@ function lpAnalystListHTML(r){
 function leaderVisaoGeral(){
   var groups=lpTeamGroups();
   var teamClients=lpFlatten(groups);
+  // Três colunas pra caber tudo numa tela só: contexto do time à esquerda,
+  // o time no meio, o que precisa de ação à direita. Sem rolar pra descobrir
+  // que existe um alerta.
   var html='<div class="lp-grid">';
-  // ── trilho ──
   html+='<aside class="lp-rail">';
   html+=lpScoreCard(teamClients);
   html+=lpChurnCard(teamClients);
-  html+=lpQueueCard(teamClients);
-  html+=lpCoverageCard(teamClients);
   html+='</aside>';
-  // ── time ──
   html+='<section class="lp-main">';
   var rows=lpAnalystRows();
   var totalA=Object.keys(groups).length;
   var viewMode=S.lpViewMode==='cards'?'cards':'list';
   var catLabels={elite:'Elite',gold:'Gold / High Value',silver:'Silver / Core A-B',bronze:'Bronze / Pareto'};
-  html+='<div class="lp-main-bar">';
-  html+='<div class="lp-main-left"><span class="lp-h">Time</span>'
-    +'<span class="lp-note">'+rows.length+' de '+totalA+' analista'+(totalA===1?'':'s')+'</span>';
-  if(S.lpBand){
-    var bl={risk:'Com clientes críticos',warn:'Com clientes em atenção',ok:'Com clientes estáveis'}[S.lpBand];
-    html+='<button class="lp-filter-chip press" onclick="lpClearBand()">'+e(bl)+' <span>×</span></button>';
-  }
-  if(S.lpSearch)html+='<button class="lp-filter-chip press" onclick="lpSetSearch(\'\')">Busca: '+e(S.lpSearch)+' <span>×</span></button>';
-  html+='</div>';
-  html+='<div class="lp-main-right">';
+  // Tudo alinhado à esquerda, na mesma coluna da lista — nada escapa pro lado.
+  html+='<div class="lp-main-head"><span class="lp-h2">Time</span>'
+    +'<span class="lp-sub">'+rows.length+' de '+totalA+' analista'+(totalA===1?'':'s')+'</span></div>';
+  html+='<div class="lp-toolbar2">';
   html+='<input type="text" id="lp-search-input" class="lp-search" placeholder="Buscar analista ou cliente" value="'+e(S.lpSearch)+'" oninput="lpSetSearch(this.value)">';
   html+='<div style="position:relative"><button class="lp-pill press'+(S.lpFilters.cat.length?' on':'')+'" onclick="lpTogglePop(\'cat\')">'
     +(S.lpFilters.cat.length?S.lpFilters.cat.map(function(k){return catLabels[k];}).join(', '):'Todas as categorias')+' <span style="font-size:9px">▾</span></button>'
     +(S.lpOpenPop==='cat'?lpFilterPopover('cat',['elite','gold','silver','bronze'],function(v){return catLabels[v];}):'')+'</div>';
   html+='<div class="lp-seg"><button class="'+(viewMode==='list'?'on':'')+'" onclick="lpSetViewMode(\'list\')">Lista</button>'
     +'<button class="'+(viewMode==='cards'?'on':'')+'" onclick="lpSetViewMode(\'cards\')">Cards</button></div>';
+  html+='<span class="lp-tb-gap"></span>';
   html+='<button class="btn btn-sm press" onclick="openLeaderNewClient()">+ Novo cliente</button>';
   html+='<button class="btn-primary btn-sm press" onclick="openClientImport()">Importar clientes</button>';
-  html+='</div></div>';
+  html+='</div>';
+  // Filtros ativos numa linha própria, embaixo, pra não empurrar a barra.
+  var chips='';
+  if(S.lpBand){
+    var bl={risk:'Com clientes críticos',warn:'Com clientes em atenção',ok:'Com clientes estáveis'}[S.lpBand];
+    chips+='<button class="lp-filter-chip press" onclick="lpClearBand()">'+e(bl)+' <span>×</span></button>';
+  }
+  if(S.lpSearch)chips+='<button class="lp-filter-chip press" onclick="lpSetSearch(\'\')">Busca: '+e(S.lpSearch)+' <span>×</span></button>';
+  if(chips)html+='<div class="lp-chips-row">'+chips+'</div>';
   if(!Object.keys(groups).length){
     html+='<div class="lp-empty-box">Nenhum analista sob sua gestão ainda.</div>';
   }else if(!rows.length){
@@ -4315,7 +4343,9 @@ function leaderVisaoGeral(){
       +'<span>Analista</span><span>Score</span><span>No período</span><span>Meta follow</span><span>Sem contato</span><span>Alertas</span></div>'
       +rows.map(lpAnalystListHTML).join('')+'</div>'+lpPageSizeControl();
   }
-  html+='</section></div>';
+  html+='</section>';
+  html+='<aside class="lp-side2">'+lpQueueCard(teamClients)+lpCoverageCard(teamClients)+'</aside>';
+  html+='</div>';
   html+=lpChurnBigOverlay(teamClients);
   return html;
 }
@@ -4323,7 +4353,7 @@ function leaderPanelView(){
   var t=lpFlatten(lpTeamGroups());
   var mrr=t.reduce(function(a,c){return a+(parseFloat(c.mrr)||0);},0);
   return'<div class="lp-title-row"><div><h1 class="lp-title">Painel do líder</h1>'
-    +'<div class="lp-note">'+Object.keys(lpTeamGroups()).length+' analistas · '+t.length+' clientes · '+formatMRR(mrr)+' de MRR sob gestão</div></div></div>'
+    +'<div class="lp-sub">'+Object.keys(lpTeamGroups()).length+' analistas · '+t.length+' clientes · '+formatMRR(mrr)+' de MRR sob gestão</div></div></div>'
     +leaderVisaoGeral();
 }
 
@@ -4851,14 +4881,14 @@ function lpOpenClientActions(cid){
   if(!canManageClientOwner())return;
   S.lpClientMenu=cid;render();
 }
-function lpCloseClientActions(){S.lpClientMenu=null;render();}
+function lpCloseClientActions(){dismissOverlay(function(){S.lpClientMenu=null;render();});}
 function mLpClientActions(){
   var c=S.clients.find(function(x){return x.id===S.lpClientMenu;});
   if(!c)return'<div class="modal-box"><div class="modal-title">Cliente não encontrado</div><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="lpCloseClientActions()">Fechar</button></div></div>';
   var owner=(S.allUsers||[]).find(function(u){return u.uid===c.ownerId;});
   var opts=analystUsers().filter(function(u){return u.uid!==c.ownerId;})
     .map(function(u){return'<option value="'+u.uid+'">'+e(u.name)+'</option>';}).join('');
-  return'<div class="modal-box" style="max-width:430px"><div class="modal-hdr"><h2 class="modal-title" style="margin:0">'+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="lpCloseClientActions()">×</button></div>'
+  return'<div class="modal-box" style="max-width:430px"><div class="modal-hdr"><h2 class="modal-title" style="margin:0">'+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-close press" onclick="lpCloseClientActions()">Fechar</button></div>'
     +'<p class="muted" style="font-size:12.5px;margin-bottom:14px">'+e(c.name)+'<br>Analista responsável: <strong>'+e(owner?owner.name:'sem analista')+'</strong></p>'
     +'<div class="lp-act-block"><div class="lp-act-title">Transferir para outro analista</div>'
     +(opts?'<div class="flex" style="gap:8px;align-items:center"><select id="lp-transfer-to" style="flex:1">'+opts+'</select><button class="btn-primary btn-sm" onclick="lpTransferClient()">Transferir</button></div>'
@@ -5587,5 +5617,206 @@ function lpClientTable(cs,oid,mode){
       +'<button class="btn btn-sm" '+(curPage===totalPages-1?'disabled':'')+' onclick="lpGoPage(\''+jsq(oid)+'\',1,'+(totalPages-1)+')">&rsaquo;</button></div>';
   }
   html+='</div>';
+  return html;
+}
+// ============================================================
+// OVERLAYS — fechar com animação, clique fora e botão "Fechar"
+// ============================================================
+// Fechar era seco porque o elemento saía do DOM na hora. Agora a saída é o
+// inverso da entrada: o painel desce e some enquanto o vidro desfoca de volta,
+// e só depois o estado muda.
+var OVERLAY_CLOSE_MS=240;
+function dismissOverlay(fn){
+  var ov=document.querySelector('.modal-ov:not(.closing)');
+  if(!ov){if(fn)fn();return;}
+  ov.classList.add('closing');
+  setTimeout(function(){if(fn)fn();},OVERLAY_CLOSE_MS);
+}
+// Modais com formulário não fecham por clique fora sem o usuário confirmar —
+// seria fácil perder o que acabou de digitar num clique errado.
+var MODAIS_COM_FORM=['add-client','edit-client','add-user','profile','add-contact','add-key-contact','settings','churn-alert'];
+function modalPedeConfirmacao(){
+  var m=S.modal||'';
+  if(MODAIS_COM_FORM.indexOf(m)>=0)return true;
+  if(m.indexOf('inad-')===0)return true;
+  return false;
+}
+function closeMSoft(){
+  if(modalPedeConfirmacao()&&!confirm('Fechar sem salvar? As alterações desta janela serão descartadas.'))return;
+  dismissOverlay(closeM);
+}
+// Usado no onclick do fundo: só fecha se o clique foi no fundo mesmo.
+function overlayBackdropClick(ev,el){
+  if(ev.target!==el)return;
+  closeMSoft();
+}
+function closeBtnHTML(fn){
+  return'<button class="modal-close press" onclick="'+fn+'">Fechar</button>';
+}
+// ============================================================
+// EXPORTAR — CSV que o Excel abre com acento certo
+// ============================================================
+// Sem biblioteca: CSV com BOM UTF-8 e ponto e vírgula, que é o que o Excel em
+// português espera. Número vai com vírgula decimal pra não virar texto.
+function csvCell(v){
+  if(v===null||v===undefined)return'';
+  var s=String(v);
+  if(typeof v==='number')s=String(v).replace('.',',');
+  return /[;"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function baixarCSV(nome,linhas){
+  var texto=linhas.map(function(l){return l.map(csvCell).join(';');}).join('\r\n');
+  var blob=new Blob(['﻿'+texto],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=nome;document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1500);
+}
+function hojeArquivo(){var d=new Date(),m=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+(m<10?'0':'')+m+(dd<10?'0':'')+dd;}
+// Exporta o score: o número do time, o de cada analista e — importante — como a
+// conta é feita, pra quem receber a planilha conseguir auditar.
+function lpExportScore(){
+  var teamClients=lpFlatten(lpTeamGroups());
+  var r=lpPeriodRange();
+  var rows=lpAnalystRows();
+  var out=[];
+  out.push(['Score de CS — '+r.label]);
+  out.push(['Período',formatDate(r.fromISO)+' a '+formatDate(r.toISO)]);
+  out.push(['Gerado em',new Date().toLocaleString('pt-BR')]);
+  out.push([]);
+  out.push(['RESUMO DO TIME']);
+  out.push(['Score no fim do período',teamScoreAt(teamClients,r.toISO)]);
+  out.push(['Score no início do período',teamScoreAt(teamClients,r.fromISO)]);
+  var now=teamScoreAt(teamClients,r.toISO),before=teamScoreAt(teamClients,r.fromISO);
+  out.push(['Variação',(now!==null&&before!==null)?(now-before):'']);
+  out.push(['Clientes considerados',teamClients.length]);
+  out.push([]);
+  out.push(['POR ANALISTA']);
+  out.push(['Analista','Clientes','MRR','Score','Variação no período','Críticos','Atenção','Estáveis','Meta de follow (%)','Follows feitos','Follows previstos','Sem contato 30d+','Churn','Loop','Inadimplentes']);
+  rows.forEach(function(a){
+    out.push([a.analyst.name,a.cs.length,a.mrr,a.score,a.delta===null?'':a.delta,a.risk,a.warn,a.ok,
+      a.fu?a.fu.pct:'',a.fu?a.fu.real:'',a.fu?a.fu.meta:'',a.semContato,a.churn,a.loop,a.inad]);
+  });
+  out.push([]);
+  out.push(['POR CLIENTE']);
+  out.push(['Analista','Sigla','Cliente','Categoria','Score','MRR','Sem contato (dias)','Follow-up','Churn aberto','Loop aberto']);
+  rows.forEach(function(a){
+    a.cs.forEach(function(c){
+      var d=getDaysWithoutContact(c);
+      out.push([a.analyst.name,(c.slug||'').toUpperCase(),c.name,categoriaLabel(c)||'',calcScore(c),parseFloat(c.mrr)||0,
+        d===null?'':d,fuSt(c).label,isChurnAlert(c)?'Sim':'Não',isLoopOpen(c)?'Sim':'Não']);
+    });
+  });
+  out.push([]);
+  out.push(['COMO O SCORE É CALCULADO']);
+  out.push(['Score do time','Média simples do score de todos os clientes da carteira (não é média por analista: analista com mais clientes pesa mais, porque a carteira dele é maior).']);
+  out.push(['Score do cliente','Sai do último follow-up de cada cliente até a data de corte, combinando o humor de cada categoria com contato recente, atividade, inadimplência e alerta de churn.']);
+  out.push(['Score em data passada','Reconstruído: o sistema esconde tudo que aconteceu depois da data e recalcula com o que existia até ali.']);
+  out.push(['Faixas','Crítico abaixo de 50 · Atenção de 50 a 74 · Estável 75 ou mais']);
+  out.push(['Meta de follow','Vem da planilha [CS] Team Goals. Atingimento = soma dos follows feitos ÷ soma das metas, igual à planilha.']);
+  baixarCSV('score-cs-'+hojeArquivo()+'.csv',out);
+}
+function lpExportChurn(){
+  var rows=lpTeamGoalRows();
+  var data=lpChurnData(true);
+  var teamClients=lpFlatten(lpTeamGroups());
+  var series=teamScoreSeries(teamClients,data.map(function(d){return d.month;}));
+  var out=[];
+  out.push(['Churn e saúde ao longo do tempo']);
+  out.push(['Gerado em',new Date().toLocaleString('pt-BR')]);
+  out.push([]);
+  out.push(['Mês','Clientes perdidos','MRR perdido','Base de clientes','Taxa de churn (%)','Score médio do time']);
+  data.forEach(function(d,i){
+    var taxa=(d.base&&d.base>0)?Math.round(d.clients/d.base*10000)/100:'';
+    out.push([d.month,d.clients,d.mrr,d.base===null?'':d.base,taxa,series[i]&&series[i].score!==null?series[i].score:'']);
+  });
+  out.push([]);
+  out.push(['POR ANALISTA — clientes perdidos por mês']);
+  var meses=data.map(function(d){return d.month;});
+  out.push(['Analista'].concat(meses));
+  rows.forEach(function(a){out.push([a.name].concat(meses.map(function(m){return a.churnClients[m]!==undefined?a.churnClients[m]:'';})));});
+  out.push([]);
+  out.push(['POR ANALISTA — MRR perdido por mês']);
+  out.push(['Analista'].concat(meses));
+  rows.forEach(function(a){out.push([a.name].concat(meses.map(function(m){return a.churnMrr[m]!==undefined?a.churnMrr[m]:'';})));});
+  out.push([]);
+  out.push(['ORIGEM DOS DADOS']);
+  out.push(['Churn',TEAM_DATA_SOURCE+' — aba Base View (Churn)']);
+  out.push(['Score médio','Reconstruído pelo dashboard a partir dos follow-ups e das interações registradas até o fim de cada mês.']);
+  out.push(['Meta de churn','Clientes '+TEAM_CHURN_TARGET.clients+'% · Listings '+TEAM_CHURN_TARGET.listings+'% · MRR '+TEAM_CHURN_TARGET.mrr+'%']);
+  baixarCSV('churn-saude-'+hojeArquivo()+'.csv',out);
+}
+// ── Período personalizado ──
+function lpPeriodCustom(){
+  var p=lpPeriod();
+  return p.key==='custom'&&p.from&&p.to?p:null;
+}
+function lpSetCustomPart(field,val){
+  if(!S.lpPeriodDraft)S.lpPeriodDraft={};
+  S.lpPeriodDraft[field]=val;
+  var d=S.lpPeriodDraft;
+  // Só redesenha quando a data está completa, senão o campo perde o foco no
+  // meio da digitação do ano — mesmo problema que já corrigimos no histórico.
+  var ok=function(v){return v&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&+v.slice(0,4)>=1000;};
+  if(ok(d.from)&&ok(d.to))render();
+}
+function lpApplyCustom(){
+  var d=S.lpPeriodDraft||{};
+  if(!d.from||!d.to){alert('Escolha a data inicial e a final.');return;}
+  if(d.from>d.to){alert('A data inicial precisa ser anterior à final.');return;}
+  S.lpPeriod={key:'custom',from:d.from,to:d.to};
+  S.lpOpenPop=null;render();
+}
+function lpSetChurnMode(m){S.lpChurnMode=m;render();}
+// Área do MRR perdido mês a mês: a mesma perda, mas em dinheiro em vez de contagem.
+// Um mês com poucos clientes grandes dói mais que um com muitos pequenos.
+function lpChartMrr(data,W,H,padL,padR,padT,padB){
+  var maxM=Math.max(1,Math.max.apply(null,data.map(function(d){return d.mrr;})));
+  var step=(W-padL-padR)/Math.max(1,data.length-1||1);
+  var pts=data.map(function(d,i){
+    var x=padL+(data.length>1?step*i:(W-padL-padR)/2);
+    var y=padT+(1-d.mrr/maxM)*(H-padT-padB);
+    return[x,y,d];
+  });
+  var grid='',labels='';
+  [0,maxM/2,maxM].forEach(function(v){
+    var y=H-padB-(v/maxM)*(H-padT-padB);
+    grid+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="var(--bd)" stroke-width="1"/>'
+      +'<text x="'+(padL-8)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="var(--t3)">'+formatMRR(Math.round(v))+'</text>';
+  });
+  pts.forEach(function(p){labels+='<text x="'+p[0]+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+e(lpMonthLabel(p[2].month))+'</text>';});
+  var linha=pts.map(function(p){return p[0]+','+p[1];}).join(' ');
+  var area='<polygon points="'+padL+','+(H-padB)+' '+linha+' '+pts[pts.length-1][0]+','+(H-padB)+'" fill="var(--rd600)" opacity=".13"/>';
+  var poly='<polyline points="'+linha+'" fill="none" stroke="var(--rd600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
+  var dots=pts.map(function(p){return'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--rd600)" stroke-width="2.5"><title>'+e(lpMonthLabel(p[2].month))+': '+formatMRR(p[2].mrr)+'</title></circle>';}).join('');
+  var pior=data.slice().sort(function(a,b){return b.mrr-a.mrr;})[0];
+  return'<div class="lp-legend"><span><i style="background:var(--rd600)"></i>MRR perdido por mês</span></div>'
+    +'<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+area+poly+dots+labels+'</svg></div>'
+    +(pior?'<div class="lp-note" style="margin-top:6px">Pior mês: '+e(lpMonthLabel(pior.month))+' com '+formatMRR(pior.mrr)+' perdidos em '+pior.clients+' cliente'+(pior.clients===1?'':'s')+'.</div>':'');
+}
+// Ranking por analista: quem concentra a perda. Ordena pelo total do histórico.
+function lpChartPorAnalista(data){
+  var meses=data.map(function(d){return d.month;});
+  var rows=lpTeamGoalRows().map(function(a){
+    var cli=meses.reduce(function(s,m){return s+(a.churnClients[m]||0);},0);
+    var mrr=meses.reduce(function(s,m){return s+(a.churnMrr[m]||0);},0);
+    return{name:a.name,cli:cli,mrr:mrr};
+  }).filter(function(r){return r.cli>0||r.mrr>0;}).sort(function(x,y){return y.cli-x.cli;});
+  if(!rows.length)return'<div class="lp-empty-box">Sem churn registrado para os analistas deste time no histórico.</div>';
+  var maxC=Math.max.apply(null,rows.map(function(r){return r.cli;}))||1;
+  var html='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos no histórico</span></div>';
+  html+='<div class="lp-hbars">';
+  rows.forEach(function(r,i){
+    html+='<div class="lp-hbar-row">'
+      +'<span class="lp-hbar-name">'+e(r.name)+'</span>'
+      +'<span class="lp-hbar-track"><i class="lp-hbar-fill" style="width:'+(r.cli/maxC*100)+'%;animation-delay:'+(i*55)+'ms"></i></span>'
+      +'<span class="lp-hbar-val">'+r.cli+'</span>'
+      +'<span class="lp-hbar-mrr">'+formatMRR(r.mrr)+'</span></div>';
+  });
+  html+='</div>';
+  var top=rows[0];
+  var totC=rows.reduce(function(a,r){return a+r.cli;},0);
+  html+='<div class="lp-note" style="margin-top:8px">'+e(top.name)+' concentra '+Math.round(top.cli/totC*100)+'% dos clientes perdidos no período.</div>';
   return html;
 }

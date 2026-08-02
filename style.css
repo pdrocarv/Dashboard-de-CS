@@ -708,3 +708,51 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-q-sublist{border:1px solid var(--bd);border-radius:10px;overflow:hidden;max-height:340px;overflow-y:auto}
 .lp-q-sublist .lp-q-row{padding:11px 13px}
 .lp-q-sublist .lp-q-row:last-child{border-bottom:0}
+/* Saída = inverso da entrada: o painel desce e some enquanto o vidro desfoca. */
+@keyframes veil-out{from{opacity:1;backdrop-filter:blur(18px) saturate(135%);-webkit-backdrop-filter:blur(18px) saturate(135%)}
+  to{opacity:0;backdrop-filter:blur(0px) saturate(100%);-webkit-backdrop-filter:blur(0px) saturate(100%)}}
+@keyframes sheet-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(14px) scale(.975)}}
+.modal-ov.closing{animation:veil-out var(--t-close) var(--e-in) both!important;pointer-events:none}
+.modal-ov.closing .modal-box{animation:sheet-out var(--t-close) var(--e-in) both!important}
+.modal-close{border:1px solid var(--bd);background:var(--surf2);color:var(--t2);font:inherit;font-size:12px;font-weight:600;padding:6px 15px;border-radius:8px;cursor:pointer;flex:none}
+.modal-close:hover{background:var(--surf3);color:var(--t);border-color:var(--t3)}
+
+/* ── Painel do líder: três colunas ── */
+.lp-grid{grid-template-columns:320px minmax(0,1fr) 320px}
+.page-wide .lp-grid{grid-template-columns:330px minmax(0,1fr) 330px;gap:18px}
+@media(min-width:1700px){.page-wide .lp-grid{grid-template-columns:360px minmax(0,1fr) 360px}}
+@media(max-width:1400px){.lp-grid,.page-wide .lp-grid{grid-template-columns:300px minmax(0,1fr)}
+  .lp-side2{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}}
+@media(max-width:1000px){.lp-grid,.page-wide .lp-grid{grid-template-columns:1fr}
+  .lp-side2{grid-template-columns:1fr}}
+.lp-side2{display:flex;flex-direction:column;gap:13px;position:sticky;top:66px}
+@media(max-width:1400px){.lp-side2{position:static}}
+/* Cabeçalho e barra do time, tudo à esquerda na mesma coluna da lista */
+.lp-main-head{display:flex;align-items:baseline;gap:10px}
+.lp-h2{font-size:19px;font-weight:700;font-family:"Roboto Slab",serif;color:var(--t)}
+.lp-sub{font-size:13px;color:var(--t2)}
+.lp-title .lp-sub,.lp-title-row .lp-sub{font-size:13px}
+.lp-toolbar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lp-tb-gap{flex:1;min-width:0}
+.lp-chips-row{display:flex;gap:6px;flex-wrap:wrap}
+.lp-head-tools{display:flex;align-items:center;gap:6px}
+/* Popover de período com calendário */
+.lp-pop-sep{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:9px 10px 5px;border-top:1px solid var(--bd);margin-top:4px}
+.lp-pop-dates{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 10px 8px}
+.lp-pop-dates label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:600;color:var(--t3)}
+.lp-pop-dates input{font-size:11.5px;padding:5px 7px;border-radius:7px}
+.lp-pop-apply{display:block;width:calc(100% - 20px);margin:0 10px 8px;padding:7px;border:0;border-radius:8px;background:var(--b600);color:#fff;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.lp-pop-apply:hover{background:var(--b700)}
+/* Gráfico expandido: seletor de tipo + exportar */
+.lp-chart-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 10px;flex-wrap:wrap}
+.lp-hbars{display:flex;flex-direction:column;gap:9px;padding:6px 0}
+.lp-hbar-row{display:grid;grid-template-columns:minmax(120px,1.1fr) minmax(0,3fr) 42px 96px;align-items:center;gap:11px}
+.lp-hbar-name{font-size:12.5px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-hbar-track{height:22px;border-radius:6px;background:var(--surf3);overflow:hidden}
+.lp-hbar-fill{display:block;height:100%;background:var(--rd600);opacity:.85;border-radius:6px;transform-origin:left;animation:hbar-grow 620ms var(--e-out) both}
+@keyframes hbar-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.quiet-view .lp-hbar-fill{animation:none}
+.lp-hbar-val{font-size:14px;font-weight:700;font-family:"Roboto Slab",serif;color:var(--t);text-align:right}
+.lp-hbar-mrr{font-size:11.5px;color:var(--t3);text-align:right}
+/* Cabeçalho de modal com botão Fechar */
+.modal-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
