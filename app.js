@@ -2569,6 +2569,8 @@ var ACTIONS={
   reminder_completed:{cat:'lembretes',label:'concluiu um lembrete de'},
   reminder_archived:{cat:'lembretes',label:'arquivou um lembrete de'},
   churn_opened:{cat:'churn',label:'abriu um caso de churn em'},
+  loop_updated:{cat:'churn',label:'atualizou o fechamento de loop de'},
+  loop_closed:{cat:'churn',label:'fechou o loop de'},
   churn_recovery:{cat:'churn',label:'colocou em recuperação'},
   churn_resolved:{cat:'churn',label:'resolveu o caso de churn de'},
   archive_client:{cat:'churn',label:'arquivou por churn'},
@@ -2985,7 +2987,19 @@ S.clients[ci].churnCase.closeReason='resolved';
 saveClient(S.clients[ci]);addAdminLog('churn_resolved',Object.assign(logClient(S.clients[ci]),{caseNumber:S.clients[ci].churnCase.caseNumber}));closeM();render();}
 function closeChurnConfirmed(ci){
 if(!confirm('ATENÇÃO: Esta ação irá ARQUIVAR '+S.clients[ci].name+'.\n\nO cliente sairá da carteira e ficará na página de Arquivados. Esta ação não pode ser desfeita facilmente.\n\nTem certeza?'))return;
-var archived={...S.clients[ci],archived:true,archivedAt:new Date().toLocaleDateString('pt-BR'),archivedBy:S.appUser.uid,archivedByName:S.appUser.name};
+var _c=S.clients[ci];
+// Cliente perdido precisa deixar rastro: sem quando e quanto, o grafico de churn
+// por mes nao tem como ser reconstruido depois.
+var _cc=_c.churnCase||{};
+if(!_c.churnHistory)_c.churnHistory=[];
+_c.churnHistory.push({caseNumber:_cc.caseNumber,sfLink:_cc.sfLink,note:_cc.note,openedAt:_cc.date,closedAt:new Date().toLocaleDateString('pt-BR'),outcome:'churned',resolvedBy:S.appUser.name});
+var archived={...S.clients[ci],archived:true,
+  churnedAt:Date.now(),
+  churnedDate:new Date().toISOString().split('T')[0],
+  churnedMrr:parseFloat(_c.mrr)||0,
+  churnedUnits:parseInt(_c.units,10)||0,
+  churnedOwnerId:_c.ownerId||'',
+  archivedAt:new Date().toLocaleDateString('pt-BR'),archivedBy:S.appUser.uid,archivedByName:S.appUser.name};
 S.clients[ci]=archived;
 saveClient(archived);closeM();
 goBack();
@@ -3104,7 +3118,7 @@ function logClient(c){return{clientId:c&&c.id,clientName:c&&(c.slug||c.name)};}
 function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveClient(S.clients[ci]);addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
 function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-x" onclick="closeM()">×</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
 function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveClient(S.clients[ci]);addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
-function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');saveClient(S.clients[ci]);addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
+function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');S.clients[ci].inadimplencia[idx].paidAtTs=Date.now();saveClient(S.clients[ci]);addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
 
 function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="if(event.target===this)closeM()">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
@@ -3696,209 +3710,554 @@ function leaderQuestionsBody(mine){
   });
   return html;
 }
-function lpAlertColumn(teamClients){
-  var churnClients=teamClients.filter(isChurnAlert);
-  var inadClients=teamClients.filter(isInadimplente);
-  var mine=leaderMyQuestions();
-  var pendingCount=mine.filter(function(q){return q.status==='pending';}).length;
-  function analystName(c){var u=S.allUsers.find(function(x){return x.uid===c.ownerId;});return u?u.name:'—';}
-  var html='<div class="lp-side">';
-  html+='<div class="lp-alert-card lp-alert-red" onclick="lpToggleSection(\'churn\')">';
-  html+='<div class="lp-alert-title">Alertas de Churn</div><div class="lp-alert-num">'+churnClients.length+'</div>';
-  if(S.lpOpen.churn){
-    html+='<div class="lp-alert-body" onclick="event.stopPropagation()">';
-    html+=churnClients.length?churnClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="openM(\'churn-alert\','+ci+')"><span>'+e((c.slug||c.name).toUpperCase())+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente em churn no momento.</p>';
+// ============================================================
+// PAINEL DO LIDER — trilho de contexto a esquerda, time a direita
+// ============================================================
+// Periodo: o score do time e calculado no fim do intervalo escolhido, e a
+// tendencia compara com o inicio dele. "Ultimos 7 dias" numa reuniao semanal,
+// "ultimo mes" no fechamento, "ultimo ano" na reuniao anual.
+var LP_PERIODS=[
+  {key:'7d',label:'Últimos 7 dias',days:7},
+  {key:'30d',label:'Último mês',days:30},
+  {key:'12m',label:'Último ano',days:365}
+];
+function lpPeriod(){
+  if(!S.lpPeriod)S.lpPeriod={key:'30d'};
+  return S.lpPeriod;
+}
+function lpPeriodDef(){
+  var p=lpPeriod();
+  return LP_PERIODS.find(function(x){return x.key===p.key;})||LP_PERIODS[1];
+}
+function lpSetPeriod(k){S.lpPeriod={key:k};S.lpOpenPop=null;render();}
+function lpPeriodRange(){
+  var d=lpPeriodDef();
+  var to=new Date();
+  var from=new Date(to.getTime()-d.days*86400000);
+  var iso=function(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;};
+  return{fromISO:iso(from),toISO:iso(to),days:d.days,label:d.label};
+}
+// Meses cobertos pelo periodo, pro grafico de churn e pras metas da planilha.
+function lpPeriodMonths(){
+  var r=lpPeriodRange();
+  var fromM=r.fromISO.slice(0,7),toM=r.toISO.slice(0,7);
+  return TEAM_MONTHS.filter(function(m){return m>=fromM&&m<=toM;});
+}
+// Os analistas do time, no formato da planilha (pra somar meta/churn so deles).
+function lpTeamGoalRows(){
+  var out=[];
+  Object.keys(lpTeamGroups()).forEach(function(uid){
+    var u=(S.allUsers||[]).find(function(x){return x.uid===uid;});
+    var row=u?tdForUser(u):null;
+    if(row&&out.indexOf(row)<0)out.push(row);
+  });
+  return out;
+}
+function lpSetBand(b){S.lpBand=(S.lpBand===b?'':b);S.lpPage={};render();}
+function lpClearBand(){S.lpBand='';render();}
+function lpToggleChurnBig(){S.lpChurnBig=!S.lpChurnBig;render();}
+function lpOpenQueue(k){S.lpQueue=(S.lpQueue===k?null:k);render();}
+function lpCloseQueue(){S.lpQueue=null;render();}
+
+// ── Trilho: Score de CS do time ──
+function lpScoreCard(teamClients){
+  var r=lpPeriodRange();
+  var now=teamScoreAt(teamClients,r.toISO);
+  var before=teamScoreAt(teamClients,r.fromISO);
+  var delta=(now!==null&&before!==null)?now-before:null;
+  var band=now===null?'na':hl(now);
+  var col=band==='risk'?'var(--rd600)':(band==='warn'?'var(--am600)':'var(--gn600)');
+  var risk=0,warn=0,ok=0;
+  teamClients.forEach(function(c){var h=hl(calcScore(c));if(h==='risk')risk++;else if(h==='warn')warn++;else ok++;});
+  var tot=Math.max(1,risk+warn+ok);
+  var pct=function(n){return(n/tot*100).toFixed(1);};
+  var open=S.lpOpenPop==='period';
+  var html='<div class="lp-card lp-score-panel" style="border-top:3px solid '+col+'">';
+  html+='<div class="lp-card-head"><span class="lp-eyebrow">Score de CS do time</span>';
+  html+='<div style="position:relative"><button class="lp-pill press" onclick="lpTogglePop(\'period\')">'+e(r.label)+'<span style="font-size:9px;margin-left:4px">▾</span></button>';
+  if(open){
+    html+='<div class="lp-pop glass fade-rise" style="right:0;left:auto;min-width:170px" onclick="event.stopPropagation()">';
+    LP_PERIODS.forEach(function(p){
+      html+='<button class="lp-pop-item'+(lpPeriod().key===p.key?' on':'')+'" onclick="lpSetPeriod(\''+p.key+'\')">'+e(p.label)+'</button>';
+    });
     html+='</div>';
   }
+  html+='</div></div>';
+  html+='<div class="lp-score-row"><span class="lp-score-big score-num-live" data-score="'+(now===null?0:now)+'" style="color:'+col+'">'+(now===null?'—':now)+'</span>';
+  if(delta!==null&&delta!==0){
+    var up=delta>0;
+    html+='<span class="lp-delta" style="color:'+(up?'var(--gn600)':'var(--rd600)')+'">'+(up?'↑':'↓')+' '+Math.abs(delta)+' pts</span>';
+  }else if(delta===0){html+='<span class="lp-delta" style="color:var(--t3)">estável</span>';}
   html+='</div>';
-  html+='<div class="lp-alert-row">';
-  html+='<div class="lp-alert-card lp-alert-orange" onclick="lpToggleSection(\'inad\')">';
-  html+='<div class="lp-alert-title">Inadimplentes</div><div class="lp-alert-num">'+inadClients.length+'</div>';
-  if(S.lpOpen.inad){
-    html+='<div class="lp-alert-body" onclick="event.stopPropagation()">';
-    html+=inadClients.length?inadClients.map(function(c){var ci=S.clients.indexOf(c);return'<div class="lp-alert-client-row" onclick="S.modal=\'inad-\'+'+ci+';render()"><span>'+e((c.slug||c.name).toUpperCase())+'</span><span style="opacity:.85;font-size:11px">'+e(analystName(c))+'</span></div>';}).join(''):'<p style="font-size:12px;opacity:.85;margin:0">Nenhum cliente inadimplente no momento.</p>';
-    html+='</div>';
+  html+='<div class="lp-tri"><div style="width:'+pct(risk)+'%;background:var(--rd600)"></div><div style="width:'+pct(warn)+'%;background:var(--am600)"></div><div style="width:'+pct(ok)+'%;background:var(--gn600)"></div></div>';
+  var bands=[['risk','Críticos',risk,'var(--rd600)'],['warn','Atenção',warn,'var(--am600)'],['ok','Estáveis',ok,'var(--gn600)']];
+  html+='<div class="lp-bands">';
+  bands.forEach(function(b){
+    var on=S.lpBand===b[0];
+    html+='<button class="lp-band press'+(on?' on':'')+'" onclick="lpSetBand(\''+b[0]+'\')" title="Filtrar os analistas que têm clientes nesta faixa">'
+      +'<span class="lp-dot" style="background:'+b[3]+'"></span><span class="lp-band-lbl">'+b[1]+'</span>'
+      +'<span class="lp-band-num" style="color:'+b[3]+'">'+b[2]+'</span><span class="lp-chev">›</span></button>';
+  });
+  html+='</div></div>';
+  return html;
+}
+
+// ── Trilho: Churn por mes ──
+// Barras = clientes perdidos no mes (planilha), so dos analistas deste time.
+// O seletor de periodo governa o SCORE (é o que se apresenta em reunião).
+// Churn é sempre mensal: 6 meses no card pequeno, tudo o que tem dado no grande.
+function lpChurnData(big){
+  var rows=lpTeamGoalRows();
+  var months=big?tdMonthsUpToNow():tdMonthsUpToNow(6);
+  return months.map(function(m){
+    return{month:m,clients:tdSum('churnClients',[m],rows)||0,mrr:tdSum('churnMrr',[m],rows)||0,base:tdSum('baseClients',[m],rows)};
+  });
+}
+function lpMonthLabel(m){
+  var i=parseInt(m.slice(5),10)-1;
+  return(MONTHS[i]||m).toUpperCase();
+}
+function lpChurnCard(teamClients){
+  var data=lpChurnData();
+  var rows=lpTeamGoalRows();
+  var cur=data[data.length-1]||{clients:0,mrr:0};
+  var maxC=Math.max(1,Math.max.apply(null,data.map(function(d){return d.clients;})));
+  var mrrRisco=teamClients.filter(isChurnAlert).reduce(function(a,c){return a+(parseFloat(c.mrr)||0);},0);
+  var mrrTot=teamClients.reduce(function(a,c){return a+(parseFloat(c.mrr)||0);},0);
+  var pctRisco=mrrTot?Math.round(mrrRisco/mrrTot*100):0;
+  var html='<div class="lp-card">';
+  html+='<div class="lp-card-head"><span class="lp-eyebrow">Churn por mês</span>'
+    +'<button class="lp-icon-btn press" onclick="lpToggleChurnBig()" title="Ver em tamanho grande">'+svgIcon('chart',14)+'</button></div>';
+  html+='<div class="lp-spark">';
+  data.forEach(function(d,i){
+    var h=Math.max(4,Math.round(d.clients/maxC*62));
+    var last=i===data.length-1;
+    html+='<div class="lp-spark-col" title="'+e(lpMonthLabel(d.month))+': '+d.clients+' cliente(s) · '+formatMRR(d.mrr)+'">'
+      +'<div class="lp-spark-bar" style="height:'+h+'px;animation-delay:'+(i*45)+'ms"></div>'
+      +'<span class="lp-spark-lbl'+(last?' on':'')+'">'+e(lpMonthLabel(d.month).slice(0,3))+'</span></div>';
+  });
+  html+='</div>';
+  var MESES_LONGOS=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  var curNome=cur.month?(MESES_LONGOS[parseInt(cur.month.slice(5),10)-1]||''):'';
+  html+='<div class="lp-kv-list">';
+  html+='<div class="lp-kv"><span>Perdidos em '+e(curNome)+'</span><strong>'+cur.clients+' cliente'+(cur.clients===1?'':'s')+'</strong></div>';
+  html+='<div class="lp-kv"><span>MRR perdido</span><strong>'+formatMRR(cur.mrr)+'</strong></div>';
+  html+='<div class="lp-kv"><span>MRR em risco agora</span><strong style="color:var(--rd600)">'+formatMRR(mrrRisco)+'</strong></div>';
+  html+='<div class="lp-mini-bar"><div style="width:'+Math.min(100,pctRisco)+'%;background:var(--rd600)"></div></div>';
+  html+='<div class="lp-note">'+pctRisco+'% do MRR sob gestão</div>';
+  html+='</div></div>';
+  return html;
+}
+// Versao grande: barras de churn + linha do score medio do time, sobrepostas.
+function lpChurnBigOverlay(teamClients){
+  if(!S.lpChurnBig)return'';
+  var data=lpChurnData(true);
+  var series=teamScoreSeries(teamClients,data.map(function(d){return d.month;}));
+  var W=880,H=300,padL=44,padR=44,padT=24,padB=42;
+  var maxC=Math.max(1,Math.max.apply(null,data.map(function(d){return d.clients;})));
+  var step=(W-padL-padR)/Math.max(1,data.length);
+  var bw=Math.min(52,step*.52);
+  var bars='',labels='',line='',dots='';
+  var pts=[];
+  data.forEach(function(d,i){
+    var cx=padL+step*i+step/2;
+    var h=(d.clients/maxC)*(H-padT-padB);
+    bars+='<rect x="'+(cx-bw/2)+'" y="'+(H-padB-h)+'" width="'+bw+'" height="'+h+'" rx="5" fill="var(--rd600)" opacity=".85" class="lp-big-bar" style="animation-delay:'+(i*60)+'ms"/>';
+    labels+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+e(lpMonthLabel(d.month))+'</text>';
+    var s=series[i]&&series[i].score;
+    if(s!==null&&s!==undefined){var y=padT+(1-s/100)*(H-padT-padB);pts.push([cx,y,s]);}
+  });
+  if(pts.length>1){
+    line='<polyline points="'+pts.map(function(p){return p[0]+','+p[1];}).join(' ')+'" fill="none" stroke="var(--b600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
+    pts.forEach(function(p){dots+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--b600)" stroke-width="2.5"/>';});
   }
-  html+='</div>';
-  html+='<div class="lp-alert-card lp-alert-yellow no-click">';
-  html+='<div class="lp-alert-title">Fechamento de Loop</div><div class="lp-alert-num">—</div>';
-  html+='</div>';
-  html+='</div>';
-  html+='<div class="lp-alert-card lp-alert-cyan" onclick="lpToggleSection(\'quest\')">';
-  html+='<div class="lp-alert-title">Solicitação de Perguntas</div><div class="lp-alert-num" style="font-size:32px">'+mine.length+(pendingCount?' <span style="font-size:14px;font-weight:600">('+pendingCount+' pendente'+(pendingCount>1?'s':'')+')</span>':'')+'</div>';
-  if(S.lpOpen.quest){
-    html+='<div class="lp-alert-body" onclick="event.stopPropagation()">';
-    html+=leaderQuestionsBody(mine);
-    html+='</div>';
+  var grid='';
+  [0,Math.round(maxC/2),maxC].forEach(function(v){
+    var y=H-padB-(v/maxC)*(H-padT-padB);
+    grid+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="var(--bd)" stroke-width="1"/>'
+      +'<text x="'+(padL-8)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="var(--t3)">'+v+'</text>';
+  });
+  var totC=data.reduce(function(a,d){return a+d.clients;},0);
+  var totM=data.reduce(function(a,d){return a+d.mrr;},0);
+  var first=series.find(function(s){return s.score!==null;});
+  var last=series.slice().reverse().find(function(s){return s.score!==null;});
+  var trend=(first&&last&&first!==last)?(last.score-first.score):null;
+  var html='<div class="modal-ov" onclick="if(event.target===this)lpToggleChurnBig()">';
+  html+='<div class="modal-box lp-big-box" style="max-width:960px">';
+  html+='<div class="modal-hdr"><div><h2 class="modal-title" style="margin:0">Churn e saúde ao longo do tempo</h2>'
+    +'<div class="muted" style="font-size:12px;margin-top:2px">Clientes perdidos por mês e score médio do time · todo o histórico disponível</div></div>'
+    +'<button class="modal-x" onclick="lpToggleChurnBig()">×</button></div>';
+  html+='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos</span><span><i class="ln" style="background:var(--b600)"></i>Score médio</span></div>';
+  html+='<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+'</svg></div>';
+  html+='<div class="lp-big-foot">';
+  html+='<div class="lp-kv"><span>Total perdido no histórico</span><strong>'+totC+' cliente'+(totC===1?'':'s')+' · '+formatMRR(totM)+'</strong></div>';
+  if(trend!==null)html+='<div class="lp-kv"><span>Score do time no histórico</span><strong style="color:'+(trend>=0?'var(--gn600)':'var(--rd600)')+'">'+(trend>=0?'+':'')+trend+' pts</strong></div>';
+  html+='</div></div></div>';
+  return html;
+}
+
+// ── Trilho: Precisa de voce (fila com expansao no lugar) ──
+function lpAnalystOf(c){var u=(S.allUsers||[]).find(function(x){return x.uid===c.ownerId;});return u?u.name:'—';}
+function lpDaysAgo(dateStr){
+  if(!dateStr)return null;
+  var t=dateStr.indexOf('/')>0?(function(){var p=dateStr.split('/');return new Date(p[2]+'-'+p[1]+'-'+p[0]+'T00:00:00');})():new Date(dateStr+'T00:00:00');
+  if(isNaN(t))return null;
+  return Math.floor((Date.now()-t.getTime())/86400000);
+}
+function lpAgoLabel(d){
+  if(d===null)return'';
+  if(d<=0)return'hoje';
+  return'há '+d+' dia'+(d===1?'':'s');
+}
+// Ordem: dinheiro-primeiro. Churn e MRR saindo agora; inadimplencia e MRR que
+// nao entrou; loop e insatisfacao que vira churn; pergunta e processo interno.
+function lpQueueItems(teamClients){
+  var out=[];
+  teamClients.filter(isChurnAlert).forEach(function(c){
+    var d=lpDaysAgo(c.churnCase&&c.churnCase.date);
+    out.push({kind:'churn',key:'churn:'+c.id,client:c,days:d,sort:[0,-(d||0)]});
+  });
+  var inad=teamClients.filter(isInadimplente);
+  if(inad.length){
+    var total=inad.reduce(function(a,c){return a+(c.inadimplencia||[]).filter(function(m){return!m.paid;}).reduce(function(s,m){return s+(parseBRNumber(String(m.amount||'').replace(/[^\d.,]/g,''))||0);},0);},0);
+    var oldest=null;
+    inad.forEach(function(c){(c.inadimplencia||[]).forEach(function(m){if(!m.paid&&m.createdAt){var d=Math.floor((Date.now()-m.createdAt)/86400000);if(oldest===null||d>oldest)oldest=d;}});});
+    out.push({kind:'inad',key:'inad',clients:inad,total:total,days:oldest,sort:[1,-(oldest||0)]});
   }
-  html+='</div>';
+  teamClients.filter(isLoopOpen).forEach(function(c){
+    var info=loopInfo(c);
+    out.push({kind:'loop',key:'loop:'+c.id,client:c,info:info,days:info&&info.days,sort:[2,-((info&&info.days)||0)]});
+  });
+  var mine=leaderMyQuestions().filter(function(q){return q.status==='pending';});
+  if(mine.length)out.push({kind:'quest',key:'quest',questions:mine,days:null,sort:[3,0]});
+  out.sort(function(a,b){return a.sort[0]-b.sort[0]||a.sort[1]-b.sort[1];});
+  return out;
+}
+function lpQueueRow(it){
+  var ic,bg,fg,title,sub;
+  if(it.kind==='churn'){
+    ic='alert';bg='var(--rd50)';fg='var(--rd600)';
+    title='Alerta de churn · '+(it.client.slug||it.client.name).toUpperCase();
+    sub=formatMRR(it.client.mrr)+' · '+e(lpAnalystOf(it.client))+' · '+lpAgoLabel(it.days);
+  }else if(it.kind==='inad'){
+    ic='invoice';bg='var(--am50)';fg='var(--am700)';
+    title=it.clients.length+' cliente'+(it.clients.length===1?'':'s')+' inadimplente'+(it.clients.length===1?'':'s');
+    sub=(it.total?formatMRR(it.total)+' em aberto · ':'')+[...new Set(it.clients.map(lpAnalystOf))].slice(0,2).join(', ')+(it.days!==null?' · mais antigo '+lpAgoLabel(it.days):'');
+  }else if(it.kind==='loop'){
+    ic='refresh';bg='var(--am50)';fg='var(--am700)';
+    title='Fechamento de loop · '+(it.client.slug||it.client.name).toUpperCase();
+    sub='NPS '+(it.info?it.info.score:'?')+'/10 · '+e(lpAnalystOf(it.client))+' · '+lpAgoLabel(it.days)+(it.info&&it.info.attempts?' · '+it.info.attempts+' tentativa'+(it.info.attempts===1?'':'s'):'');
+  }else{
+    ic='lightbulb';bg='var(--b50)';fg='var(--b600)';
+    title=it.questions.length+' pergunta'+(it.questions.length===1?'':'s')+' para aprovar';
+    sub=[...new Set(it.questions.map(function(q){var u=(S.allUsers||[]).find(function(x){return x.uid===q.createdBy;});return u?u.name:'—';}))].slice(0,2).join(', ');
+  }
+  return'<button class="lp-q-row press" onclick="lpOpenQueue(\''+jsq(it.key)+'\')">'
+    +'<span class="lp-q-ico" style="background:'+bg+';color:'+fg+'">'+svgIcon(ic,15)+'</span>'
+    +'<span class="lp-q-txt"><span class="lp-q-title">'+title+'</span><span class="lp-q-sub">'+sub+'</span></span>'
+    +'<span class="lp-chev">›</span></button>';
+}
+function lpQueueDetail(it){
+  var html='<div class="lp-q-detail fade-rise">';
+  html+='<button class="lp-back press" onclick="lpCloseQueue()">← Voltar à fila</button>';
+  if(it.kind==='churn'){
+    var c=it.client,ci=S.clients.indexOf(c),cc=c.churnCase||{};
+    html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:var(--rd50);color:var(--rd600)">'+svgIcon('alert',17)+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="lp-d-title">'+e((c.slug||c.name).toUpperCase())+'</div>'
+      +'<div class="lp-d-sub">'+e(c.name)+' · aberto '+lpAgoLabel(it.days)+'</div></div>'
+      +'<span class="lp-tag lp-tag-red">Alto risco</span></div>';
+    html+='<div class="lp-d-stats">'
+      +'<div><b>'+formatMRR(c.mrr)+'</b><span>MRR em risco</span></div>'
+      +'<div><b style="color:var(--rd600)">'+calcScore(c)+'</b><span>Score de saúde</span></div>'
+      +'<div><b>'+(getDaysWithoutContact(c)===null?'—':getDaysWithoutContact(c)+' dias')+'</b><span>Sem contato</span></div></div>';
+    // Linha do tempo montada dos dados que ja existem, sem campo novo.
+    var tl=[];
+    if(cc.date)tl.push({d:cc.date,txt:'caso de churn aberto'+(cc.caseNumber?' (#'+cc.caseNumber+')':''),c:'var(--rd600)'});
+    var fu=fuSt(c);
+    if(fu.days!==null&&fu.days<0)tl.push({d:null,txt:'follow-up vencido há '+(-fu.days)+' dias',c:'var(--am600)'});
+    var la=getLastActivity(c);
+    if(la&&la.date)tl.push({d:formatDate(la.date),txt:'último contato registrado'+(la.createdByName?' por '+la.createdByName:''),c:'var(--bd)'});
+    if(tl.length){
+      html+='<div class="lp-eyebrow" style="margin:14px 0 8px">Linha do tempo</div><div class="lp-timeline">';
+      tl.forEach(function(t){html+='<div class="lp-tl-item"><span class="lp-tl-dot" style="background:'+t.c+'"></span><span>'+(t.d?'<strong>'+e(t.d)+'</strong> — ':'')+e(t.txt)+'</span></div>';});
+      html+='</div>';
+    }
+    html+='<div class="lp-field"><label class="form-lbl">Caso no Salesforce</label>'
+      +(cc.sfLink?'<a class="lp-link" href="'+e(cc.sfLink)+'" target="_blank" rel="noopener">'+e(cc.sfLink)+'</a>'
+        :'<span class="lp-empty">link do Salesforce — a preencher</span>')+'</div>';
+    if(cc.note)html+='<div class="lp-field"><label class="form-lbl">Motivo registrado</label><div class="lp-quote">'+e(cc.note)+'</div></div>';
+    html+='<div class="lp-d-actions"><button class="btn-primary btn-sm" onclick="openM(\'churn-alert\','+ci+')">Ver o caso</button>'
+      +'<button class="btn btn-sm" onclick="openClient('+ci+')">Abrir cliente</button></div>';
+  }else if(it.kind==='inad'){
+    html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:var(--am50);color:var(--am700)">'+svgIcon('invoice',17)+'</span>'
+      +'<div style="flex:1"><div class="lp-d-title">'+it.clients.length+' cliente'+(it.clients.length===1?'':'s')+' inadimplente'+(it.clients.length===1?'':'s')+'</div>'
+      +'<div class="lp-d-sub">'+(it.total?formatMRR(it.total)+' em aberto':'valores não informados')+'</div></div></div>';
+    html+='<div class="lp-d-list">';
+    it.clients.forEach(function(c){
+      var ci=S.clients.indexOf(c);
+      var abertos=(c.inadimplencia||[]).filter(function(m){return!m.paid;});
+      var meses=abertos.map(function(m){return m.month+'/'+m.year;}).join(', ');
+      html+='<div class="lp-d-item"><div style="flex:1;min-width:0"><div class="lp-d-item-t">'+e((c.slug||c.name).toUpperCase())+'</div>'
+        +'<div class="lp-d-item-s">'+abertos.length+' mês(es) em aberto'+(meses?' · '+e(meses):'')+' · '+e(lpAnalystOf(c))+'</div></div>'
+        +'<button class="btn btn-sm" onclick="S.modal=\'inad-\'+'+ci+';render()">Ver faturas</button></div>';
+    });
+    html+='</div>';
+  }else if(it.kind==='loop'){
+    var lc=it.client,lci=S.clients.indexOf(lc),info=it.info||{};
+    html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:var(--am50);color:var(--am700)">'+svgIcon('refresh',17)+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="lp-d-title">'+e((lc.slug||lc.name).toUpperCase())+'</div>'
+      +'<div class="lp-d-sub">Loop de feedback aberto '+lpAgoLabel(it.days)+'</div></div>'
+      +'<span class="lp-tag lp-tag-amber">NPS '+(info.score!==undefined?info.score:'?')+'/10</span></div>';
+    html+='<div class="lp-field"><label class="form-lbl">Feedback do cliente</label>'
+      +(info.feedback?'<div class="lp-quote">'+e(info.feedback)+'</div>':'<span class="lp-empty">feedback do cliente — virá do Salesforce</span>')
+      +'<textarea id="loop-feedback" rows="3" placeholder="Cole aqui o que o cliente escreveu na avaliação..." style="margin-top:8px">'+e(info.feedback||'')+'</textarea></div>';
+    html+='<div class="lp-d-stats">'
+      +'<div><b>'+formatMRR(lc.mrr)+'</b><span>MRR</span></div>'
+      +'<div><b style="color:'+(calcScore(lc)<50?'var(--rd600)':'var(--t)')+'">'+calcScore(lc)+'</b><span>Score de saúde</span></div>'
+      +'<div><b>'+(info.attempts||0)+'</b><span>Tentativas</span></div></div>';
+    html+='<div class="lp-note" style="margin-top:6px">Tentativas = contatos registrados na conta do cliente depois que o loop abriu.</div>';
+    html+='<div class="lp-field"><label class="form-lbl">Caso no Salesforce</label>'
+      +'<input id="loop-sflink" type="text" placeholder="link do Salesforce — a preencher" value="'+e(info.sfLink||'')+'"></div>';
+    html+='<div class="lp-field"><label class="form-lbl">Categoria do feedback</label><select id="loop-cat">'
+      +['','Financeiro','Produto','Suporte','Onboarding','Comercial','Outro'].map(function(o){return'<option value="'+e(o)+'"'+(info.category===o?' selected':'')+'>'+(o||'— selecionar —')+'</option>';}).join('')
+      +'</select></div>';
+    html+='<div class="lp-d-actions"><button class="btn-primary btn-sm" onclick="closeLoop('+lci+')">Fechar o loop</button>'
+      +'<button class="btn btn-sm" onclick="saveLoopDetails('+lci+')">Salvar</button>'
+      +'<button class="btn btn-sm" onclick="openClient('+lci+')">Abrir cliente</button></div>';
+  }else{
+    html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:var(--b50);color:var(--b600)">'+svgIcon('lightbulb',17)+'</span>'
+      +'<div style="flex:1"><div class="lp-d-title">'+it.questions.length+' pergunta'+(it.questions.length===1?'':'s')+' para aprovar</div>'
+      +'<div class="lp-d-sub">Perguntas customizadas aguardando sua análise</div></div></div>';
+    html+='<div class="lp-q-body">'+leaderQuestionsBody(it.questions)+'</div>';
+  }
   html+='</div>';
   return html;
 }
-function lpSetViewMode(m){S.lpViewMode=m;render();}
-function lpClientTable(cs,oid,mode){
-  mode=mode==='cards'?'cards':'list';
-  var pageSize=S.lpPageSize[mode]||(mode==='cards'?10:20);
-  var totalPages=Math.max(1,Math.ceil(cs.length/pageSize));
-  var curPage=Math.min(S.lpPage[oid]||0,totalPages-1);
-  var slice=cs.slice(curPage*pageSize,curPage*pageSize+pageSize);
-  var cols=mode==='cards'
-    ?'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,.9fr)'
-    :'minmax(0,1.3fr) minmax(0,.9fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr)';
-  var hdrLbls=mode==='cards'?['Cliente','Categoria','Saude','MRR']:['Cliente','Categoria','Saude','MRR','Status','Follow-up'];
-  var hdr='<div class="lp-cli-hdr" style="grid-template-columns:'+cols+'">'+hdrLbls.map(function(h){return'<div>'+h+'</div>';}).join('')+'</div>';
-  // Linha inteira clicável (só pra líder/gerente/admin): abre transferir/excluir.
-  // Clicar na sigla continua abrindo o cliente.
-  var manage=canManageClientOwner();
-  var rows=slice.map(function(c){
-    var ci=S.clients.indexOf(c),score=calcScore(c),ch=hl(score),fu=fuSt(c);
-    var chC=ch==="risk"?"#ce1e5a":(ch==="warn"?"#f3b02a":"#1f943c");
-    var rowAttrs=manage?' class="lp-cli-row lp-cli-clickable" title="Clique para transferir ou excluir" onclick="lpOpenClientActions(\''+jsq(c.id)+'\')"':' class="lp-cli-row"';
-    var cliCell='<div><button class="btn-link" onclick="event.stopPropagation();openClient('+ci+')">'+e((c.slug||c.name).toUpperCase())+'</button></div>';
-    var catCell='<div>'+catBdg(c)+'</div>';
-    var mrrCell='<div style="font-weight:500">'+formatMRR(c.mrr)+'</div>';
-    if(mode==='cards'){
-      var scoreCell='<div style="font-weight:800;font-size:16px;color:'+chC+'">'+score+'</div>';
-      return'<div'+rowAttrs+' style="grid-template-columns:'+cols+'">'+cliCell+catCell+scoreCell+mrrCell+'</div>';
-    }
-    var scoreCellList='<div style="font-weight:700;color:'+chC+'">'+score+'</div>';
-    return'<div'+rowAttrs+' style="grid-template-columns:'+cols+'">'+cliCell+catCell+scoreCellList+mrrCell
-      +'<div>'+statusBdg(c.onboardingStatus)+'</div>'
-      +'<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>'
-      +'</div>';
-  }).join('');
-  var pager='';
-  if(totalPages>1){
-    pager='<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 0 2px">'
-      +'<button class="btn btn-sm" '+(curPage===0?'disabled':'')+' onclick="lpGoPage(\''+oid+'\',-1,'+(totalPages-1)+')">‹</button>'
-      +'<span class="muted" style="font-size:11px">Página '+(curPage+1)+' de '+totalPages+'</span>'
-      +'<button class="btn btn-sm" '+(curPage===totalPages-1?'disabled':'')+' onclick="lpGoPage(\''+oid+'\',1,'+(totalPages-1)+')">›</button>'
-      +'</div>';
+function lpQueueCard(teamClients){
+  var items=lpQueueItems(teamClients);
+  var open=S.lpQueue?items.find(function(i){return i.key===S.lpQueue;}):null;
+  var html='<div class="lp-card lp-card-flush">';
+  html+='<div class="lp-card-head lp-card-head-pad"><span class="lp-h">Precisa de você</span>'
+    +(items.length?'<span class="lp-badge">'+items.length+'</span>':'')+'</div>';
+  if(open){
+    html+=lpQueueDetail(open);
+  }else if(!items.length){
+    html+='<div class="lp-ok-row">'+svgIcon('check',15)+'<span>Nada pendente no time agora.</span></div>';
+  }else{
+    html+='<div class="fade-rise">'+items.map(lpQueueRow).join('')+'</div>';
+    if(!teamClients.some(isInadimplente))html+='<div class="lp-ok-row">'+svgIcon('check',15)+'<span>Nenhum inadimplente</span></div>';
   }
-  return'<div class="lp-cli-grid">'+hdr+rows+pager+'</div>';
+  html+='</div>';
+  return html;
 }
+
+// ── Trilho: Cobertura do time ──
+// Duas leituras diferentes no mesmo card, de propósito: a meta é o compromisso
+// negociado (planilha), o vencido é a realidade da carteira (dashboard).
+function lpCoverageCard(teamClients){
+  var rows=lpTeamGoalRows();
+  var months=lpPeriodMonths();
+  var fu=months.length?tdAttainment('followReal','followMeta',months,rows):null;
+  var vencidos=teamClients.filter(function(c){var s=fuSt(c);return s.days!==null&&s.days<0;}).length;
+  var semContato=teamClients.filter(function(c){var d=getDaysWithoutContact(c);return d!==null&&d>=30;}).length;
+  var html='<div class="lp-card"><span class="lp-eyebrow">Cobertura do time</span><div class="lp-cov">';
+  if(fu){
+    var col=fu.pct>=100?'var(--gn600)':(fu.pct>=80?'var(--am600)':'var(--rd600)');
+    html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span><strong style="color:'+col+'">'+fu.pct+'%</strong></div>'
+      +'<div class="lp-mini-bar"><div style="width:'+Math.min(100,fu.pct)+'%;background:'+col+'"></div></div>'
+      +'<div class="lp-note">'+fu.real+' de '+fu.meta+' no período · meta é 100%</div></div>';
+  }else{
+    html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span><strong class="muted">—</strong></div>'
+      +'<div class="lp-note">sem dado da planilha para este período</div></div>';
+  }
+  var vc=vencidos?'var(--rd600)':'var(--gn600)';
+  html+='<div class="lp-cov-item"><div class="lp-kv"><span>Clientes com follow vencido</span><strong style="color:'+vc+'">'+vencidos+'</strong></div>'
+    +'<div class="lp-note">cadência da categoria estourada</div></div>';
+  var sc=semContato?'var(--rd600)':'var(--gn600)';
+  html+='<div class="lp-cov-item"><div class="lp-kv"><span>Sem contato há 30+ dias</span><strong style="color:'+sc+'">'+semContato+'</strong></div></div>';
+  html+='</div></div>';
+  return html;
+}
+
+// ── Area principal: o time ──
+function lpSetViewMode(m){S.lpViewMode=m;S.lpPage={};render();}
+// A carteira de cada analista, ja com os filtros da tela aplicados.
+function lpAnalystRows(){
+  var groups=lpTeamGroups();
+  var out=[];
+  var q=(S.lpSearch||'').trim().toLowerCase();
+  Object.keys(groups).forEach(function(uid){
+    if(S.lpFilters.analyst.length&&S.lpFilters.analyst.indexOf(uid)<0)return;
+    var user=(S.allUsers||[]).find(function(x){return x.uid===uid;});
+    // A busca vale pros dois lados: bateu no nome do analista, a carteira dele
+    // inteira aparece; senão, filtra cliente a cliente pela sigla.
+    var byAnalyst=!!(q&&user&&normTxt(user.name).indexOf(normTxt(q))>=0);
+    var cs=byAnalyst?groups[uid].slice():lpFilteredClients(groups[uid]);
+    if(byAnalyst)cs=cs.filter(function(c){
+      var f=S.lpFilters;
+      if(f.cat.length&&f.cat.indexOf(c.categoria)<0)return false;
+      if(f.plan.length&&f.plan.indexOf(c.plan)<0)return false;
+      return!c.archived;
+    });
+    if(!cs.length)return;
+    var risk=0,warn=0,ok=0;
+    cs.forEach(function(c){var h=hl(calcScore(c));if(h==='risk')risk++;else if(h==='warn')warn++;else ok++;});
+    // A faixa clicada no trilho filtra ANALISTAS: fica quem tem cliente nela.
+    if(S.lpBand==='risk'&&!risk)return;
+    if(S.lpBand==='warn'&&!warn)return;
+    if(S.lpBand==='ok'&&!ok)return;
+    if(S.lpMrrSort==='desc')cs=cs.slice().sort(function(a,b){return(parseFloat(b.mrr)||0)-(parseFloat(a.mrr)||0);});
+    else if(S.lpMrrSort==='asc')cs=cs.slice().sort(function(a,b){return(parseFloat(a.mrr)||0)-(parseFloat(b.mrr)||0);});
+    var u=(S.allUsers||[]).find(function(x){return x.uid===uid;})||{name:'ID:'+uid.slice(0,6)};
+    var score=Math.round(cs.reduce(function(a,c){return a+calcScore(c);},0)/cs.length);
+    var r=lpPeriodRange();
+    var before=teamScoreAt(cs,r.fromISO),nowS=teamScoreAt(cs,r.toISO);
+    var goals=tdForUser(u);
+    var months=lpPeriodMonths();
+    var fu=goals&&months.length?tdAttainment('followReal','followMeta',months,[goals]):null;
+    out.push({
+      oid:uid,cs:cs,analyst:u,
+      mrr:cs.reduce(function(a,c){return a+(parseFloat(c.mrr)||0);},0),
+      score:score,band:hl(score),
+      delta:(nowS!==null&&before!==null)?nowS-before:null,
+      risk:risk,warn:warn,ok:ok,
+      churn:cs.filter(isChurnAlert).length,
+      inad:cs.filter(isInadimplente).length,
+      loop:cs.filter(isLoopOpen).length,
+      atrasados:cs.filter(function(c){var s=fuSt(c);return s.days!==null&&s.days<0;}).length,
+      semContato:cs.filter(function(c){var d=getDaysWithoutContact(c);return d!==null&&d>=30;}).length,
+      fu:fu,
+      isOpen:!!(S.expandedAnalysts&&S.expandedAnalysts[uid])
+    });
+  });
+  out.sort(function(a,b){return String(a.analyst.name||'').localeCompare(String(b.analyst.name||''));});
+  return out;
+}
+function lpBandColor(b){return b==='risk'?'var(--rd600)':(b==='warn'?'var(--am600)':'var(--gn600)');}
+function lpDeltaHTML(d){
+  if(d===null||d===undefined)return'<span class="muted" style="font-size:11px">—</span>';
+  if(d===0)return'<span style="font-size:11px;color:var(--t3)">0</span>';
+  var up=d>0;
+  return'<span style="font-size:11px;font-weight:600;color:'+(up?'var(--gn600)':'var(--rd600)')+'">'+(up?'+':'')+d+'</span>';
+}
+function lpAlertChips(r){
+  var s='';
+  if(r.churn)s+='<span class="lp-chip lp-chip-red">'+r.churn+' churn</span>';
+  if(r.loop)s+='<span class="lp-chip lp-chip-amber">'+r.loop+' loop</span>';
+  if(r.inad)s+='<span class="lp-chip lp-chip-amber">'+r.inad+' inadimp.</span>';
+  if(r.atrasados)s+='<span class="lp-chip lp-chip-red">'+r.atrasados+' atrasado'+(r.atrasados===1?'':'s')+'</span>';
+  return s;
+}
+// Card do analista: anel de score, distribuicao, dois numeros e a carteira.
 function lpAnalystCardHTML(r){
-  return'<div class="lp-analyst-card">'
-    +'<div class="lp-analyst-hdr" onclick="toggleAnalyst(\''+r.oid+'\')">'
-    +'<div style="width:34px;height:34px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
-    +(r.analyst.photo?'<img src="'+e(r.analyst.photo)+'" width="34" height="34" style="object-fit:cover" referrerpolicy="no-referrer">':e((r.analyst.name||"?")[0].toUpperCase()))
-    +'</div><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
-    +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="margin-left:auto;transform:'+(r.isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .3s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
-    +'</div>'
-    +'<div class="lp-score-block" style="background:'+r.hBg+'">'
-    +'<div class="lp-score-num" style="color:'+r.hC+'">'+r.avgScore+'</div>'
-    +'<div class="lp-score-lbl">Score médio</div>'
-    +'</div>'
-    +'<div class="lp-risk-bar" title="'+r.riskCount+' risco · '+r.warnCount+' atenção · '+r.okCount+' estável">'
-    +(r.riskCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.riskCount)+'%;background:#ce1e5a"></div>':'')
-    +(r.warnCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.warnCount)+'%;background:#f3b02a"></div>':'')
-    +(r.okCount?'<div class="lp-risk-seg" style="width:'+r.pct(r.okCount)+'%;background:#1f943c"></div>':'')
-    +'</div>'
-    +'<div class="lp-secondary-row">'
-    +'<div class="lp-sec-item"><span class="lp-sec-val">'+r.cs.length+'</span><span class="lp-sec-lbl">clientes</span></div>'
-    +'<div class="lp-sec-item"><span class="lp-sec-val">'+formatMRR(r.aMRR)+'</span><span class="lp-sec-lbl">MRR</span></div>'
-    +(r.churn>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+r.churn+'</span><span class="lp-sec-lbl">churn</span></div>':'')
-    +(r.inad>0?'<div class="lp-sec-item lp-sec-alert-amber"><span class="lp-sec-val">'+r.inad+'</span><span class="lp-sec-lbl">inadimp.</span></div>':'')
-    +(r.atrasados>0?'<div class="lp-sec-item lp-sec-alert"><span class="lp-sec-val">'+r.atrasados+'</span><span class="lp-sec-lbl">atrasados</span></div>':'')
-    +'</div>'
-    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs,r.oid,'cards')+'</div>'
-    +'</div>';
+  var col=lpBandColor(r.band);
+  var tot=Math.max(1,r.cs.length);
+  var p=function(n){return(n/tot*100).toFixed(1);};
+  var html='<div class="lp-a-card'+(r.isOpen?' open':'')+'">';
+  html+='<button class="lp-a-head press" onclick="toggleAnalyst(\''+jsq(r.oid)+'\')">'
+    +'<span class="lp-a-av">'+avatarHTML(r.analyst,32)+'</span>'
+    +'<span class="lp-a-id"><span class="lp-a-name">'+e(r.analyst.name)+'</span>'
+    +'<span class="lp-a-meta">'+(r.analyst.title?e(String(r.analyst.title).replace(/^Analista de Sucesso do Cliente\s*/i,''))+' · ':'')+r.cs.length+' cliente'+(r.cs.length===1?'':'s')+' · '+formatMRR(r.mrr)+'</span></span>'
+    +'<span class="lp-a-caret">'+(r.isOpen?'▴':'▾')+'</span></button>';
+  html+='<div class="lp-a-body">';
+  html+='<div class="lp-ring" style="background:conic-gradient('+col+' 0 '+r.score+'%,var(--surf3) '+r.score+'% 100%)">'
+    +'<span class="lp-ring-in"><b class="score-num-live" data-score="'+r.score+'" style="color:'+col+'">'+r.score+'</b><i>score</i></span></div>';
+  html+='<div class="lp-a-right">'+lpDeltaHTML(r.delta)+'<span class="lp-a-period"> no período</span>';
+  html+='<div class="lp-tri" style="margin-top:9px">'
+    +(r.risk?'<div style="width:'+p(r.risk)+'%;background:var(--rd600)"></div>':'')
+    +(r.warn?'<div style="width:'+p(r.warn)+'%;background:var(--am600)"></div>':'')
+    +(r.ok?'<div style="width:'+p(r.ok)+'%;background:var(--gn600)"></div>':'')+'</div>';
+  html+='<div class="lp-note" style="margin-top:5px">'+r.risk+' críticos · '+r.warn+' atenção · '+r.ok+' estáveis</div>';
+  html+='</div></div>';
+  html+='<div class="lp-a-stats">'
+    +'<div><b style="color:'+(r.fu&&r.fu.pct<80?'var(--rd600)':(r.fu?'var(--gn600)':'var(--t3)'))+'">'+(r.fu?r.fu.pct+'%':'—')+'</b><span>Meta de follow</span></div>'
+    +'<div><b style="color:'+(r.semContato?'var(--rd600)':'var(--t)')+'">'+r.semContato+'</b><span>Sem contato 30d+</span></div></div>';
+  var chips=lpAlertChips(r);
+  if(chips)html+='<div class="lp-a-alerts">'+chips+'</div>';
+  html+='<div class="analyst-clients'+(r.isOpen?' open':'')+'"><div><div class="lp-cli-wrap">'+lpClientTable(r.cs,r.oid,'cards')+'</div></div></div>';
+  html+='</div>';
+  return html;
 }
+// Linha da lista: mesma informacao, densa. Nao vira card ao clicar — a lista
+// abre a carteira na propria lista, do jeito que ja funcionava.
 function lpAnalystListHTML(r){
-  var rightCluster='<div style="display:flex;align-items:center;gap:18px;margin-right:6px;flex-shrink:0">'
-    +(r.churn>0?'<div style="text-align:center"><div style="font-size:22px;font-weight:700;color:#ce1e5a;line-height:1">'+r.churn+'</div><div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em">churn</div></div>':'')
-    +'<div style="text-align:center"><div style="font-size:34px;font-weight:700;color:'+r.hC+';line-height:1">'+r.avgScore+'</div><div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em">score</div></div>'
-    +'</div>';
-  return'<div class="analyst-card">'
-    +'<div class="analyst-card-hdr" onclick="toggleAnalyst(\''+r.oid+'\')">'
-    +'<div style="width:36px;height:36px;border-radius:50%;background:#e8f7fb;color:#0f5a6e;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden">'
-    +(r.analyst.photo?'<img src="'+e(r.analyst.photo)+'" width="36" height="36" style="object-fit:cover" referrerpolicy="no-referrer">':e((r.analyst.name||"?")[0].toUpperCase()))
-    +'</div><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--t)">'+e(r.analyst.name)+'</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+r.cs.length+' clientes · MRR '+formatMRR(r.aMRR)
-    +(r.inad>0?' · <span style="color:#f3b02a;font-weight:600">'+r.inad+' inadimp.</span>':'')
-    +(r.atrasados>0?' · <span style="color:#ce1e5a;font-weight:600">'+r.atrasados+' atrasados</span>':'')
-    +'</div></div>'
-    +rightCluster
-    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="transform:'+(r.isOpen?'rotate(180deg)':'rotate(0deg)')+';transition:transform .4s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'
-    +'</div>'
-    +'<div class="analyst-clients'+(r.isOpen?' open':'')+'">'+lpClientTable(r.cs,r.oid,'list')+'</div>'
-    +'</div>';
+  var col=lpBandColor(r.band);
+  var html='<div class="lp-l-row'+(r.isOpen?' open':'')+'">';
+  html+='<button class="lp-l-head press" onclick="toggleAnalyst(\''+jsq(r.oid)+'\')">'
+    +'<span class="lp-l-c lp-l-who">'+avatarHTML(r.analyst,32)
+    +'<span class="lp-a-id"><span class="lp-a-name">'+e(r.analyst.name)+'</span>'
+    +'<span class="lp-a-meta">'+(r.analyst.title?e(String(r.analyst.title).replace(/^Analista de Sucesso do Cliente\s*/i,''))+' · ':'')+formatMRR(r.mrr)+'</span></span></span>'
+    +'<span class="lp-l-c"><b style="font-size:17px;color:'+col+'" class="score-num-live" data-score="'+r.score+'">'+r.score+'</b></span>'
+    +'<span class="lp-l-c">'+lpDeltaHTML(r.delta)+'</span>'
+    +'<span class="lp-l-c"><b style="font-size:12px;color:'+(r.fu&&r.fu.pct<80?'var(--rd600)':(r.fu?'var(--gn600)':'var(--t3)'))+'">'+(r.fu?r.fu.pct+'%':'—')+'</b></span>'
+    +'<span class="lp-l-c"><b style="font-size:12px;color:'+(r.semContato?'var(--rd600)':'var(--t3)')+'">'+r.semContato+'</b></span>'
+    +'<span class="lp-l-c lp-l-alerts">'+(lpAlertChips(r)||'<span class="muted" style="font-size:11px">—</span>')+'</span>'
+    +'</button>';
+  // O padding vai num nível a mais: dentro de grid-template-rows:0fr o padding
+  // do filho direto não colapsa e deixaria uma faixa visível com a linha fechada.
+  html+='<div class="analyst-clients'+(r.isOpen?' open':'')+'"><div><div class="lp-cli-wrap">'+lpClientTable(r.cs,r.oid,'list')+'</div></div></div>';
+  html+='</div>';
+  return html;
 }
 function leaderVisaoGeral(){
   var groups=lpTeamGroups();
   var teamClients=lpFlatten(groups);
-  if(!Object.keys(groups).length){
-    return'<div class="lp-wrap"><div class="lp-shell"><div class="section-hdr"><span>Visão geral do time</span></div><p class="muted">Nenhum analista sob sua gestão ainda.</p></div>'+lpAlertColumn(teamClients)+'</div>';
-  }
-  var analystOptions=Object.keys(groups).map(function(uid){var u=S.allUsers.find(function(x){return x.uid===uid;});return{uid:uid,name:(u&&u.name)||('ID:'+uid.slice(0,6))};}).sort(function(a,b){return a.name.localeCompare(b.name);});
-  var visibleUids=S.lpFilters.analyst.length?analystOptions.filter(function(a){return S.lpFilters.analyst.indexOf(a.uid)>=0;}):analystOptions;
-  var filteredByA={};visibleUids.forEach(function(a){var fc=lpFilteredClients(groups[a.uid]);if(fc.length)filteredByA[a.uid]=fc;});
-  var filteredTeam=lpFlatten(filteredByA);
-  var scoreAvg=filteredTeam.length?Math.round(filteredTeam.reduce(function(acc,c){return acc+calcScore(c);},0)/filteredTeam.length):0;
-  var sH=hl(scoreAvg);
-  var sColor=sH==='risk'?'#ce1e5a':(sH==='warn'?'#f3b02a':'#1f943c');
-  var totMRR=filteredTeam.reduce(function(acc,c){return acc+(parseFloat(c.mrr)||0);},0);
-  var catOptions=['elite','gold','silver','bronze'];
-  var catLabels={elite:'Elite',gold:'Gold / High Value',silver:'Silver / Core A-B',bronze:'Bronze / Pareto'};
-  var planOptions=Object.keys(PLAN_L);
-
-  var html='<div class="lp-wrap"><div class="lp-shell">';
-  html+='<div class="section-hdr" style="margin-bottom:14px"><span>Visão geral do time</span></div>';
-  html+='<div class="lp-top-row">';
-  html+='<div class="lp-score-card" style="border-color:'+sColor+'"><div class="lp-score-card-lbl">Score de CS</div><div class="lp-score-card-num" style="color:'+sColor+'">'+(filteredTeam.length?scoreAvg:'—')+'</div><div class="lp-score-card-sub">média ponderada do time</div></div>';
-  html+='<div class="lp-info-grid">';
-  html+='<div class="lp-info-card no-click"><div class="lp-info-val">'+filteredTeam.length+'</div><div class="lp-info-lbl">Clientes</div></div>';
-  html+='<div class="lp-info-card'+(S.lpMrrSort?' active':'')+'" onclick="lpTogglePop(\'mrr\')"><div class="lp-info-val">'+formatMRR(totMRR)+'</div><div class="lp-info-lbl">MRR</div>'+(S.lpOpenPop==='mrr'?lpMrrPopover():'')+'</div>';
-  html+='<div class="lp-info-card'+(S.lpFilters.cat.length?' active':'')+'" onclick="lpTogglePop(\'cat\')"><div class="lp-info-val">'+(S.lpFilters.cat.length?S.lpFilters.cat.map(function(k){return catLabels[k];}).join(', '):'Todas as categorias')+'</div><div class="lp-info-lbl">Categoria</div>'+(S.lpOpenPop==='cat'?lpFilterPopover('cat',catOptions,function(v){return catLabels[v];}):'')+'</div>';
-  html+='<div class="lp-info-card'+(S.lpFilters.analyst.length?' active':'')+'" onclick="lpTogglePop(\'analyst\')"><div class="lp-info-val">'+(S.lpFilters.analyst.length?S.lpFilters.analyst.length+' selecionado(s)':'Todos os analistas')+'</div><div class="lp-info-lbl">Analistas</div>'+(S.lpOpenPop==='analyst'?lpFilterPopover('analyst',analystOptions.map(function(a){return a.uid;}),function(uid){var a=analystOptions.find(function(x){return x.uid===uid;});return a?a.name:uid;}):'')+'</div>';
-  html+='<div class="lp-info-card'+(S.lpFilters.plan.length?' active':'')+'" onclick="lpTogglePop(\'plan\')"><div class="lp-info-val">'+(S.lpFilters.plan.length?S.lpFilters.plan.map(function(k){return PLAN_L[k];}).join(', '):'Todos os planos')+'</div><div class="lp-info-lbl">Planos</div>'+(S.lpOpenPop==='plan'?lpFilterPopover('plan',planOptions,function(v){return PLAN_L[v];}):'')+'</div>';
-  html+='<div class="lp-info-card'+((S.lpFilters.country.length||S.lpFilters.city.length)?' active':'')+'" onclick="lpTogglePop(\'loc\')"><div class="lp-info-val">'+((S.lpFilters.country.length||S.lpFilters.city.length)?[].concat(S.lpFilters.country,S.lpFilters.city).join(', '):'Todas as localizações')+'</div><div class="lp-info-lbl">Localização</div>'+(S.lpOpenPop==='loc'?lpLocationPopover(teamClients):'')+'</div>';
-  html+='</div></div>';
-
+  var html='<div class="lp-grid">';
+  // ── trilho ──
+  html+='<aside class="lp-rail">';
+  html+=lpScoreCard(teamClients);
+  html+=lpChurnCard(teamClients);
+  html+=lpQueueCard(teamClients);
+  html+=lpCoverageCard(teamClients);
+  html+='</aside>';
+  // ── time ──
+  html+='<section class="lp-main">';
+  var rows=lpAnalystRows();
+  var totalA=Object.keys(groups).length;
   var viewMode=S.lpViewMode==='cards'?'cards':'list';
-  html+='<div class="lp-toolbar">';
-  html+='<div class="lp-toolbar-left"><div style="font-weight:600;font-size:13px;color:var(--t2)">Analistas</div>';
-  html+='<input type="text" id="lp-search-input" placeholder="Buscar por sigla..." value="'+e(S.lpSearch)+'" oninput="lpSetSearch(this.value)" style="max-width:200px;width:200px;font-size:12px;padding:6px 10px"></div>';
-  html+='<div class="lp-toolbar-right">';
-  html+='<button class="btn btn-sm" onclick="openLeaderNewClient()">+ Novo cliente</button>';
-  html+='<button class="btn-primary btn-sm" onclick="openClientImport()">Importar clientes</button>';
-  html+='<div class="view-toggle lp-view-toggle" style="margin-bottom:0"><button class="vt-btn'+(viewMode==='list'?' active':'')+'" onclick="lpSetViewMode(\'list\')">Lista</button><button class="vt-btn'+(viewMode==='cards'?' active':'')+'" onclick="lpSetViewMode(\'cards\')">Cards</button></div>';
-  html+='</div></div>';
-  if(!Object.keys(filteredByA).length){
-    html+='<p class="muted">Nenhum cliente encontrado com os filtros atuais.</p>';
-  }else{
-    var rows=Object.keys(filteredByA).sort(function(u1,u2){var n1=(analystOptions.find(function(a){return a.uid===u1;})||{}).name||'';var n2=(analystOptions.find(function(a){return a.uid===u2;})||{}).name||'';return n1.localeCompare(n2);}).map(function(oid){
-      var cs=filteredByA[oid].slice();
-      if(S.lpMrrSort==='desc')cs.sort(function(a,b){return(parseFloat(b.mrr)||0)-(parseFloat(a.mrr)||0);});
-      else if(S.lpMrrSort==='asc')cs.sort(function(a,b){return(parseFloat(a.mrr)||0)-(parseFloat(b.mrr)||0);});
-      var analyst=S.allUsers.find(function(u){return u.uid===oid;})||{name:'ID:'+oid.slice(0,6)};
-      var aMRR=cs.reduce(function(acc,c){return acc+(parseFloat(c.mrr)||0);},0);
-      var avgScore=Math.round(cs.reduce(function(acc,c){return acc+calcScore(c);},0)/cs.length);
-      var h=hl(avgScore);
-      var hC=h==="risk"?"#ce1e5a":(h==="warn"?"#f3b02a":"#1f943c");
-      var hBg=h==="risk"?"#fdeef3":(h==="warn"?"#fef7e8":"#e8f5ec");
-      var riskCount=0,warnCount=0,okCount=0;
-      cs.forEach(function(c){var hh=hl(calcScore(c));if(hh==='risk')riskCount++;else if(hh==='warn')warnCount++;else okCount++;});
-      var churn=cs.filter(isChurnAlert).length,inad=cs.filter(isInadimplente).length;
-      var atrasados=cs.filter(function(c){var fu=fuSt(c);return fu.days!==null&&fu.days<0;}).length;
-      var isOpen=!!(S.expandedAnalysts&&S.expandedAnalysts[oid]);
-      return{oid:oid,cs:cs,analyst:analyst,aMRR:aMRR,avgScore:avgScore,hC:hC,hBg:hBg,riskCount:riskCount,warnCount:warnCount,okCount:okCount,churn:churn,inad:inad,atrasados:atrasados,isOpen:isOpen,pct:function(n){return cs.length?(n/cs.length*100):0;}};
-    });
-    if(viewMode==='cards'){
-      html+='<div class="lp-analyst-grid">'+rows.map(lpAnalystCardHTML).join('')+'</div>';
-    }else{
-      html+=rows.map(lpAnalystListHTML).join('');
-    }
-    html+=lpPageSizeControl();
+  var catLabels={elite:'Elite',gold:'Gold / High Value',silver:'Silver / Core A-B',bronze:'Bronze / Pareto'};
+  html+='<div class="lp-main-bar">';
+  html+='<div class="lp-main-left"><span class="lp-h">Time</span>'
+    +'<span class="lp-note">'+rows.length+' de '+totalA+' analista'+(totalA===1?'':'s')+'</span>';
+  if(S.lpBand){
+    var bl={risk:'Com clientes críticos',warn:'Com clientes em atenção',ok:'Com clientes estáveis'}[S.lpBand];
+    html+='<button class="lp-filter-chip press" onclick="lpClearBand()">'+e(bl)+' <span>×</span></button>';
   }
+  if(S.lpSearch)html+='<button class="lp-filter-chip press" onclick="lpSetSearch(\'\')">Busca: '+e(S.lpSearch)+' <span>×</span></button>';
   html+='</div>';
-  html+=lpAlertColumn(teamClients);
-  html+='</div>';
+  html+='<div class="lp-main-right">';
+  html+='<input type="text" id="lp-search-input" class="lp-search" placeholder="Buscar analista ou cliente" value="'+e(S.lpSearch)+'" oninput="lpSetSearch(this.value)">';
+  html+='<div style="position:relative"><button class="lp-pill press'+(S.lpFilters.cat.length?' on':'')+'" onclick="lpTogglePop(\'cat\')">'
+    +(S.lpFilters.cat.length?S.lpFilters.cat.map(function(k){return catLabels[k];}).join(', '):'Todas as categorias')+' <span style="font-size:9px">▾</span></button>'
+    +(S.lpOpenPop==='cat'?lpFilterPopover('cat',['elite','gold','silver','bronze'],function(v){return catLabels[v];}):'')+'</div>';
+  html+='<div class="lp-seg"><button class="'+(viewMode==='list'?'on':'')+'" onclick="lpSetViewMode(\'list\')">Lista</button>'
+    +'<button class="'+(viewMode==='cards'?'on':'')+'" onclick="lpSetViewMode(\'cards\')">Cards</button></div>';
+  html+='<button class="btn btn-sm press" onclick="openLeaderNewClient()">+ Novo cliente</button>';
+  html+='<button class="btn-primary btn-sm press" onclick="openClientImport()">Importar clientes</button>';
+  html+='</div></div>';
+  if(!Object.keys(groups).length){
+    html+='<div class="lp-empty-box">Nenhum analista sob sua gestão ainda.</div>';
+  }else if(!rows.length){
+    html+='<div class="lp-empty-box">Nenhum analista encontrado com os filtros atuais.</div>';
+  }else if(viewMode==='cards'){
+    html+='<div class="lp-a-grid fade-rise">'+rows.map(lpAnalystCardHTML).join('')+'</div>'+lpPageSizeControl();
+  }else{
+    html+='<div class="lp-l-table fade-rise"><div class="lp-l-hdr">'
+      +'<span>Analista</span><span>Score</span><span>No período</span><span>Meta follow</span><span>Sem contato</span><span>Alertas</span></div>'
+      +rows.map(lpAnalystListHTML).join('')+'</div>'+lpPageSizeControl();
+  }
+  html+='</section></div>';
+  html+=lpChurnBigOverlay(teamClients);
   return html;
 }
 function leaderPanelView(){
-  return'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif;margin-bottom:1rem">Painel do líder</h1>'+leaderVisaoGeral();
+  var t=lpFlatten(lpTeamGroups());
+  var mrr=t.reduce(function(a,c){return a+(parseFloat(c.mrr)||0);},0);
+  return'<div class="lp-title-row"><div><h1 class="lp-title">Painel do líder</h1>'
+    +'<div class="lp-note">'+Object.keys(lpTeamGroups()).length+' analistas · '+t.length+' clientes · '+formatMRR(mrr)+' de MRR sob gestão</div></div></div>'
+    +leaderVisaoGeral();
 }
+
 // ============================================================
 // CRIACAO DE USUARIO E PERFIL
 // ============================================================
@@ -4983,4 +5342,181 @@ function pendingBannerHTML(c,ci){
   return'<div class="alert alert-red" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
     +'<span>'+svgIcon('alert',13)+' <strong>'+n+' pergunta(s) pendente(s)</strong> em follow-ups importados deste cliente. Enquanto não forem resolvidas, o score fica parcial.</span>'
     +'<button class="btn btn-sm" onclick="resolvePendencies('+ci+')">Resolver pendências</button></div>';
+}
+// ============================================================
+// FECHAMENTO DE LOOP (NPS abaixo de 7)
+// ============================================================
+// Quando o cliente avalia a Stays abaixo de 7, abre um caso no Salesforce e o
+// analista responsavel precisa tratar. O caso e detectado do proprio NPS do
+// follow — nao precisa ser aberto na mao. O que fica guardado em c.loopCase e
+// so o que o analista/integracao preenche depois (feedback, link, fechamento).
+var LOOP_NPS_LIMITE=7;
+function getLoopFollow(c){
+  if(!c||!c.follows)return null;
+  return getFollowsSorted(c).filter(function(f){
+    return f.answers&&f.answers.nps_avaliou==='sim'&&f.answers.nps_score!==undefined&&f.answers.nps_score!==null&&f.answers.nps_score!=='';
+  })[0]||null;
+}
+function isLoopOpen(c){
+  var f=getLoopFollow(c);
+  if(!f)return false;
+  if(+f.answers.nps_score>=LOOP_NPS_LIMITE)return false;
+  var lc=c.loopCase;
+  // Ja foi fechado para esta mesma avaliacao? Entao nao esta mais aberto.
+  return!(lc&&lc.closedAt&&lc.followId===f.id);
+}
+function loopOpenedAt(c){
+  var f=getLoopFollow(c);
+  if(!f)return null;
+  return(f.answers.nps_date||f.date)||null;
+}
+function loopDaysOpen(c){
+  var d=loopOpenedAt(c);
+  if(!d)return null;
+  return Math.floor((Date.now()-new Date(d+'T00:00:00'))/86400000);
+}
+// Tentativas de contato = atividades registradas no cliente depois que o loop abriu.
+function loopAttempts(c){
+  var d=loopOpenedAt(c);
+  if(!d)return 0;
+  var t=new Date(d+'T00:00:00').getTime();
+  return(c.activities||[]).filter(function(a){
+    if(a.archived)return false;
+    return a.date&&new Date(a.date+'T00:00:00').getTime()>=t;
+  }).length;
+}
+function loopInfo(c){
+  if(!isLoopOpen(c))return null;
+  var f=getLoopFollow(c);
+  var lc=c.loopCase||{};
+  return{
+    followId:f.id,
+    score:+f.answers.nps_score,
+    openedAt:loopOpenedAt(c),
+    days:loopDaysOpen(c),
+    attempts:loopAttempts(c),
+    feedback:lc.feedback||'',
+    sfLink:lc.sfLink||'',
+    category:lc.category||''
+  };
+}
+function calcLoopsAbertos(clients){return(clients||[]).filter(isLoopOpen).length;}
+function saveLoopDetails(ci){
+  var c=S.clients[ci];if(!c)return;
+  var f=getLoopFollow(c);if(!f)return;
+  if(!c.loopCase)c.loopCase={};
+  c.loopCase.followId=f.id;
+  var fb=document.getElementById('loop-feedback'),sf=document.getElementById('loop-sflink'),cat=document.getElementById('loop-cat');
+  if(fb)c.loopCase.feedback=fb.value.trim();
+  if(sf)c.loopCase.sfLink=sf.value.trim();
+  if(cat)c.loopCase.category=cat.value;
+  saveClient(c);
+  addAdminLog('loop_updated',logClient(c));
+  showSaved();
+}
+function closeLoop(ci){
+  var c=S.clients[ci];if(!c)return;
+  var f=getLoopFollow(c);if(!f)return;
+  if(!confirm('Fechar o loop de '+(c.slug||c.name).toUpperCase()+'?\n\nConfirme que o retorno foi dado ao cliente e o caso tratado.'))return;
+  if(!c.loopCase)c.loopCase={};
+  c.loopCase.followId=f.id;
+  c.loopCase.closedAt=new Date().toISOString().split('T')[0];
+  c.loopCase.closedBy=S.appUser.name;
+  saveClient(c);
+  addAdminLog('loop_closed',logClient(c));
+  render();
+}
+// ============================================================
+// SCORE HISTORICO (reconstruido, sem snapshot)
+// ============================================================
+// O score de um cliente ja e derivado de dados datados: o follow mais recente,
+// as atividades, a inadimplencia e o caso de churn. Entao da pra perguntar
+// "qual era o score deste cliente em tal data?" sem guardar foto nenhuma —
+// basta esconder tudo o que aconteceu depois daquela data e recalcular.
+function clientAsOf(c,dateISO){
+  if(!dateISO)return c;
+  var t=new Date(dateISO+'T23:59:59').getTime();
+  var snap=Object.assign({},c);
+  snap.follows=(c.follows||[]).filter(function(f){return f.date&&new Date(f.date+'T00:00:00').getTime()<=t;});
+  snap.activities=(c.activities||[]).filter(function(a){return a.date&&new Date(a.date+'T00:00:00').getTime()<=t;});
+  snap.contacts=(c.contacts||[]).filter(function(x){return!x.date||new Date(x.date+'T00:00:00').getTime()<=t;});
+  snap.inadimplencia=(c.inadimplencia||[]).filter(function(m){
+    if(m.createdAt&&m.createdAt>t)return false;
+    // fatura paga depois da data de corte ainda estava em aberto naquele dia
+    if(m.paid&&m.paidAtTs&&m.paidAtTs<=t)return false;
+    return true;
+  });
+  if(c.churnCase&&c.churnCase.createdAt&&c.churnCase.createdAt>t)snap.churnCase=null;
+  return snap;
+}
+function calcScoreAt(c,dateISO){
+  var snap=clientAsOf(c,dateISO);
+  if(!snap.follows||!snap.follows.length)return null;
+  return calcScore(snap);
+}
+// Ultimo dia de cada mes (ou hoje, se o mes for o corrente).
+function monthEndISO(monthKey){
+  var p=monthKey.split('-'),y=+p[0],m=+p[1];
+  var last=new Date(y,m,0);
+  var now=new Date();
+  if(last>now)last=now;
+  var mm=last.getMonth()+1,dd=last.getDate();
+  return last.getFullYear()+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd;
+}
+// Score medio do time numa data — mesma conta de hoje (media de todos os
+// clientes), so que congelada naquele dia. Cliente sem follow ate la nao entra.
+function teamScoreAt(clients,dateISO){
+  var vals=[];
+  (clients||[]).forEach(function(c){
+    var s=calcScoreAt(c,dateISO);
+    if(s!==null)vals.push(s);
+  });
+  if(!vals.length)return null;
+  return Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
+}
+// Serie do score do time por mes, pro grafico e pra tendencia "+4 pts no mes".
+function teamScoreSeries(clients,monthKeys){
+  return(monthKeys||[]).map(function(m){
+    return{month:m,score:teamScoreAt(clients,monthEndISO(m))};
+  });
+}
+// Carteira do analista, aberta dentro do card ou da linha. Mesma tabela nos dois
+// modos — o card vira largura total quando abre, então cabe igual.
+function lpClientTable(cs,oid,mode){
+  mode=mode==='cards'?'cards':'list';
+  var pageSize=S.lpPageSize[mode]||(mode==='cards'?10:20);
+  var totalPages=Math.max(1,Math.ceil(cs.length/pageSize));
+  var curPage=Math.min(S.lpPage[oid]||0,totalPages-1);
+  var slice=cs.slice(curPage*pageSize,curPage*pageSize+pageSize);
+  var html='<div class="lp-cli"><div class="lp-cli-hd">'
+    +'<span>Cliente</span><span>Categoria</span><span>Saúde</span><span>MRR</span><span>Sem contato</span><span>Follow-up</span><span style="text-align:right">Ações</span></div>';
+  slice.forEach(function(c){
+    var ci=S.clients.indexOf(c),score=calcScore(c),band=hl(score),col=lpBandColor(band),fu=fuSt(c);
+    var d=getDaysWithoutContact(c);
+    var ini=String(c.slug||c.name||'?').slice(0,2).toUpperCase();
+    var pend=clientPendingCount(c);
+    html+='<div class="lp-cli-r">';
+    html+='<div class="lp-cli-who"><span class="lp-cli-ini">'+e(ini)+'</span><span style="min-width:0">'
+      +'<span class="lp-cli-name">'+e((c.slug||c.name).toUpperCase())+'</span>'
+      +'<span class="lp-cli-sub">'+e(c.name)+'</span></span></div>';
+    html+='<div>'+(catBdg(c)||'<span class="muted">—</span>')+'</div>';
+    html+='<div class="lp-cli-h"><b style="color:'+col+'">'+score+'</b><span class="lp-cli-hbar"><i style="width:'+score+'%;background:'+col+'"></i></span></div>';
+    html+='<div style="font-weight:600;font-size:12.5px">'+formatMRR(c.mrr)+'</div>';
+    html+='<div style="font-size:12.5px;font-weight:600;color:'+(d!==null&&d>=30?'var(--rd600)':'var(--t2)')+'">'+(d===null?'—':d+' dias')+'</div>';
+    html+='<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>';
+    html+='<div style="display:flex;justify-content:flex-end;gap:5px;align-items:center">'
+      +(pend?'<span class="pend-badge" title="'+pend+' pergunta(s) pendente(s)">'+pend+'</span>':'')
+      +(isLoopOpen(c)?'<span class="lp-chip lp-chip-amber">loop</span>':'')
+      +'<button class="btn btn-sm press" onclick="openClient('+ci+')">Abrir</button></div>';
+    html+='</div>';
+  });
+  if(!slice.length)html+='<div style="padding:16px" class="muted">Nenhum cliente com os filtros atuais.</div>';
+  if(totalPages>1){
+    html+='<div class="lp-cli-pg">'
+      +'<button class="btn btn-sm" '+(curPage===0?'disabled':'')+' onclick="lpGoPage(\''+jsq(oid)+'\',-1,'+(totalPages-1)+')">&lsaquo;</button>'
+      +'<span class="lp-note">Página '+(curPage+1)+' de '+totalPages+' · '+cs.length+' cliente'+(cs.length===1?'':'s')+'</span>'
+      +'<button class="btn btn-sm" '+(curPage===totalPages-1?'disabled':'')+' onclick="lpGoPage(\''+jsq(oid)+'\',1,'+(totalPages-1)+')">&rsaquo;</button></div>';
+  }
+  html+='</div>';
+  return html;
 }
