@@ -33,20 +33,93 @@ const PROTECTED_ADMIN_EMAILS=[MASTER_ADMIN_EMAIL,OWNER_TEST_EMAIL];
 function isProtectedAdmin(u){return u&&PROTECTED_ADMIN_EMAILS.indexOf((u.email||'').toLowerCase())>=0;}
 function isMasterAdmin(u){return!!u&&(u.email||'').toLowerCase()===MASTER_ADMIN_EMAIL;}
 function iAmMasterAdmin(){return isMasterAdmin(S.appUser);}
-// Funcao, lider responsavel e senha do usuario
+// ── Hierarquia: Gerente -> Supervisor -> Analista ──
+// managedUsers do supervisor guarda analistas; managedUsers do gerente guarda supervisores.
+function supervisorOfAnalyst(analystUid){
+  return(S.allUsers||[]).find(function(u){return(u.role==='leader'||u.role==='admin')&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
+}
+function gerenteOfSupervisor(supUid){
+  return(S.allUsers||[]).find(function(u){return u.role==='gerente'&&(u.managedUsers||[]).indexOf(supUid)>=0;});
+}
+function supervisorsOfGerente(gerenteUid){
+  var g=(S.allUsers||[]).find(function(u){return u.uid===gerenteUid;});
+  if(!g)return[];
+  return(g.managedUsers||[]).filter(function(id){
+    var u=(S.allUsers||[]).find(function(x){return x.uid===id;});
+    return!!u&&u.role==='leader';
+  });
+}
+function analystsOfGerente(gerenteUid){
+  var out=[];
+  supervisorsOfGerente(gerenteUid).forEach(function(supUid){
+    var sup=(S.allUsers||[]).find(function(x){return x.uid===supUid;});
+    (sup&&sup.managedUsers||[]).forEach(function(aUid){if(out.indexOf(aUid)<0)out.push(aUid);});
+  });
+  return out;
+}
+// Funcao, supervisor/gerente responsavel e senha do usuario
 function canEditUserRole(target){
   if(!target||!S.appUser)return false;
   if(isMasterAdmin(target))return false;
   if(isProtectedAdmin(target))return iAmMasterAdmin();
   if(target.uid===S.appUser.uid)return false;
-  return['admin','gerente'].indexOf(S.appUser.role)>=0;
+  var r=S.appUser.role;
+  if(r==='admin')return true;
+  if(target.role==='admin'||target.role==='testuser')return false;
+  // Aprovar quem entrou sozinho e ficou pendente: qualquer gerente ou supervisor.
+  if(target.role==='pending')return r==='gerente'||r==='leader';
+  if(r==='gerente'){
+    if(target.role==='gerente')return false;
+    if(target.role==='leader')return(S.appUser.managedUsers||[]).indexOf(target.uid)>=0;
+    if(target.role==='analyst')return analystsOfGerente(S.appUser.uid).indexOf(target.uid)>=0;
+    return false;
+  }
+  if(r==='leader')return target.role==='analyst'&&(S.appUser.managedUsers||[]).indexOf(target.uid)>=0;
+  return false;
 }
-// Nome, titulo e foto — o proprio usuario sempre pode; admin/gerente podem nos demais
+// Funcoes que cada perfil pode atribuir a outro usuario
+function assignableRoles(){
+  var r=S.appUser&&S.appUser.role;
+  if(r==='admin')return['pending','analyst','leader','gerente','admin','testuser'];
+  if(r==='gerente')return['pending','analyst','leader'];
+  if(r==='leader')return['pending','analyst'];
+  return[];
+}
+// Nome, titulo e foto — o proprio usuario sempre pode
 function canEditUserProfile(target){
   if(!target||!S.appUser)return false;
   if(target.uid===S.appUser.uid)return true;
   if(isProtectedAdmin(target))return iAmMasterAdmin();
-  return['admin','gerente'].indexOf(S.appUser.role)>=0;
+  var r=S.appUser.role;
+  if(r==='admin')return true;
+  if(target.role==='admin'||target.role==='testuser')return false;
+  return r==='gerente'||r==='leader';
+}
+// Quem aparece na tela de Gestao: gerente e supervisor nao veem admin nem usuario teste.
+function adminVisibleUsers(){
+  if(!S.appUser)return[];
+  if(S.appUser.role==='admin')return(S.allUsers||[]).slice();
+  return(S.allUsers||[]).filter(function(u){return u.role!=='admin'&&u.role!=='testuser';});
+}
+// ── Historico de atividades: quem enxerga a atividade de quem ──
+// Admin ve tudo. Gerente ve a si, os supervisores atribuidos a ele e os analistas.
+// Supervisor ve gerentes, analistas e outros supervisores. Analista so ve o proprio.
+// Atividade de admin so admin ve.
+function canSeeLogOf(actorUid){
+  var me=S.appUser;
+  if(!me)return false;
+  if(me.role==='admin')return true;
+  if(actorUid&&actorUid===me.uid)return true;
+  var actor=(S.allUsers||[]).find(function(u){return u.uid===actorUid;});
+  if(!actor)return false;
+  if(actor.role==='admin')return false;
+  if(me.role==='gerente'){
+    if(actor.role==='analyst')return true;
+    if(actor.role==='leader')return(me.managedUsers||[]).indexOf(actor.uid)>=0;
+    return false;
+  }
+  if(me.role==='leader')return['gerente','analyst','leader'].indexOf(actor.role)>=0;
+  return false;
 }
 // Regra geral do sistema: seletor de uma funcao lista SO quem tem aquela funcao.
 // Usuario teste e pendente nunca aparecem como opcao em lugar nenhum.
@@ -55,7 +128,9 @@ function usersWithRole(){
   return(S.allUsers||[]).filter(function(u){return roles.indexOf(u.role)>=0;})
     .sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
 }
-function leaderUsers(){return usersWithRole('leader','admin');}
+// Admin ainda conta como supervisor possível, mas só quem é admin enxerga isso —
+// pra gerente e supervisor nenhum admin aparece em lugar nenhum da Gestão.
+function leaderUsers(){return S.appUser&&S.appUser.role==='admin'?usersWithRole('leader','admin'):usersWithRole('leader');}
 function gerenteUsers(){return usersWithRole('gerente');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
 auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
@@ -2357,7 +2432,8 @@ function startClocks(){function tick(){var cc=document.getElementById("clock-cli
 function buildHTML(){if(!S.appReady)return'<div class="loading-wrap"><div class="spinner" style="width:24px;height:24px"></div><span>Carregando...</span></div>';if(!S.appUser)return loginView();if(S.appUser&&S.appUser.unauthorized)return unauthorizedView();if(S.appUser.role==="pending")return pendingView();var undo=S.undoMsg?'<div class="undo-banner">'+e(S.undoMsg)+'<button class="btn btn-sm" style="background:#fff;color:#1e2329;margin-left:4px" onclick="undoDelete()">Desfazer</button><button class="btn btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="clearUndo()">x</button></div>':"";var isAdmin=S.appUser&&S.appUser.role==='admin';
 var isLeader=S.appUser&&S.appUser.role==='leader';
 var isGerente=S.appUser&&S.appUser.role==='gerente';
-var canAdmin=isAdmin||isGerente;var canGeral=isAdmin||isGerente||isLeader;
+// Supervisor tambem entra na Gestao: precisa aprovar pendente e editar analista.
+var canAdmin=isAdmin||isGerente||isLeader;var canGeral=isAdmin||isGerente||isLeader;
 var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">Stays CS</div>'
   +'<button class="sb-item'+(S.view==="dashboard"?" sb-act":"")+'" onclick="goBack()">Contas</button>'
   +(canAdmin?'<button class="sb-item'+(S.view==="admin"?" sb-act":"")+'" onclick="goAdmin()">Gestão</button>':"")
@@ -2389,7 +2465,7 @@ function profileMenuHTML(){
   }
   return'<div class="pf-wrap"><button class="pf-btn'+(S.profileMenuOpen?' open':'')+'" title="'+e(u.name||'')+'" onclick="toggleProfileMenu(event)">'+avatarHTML(u,30)+'</button>'+menu+'</div>';
 }
-function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="gerente"?'<span class="gerente-badge">Gerente</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Lider</span>':(S.appUser.role==="testuser"?'<span class="testuser-badge">Usuario teste</span>':'<span class="analyst-badge">Analista</span>')));var adminBtn=(S.appUser.role==="admin"||S.appUser.role==="gerente")?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea=roleBadge+profileMenuHTML();if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
+function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="gerente"?'<span class="gerente-badge">Gerente</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Supervisor</span>':(S.appUser.role==="testuser"?'<span class="testuser-badge">Usuario teste</span>':'<span class="analyst-badge">Analista</span>')));var adminBtn=(['admin','gerente','leader'].indexOf(S.appUser.role)>=0)?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea=roleBadge+profileMenuHTML();if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
 if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="settings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel do líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
@@ -2505,7 +2581,8 @@ var ACTIONS={
   user_password_reset:{cat:'acessos',label:'enviou redefinição de senha para'},
   profile_updated:{cat:'acessos',label:'atualizou o perfil de'},
   user_role_changed:{cat:'acessos',label:'alterou a função de'},
-  leader_assigned:{cat:'acessos',label:'definiu o líder responsável de'},
+  leader_assigned:{cat:'acessos',label:'definiu o supervisor responsável de'},
+  gerente_assigned:{cat:'acessos',label:'definiu o gerente responsável de'},
   client_deleted:{cat:'exclusoes',label:'excluiu o cliente'},
   follow_deleted:{cat:'exclusoes',label:'excluiu um follow-up de'},
   reminder_deleted:{cat:'exclusoes',label:'excluiu um lembrete de'},
@@ -2514,10 +2591,8 @@ var ACTIONS={
 function actLabel(a){return(ACTIONS[a]&&ACTIONS[a].label)||a;}
 function actCat(a){return(ACTIONS[a]&&ACTIONS[a].cat)||null;}
 function lpVisibleLog(){
-  var all=(S.adminLog||[]).slice();
-  var r=S.appUser.role;
-  if(r!=='admin'&&r!=='gerente'&&r!=='leader')all=all.filter(function(l){return l.byUid===S.appUser.uid;});
-  return all.sort(function(a,b){return(b.at||0)-(a.at||0);});
+  return(S.adminLog||[]).filter(function(l){return canSeeLogOf(l.byUid);})
+    .sort(function(a,b){return(b.at||0)-(a.at||0);});
 }
 function ahSetFilter(k,v){S.ahFilters[k]=v;render();}
 // Filtro em árvore: trocar de categoria zera o tipo de ação (que só existe dentro dela).
@@ -2720,45 +2795,52 @@ function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizD
 // ADMIN VIEW
 // ============================================================
 function adminView(){
-  if(S.appUser.role!=="admin"&&S.appUser.role!=="gerente")return'<p>Acesso negado.</p>';
+  if(['admin','gerente','leader'].indexOf(S.appUser.role)<0)return'<p>Acesso negado.</p>';
   var isTrueAdmin=S.appUser.role==="admin";
+  var canAssign=assignableRoles();
   var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="udInit();openM(\'add-user\')">+ Criar acesso de usuário</button></div>';
   var byRole={admin:[],gerente:[],leader:[],analyst:[],testuser:[],pending:[]};
-  S.allUsers.forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});
-  var roleLabel={admin:"Administrador",gerente:"Gerente",leader:"Lider",analyst:"Analista",testuser:"Usuario teste",pending:"Pendentes (aguardando aprovacao)"};
+  adminVisibleUsers().forEach(function(u){if(byRole[u.role])byRole[u.role].push(u);else byRole.analyst.push(u);});
+  var roleLabel={admin:"Administrador",gerente:"Gerente",leader:"Supervisor",analyst:"Analista",testuser:"Usuario teste",pending:"Pendentes (aguardando aprovacao)"};
   ["pending","admin","gerente","leader","analyst","testuser"].forEach(function(role){
     var users=byRole[role];if(!users.length)return;
     html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';
     users.forEach(function(u){
       var canRole=canEditUserRole(u),canProf=canEditUserProfile(u);
       var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");
-      // Líder responsável: só lista quem tem a função Líder (e o Admin, por enquanto).
-      var respLeader=role==="analyst"?S.allUsers.find(function(x){return(x.managedUsers||[]).indexOf(u.uid)>=0&&(x.role==="leader"||x.role==="admin");}):null;
-      var leaderOpts='';
+      // Analista tem Supervisor responsável; Supervisor tem Gerente responsável.
+      // Cada seletor lista só quem tem a função correspondente.
+      var chainSel='';
       if(role==="analyst"){
-        var lds=leaderUsers();
-        leaderOpts=canRole
-          ?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+lds.map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>'
-          :'<span class="muted" style="font-size:11px">'+(respLeader?e(respLeader.name):'Sem líder')+'</span>';
+        var respSup=supervisorOfAnalyst(u.uid);
+        chainSel=canRole
+          ?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Supervisor responsável"><option value="">Sem supervisor</option>'+leaderUsers().map(function(ld){return'<option value="'+ld.uid+'"'+(respSup&&respSup.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>'
+          :'<span class="muted" style="font-size:11px">'+(respSup?e(respSup.name):'Sem supervisor')+'</span>';
+      }else if(role==="leader"){
+        var respGer=gerenteOfSupervisor(u.uid);
+        chainSel=canRole
+          ?'<select class="narrow" onchange="setResponsibleGerente(\''+u.uid+'\',this.value)" title="Gerente responsável"><option value="">Sem gerente</option>'+gerenteUsers().map(function(g){return'<option value="'+g.uid+'"'+(respGer&&respGer.uid===g.uid?' selected':'')+'>'+e(g.name)+'</option>';}).join('')+'</select>'
+          :'<span class="muted" style="font-size:11px">'+(respGer?e(respGer.name):'Sem gerente')+'</span>';
       }
       var roleSelect;
       if(!canRole){
         roleSelect=u.uid===S.appUser.uid?'<span class="muted" style="font-size:11px">Você</span>'
           :(isMasterAdmin(u)?'<span class="muted" style="font-size:11px" title="Conta de administrador principal do sistema">Admin master</span>':'');
       }else{
-        var opts='<option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="gerente"'+(u.role==="gerente"?" selected":"")+'>Gerente</option>';
-        if(isTrueAdmin)opts+='<option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option>';
-        else if(u.role==="admin")opts='<option value="admin" selected>Admin</option>'+opts;
-        opts+='<option value="testuser"'+(u.role==="testuser"?" selected":"")+'>Usuario teste</option>';
+        var roleNames={pending:'Pendente',analyst:'Analista',leader:'Supervisor',gerente:'Gerente',admin:'Admin',testuser:'Usuario teste'};
+        var offer=canAssign.slice();
+        // A função atual sempre aparece, mesmo que quem edita não possa atribuí-la.
+        if(offer.indexOf(u.role)<0)offer.unshift(u.role);
+        var opts=offer.map(function(rk){return'<option value="'+rk+'"'+(u.role===rk?" selected":"")+'>'+roleNames[rk]+'</option>';}).join('');
         roleSelect='<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao">'+opts+'</select>';
       }
       var editBtn=canProf?'<button class="btn btn-sm" title="Editar nome, título e foto" onclick="openUserProfileEditor(\''+u.uid+'\')">Editar</button>':'';
       var pwBtn=canRole?'<button class="btn btn-sm" title="Enviar e-mail de redefinição de senha" onclick="resetUserPassword(\''+u.uid+'\')">Nova senha</button>':'';
-      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(u.title?'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+e(u.title)+'</div>':"")+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+editBtn+pwBtn+leaderOpts+roleSelect+'</div>';
+      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(u.title?'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+e(u.title)+'</div>':"")+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+editBtn+pwBtn+chainSel+roleSelect+'</div>';
     });
     html+='</div>';
   });
-  html+='<div class="mt3 alert alert-amber">Use "Criar acesso de usuário" para gerar e-mail e senha na hora — o analista entra direto, sem conta Google. Quem entra por conta própria cai como Pendente até você aprovar aqui. O seletor "Líder responsável" define quem aprova as perguntas customizadas e vê a carteira do analista no Painel do líder.</div>';
+  html+='<div class="mt3 alert alert-amber">Use "Criar acesso de usuário" para gerar e-mail e senha na hora — o usuário entra direto, sem conta Google. Quem entra por conta própria cai como Pendente até ser aprovado aqui. A hierarquia é <strong>Gerente → Supervisor → Analista</strong>: o seletor de cada linha define o responsável do nível acima, e é ele quem aprova as perguntas customizadas e vê a carteira no Painel do líder.</div>';
   return html;
 }
 // ============================================================
@@ -3046,7 +3128,6 @@ function openLeaderNewClient(){if(!confirmDiscardIfDirty())return;openM('add-cli
 function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(c.plan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(x){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(x);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Editar cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="en" type="text" value="'+e(c.name)+'"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS)</label><input id="eslug" type="text" value="'+e(c.slug||"")+'" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="ec"><option value="">Selecionar...</option>'+countries.map(function(x){return'<option'+(c.country===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="eu" type="number" min="1" value="'+e(c.units||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="epl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="emrr" type="text" inputmode="decimal" value="'+e(c.mrr!==undefined&&c.mrr!==null&&c.mrr!==""?String(c.mrr).replace(".",","):"")+'"></div><div class="form-row"><label class="form-lbl">Dias sem atividade <span style="color:var(--t3);font-weight:400;font-size:11px">(cliente sem logar)</span></label><input id="edia" type="number" min="0" placeholder="ex: 12" value="'+e(c.daysInactive||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="ecl"><option value="">Selecionar...</option>'+allCountries.map(function(x){return'<option'+(c.clientCountry===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="ecly" type="text" value="'+e(c.clientCity||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="ecat"><option value="">Selecionar...</option><option value="elite"'+(c.categoria==='elite'?' selected':'')+'>Elite</option><option value="gold"'+(c.categoria==='gold'?' selected':'')+'>'+(isHispano(c)?'High Value':'Gold')+'</option><option value="silver"'+(c.categoria==='silver'?' selected':'')+'>'+(isHispano(c)?'Core A-B':'Silver')+'</option><option value="bronze"'+(c.categoria==='bronze'?' selected':'')+'>'+(isHispano(c)?'Pareto':'Bronze')+'</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="est"><option value="">Selecionar...</option><option value="Em andamento"'+(c.onboardingStatus==='Em andamento'?' selected':'')+'>Em andamento</option><option value="Completed"'+(c.onboardingStatus==='Completed'?' selected':'')+'>Completed</option></select></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveEditClient()">Salvar</button></div></div>';}
 function mContact(){return'<div class="modal-box"><div class="modal-title">Registrar contato externo</div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ct"><option value="meeting">Reuniao</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="churn">Alerta de Churn</option></select></div><div class="form-row"><label class="form-lbl">Data</label><input id="cd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Impacto</label><select id="ci"><option value="positive">Positivo</option><option value="neutral">Neutro</option><option value="negative">Negativo</option></select></div><div class="form-row"><label class="form-lbl">Resumo do contato</label><textarea id="cs" style="height:110px;resize:vertical" placeholder="O que foi discutido? Qual o resultado?"></textarea></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveContact()">Salvar</button></div></div>';}
 function mAddKeyContact(){var c=S.clients[S.sel];if(c.keyContacts&&c.keyContacts.length>=5)return'<div class="modal-box"><div class="modal-title">Limite atingido</div><p style="margin-bottom:1.5rem">Maximo de 5 contatos-chave por cliente.</p><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Fechar</button></div></div>';return'<div class="modal-box"><div class="modal-title">Adicionar contato-chave</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="kn" type="text" placeholder="Ex: Juan Carlos Rodriguez"></div><div class="form-row"><label class="form-lbl">Funcao / cargo</label><input id="kr" type="text" placeholder="Ex: CEO, Gerente, Dono"></div><div class="grid2"><div class="form-row"><label class="form-lbl">Telefone / WhatsApp</label><input id="kp" type="text" placeholder="+1 555 000 0000"></div><div class="form-row"><label class="form-lbl">E-mail</label><input id="ke" type="text" placeholder="email@cliente.com"></div></div><div class="form-row" style="margin-top:4px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer"><input id="kresp" type="checkbox" style="width:16px;height:16px;cursor:pointer"> Responsável pela conta <span style="color:var(--t3);font-size:11px">(usado para personalizar mensagens)</span></label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveKeyContact()">Salvar</button></div></div>';}
-function mAddUser(){return'<div class="modal-box"><div class="modal-title">Informar novo usuario</div><div class="import-tip">O usuario deve acessar o site e fazer login com o e-mail informado abaixo. O perfil sera criado automaticamente como Pendente ate voce aprovar aqui.</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="un" type="text" placeholder="Ex: Maria Beatriz"></div><div class="form-row"><label class="form-lbl">E-mail de acesso</label><input id="ue" type="text" placeholder="maria@stays.com.br"></div><div class="form-row"><label class="form-lbl">Funcao inicial</label><select id="ur"><option value="analyst">Analista</option><option value="leader">Lider</option></select></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="infoNewUser()">OK, entendi</button></div></div>';}
 function mSettings(){return'<div class="modal-box"><div class="modal-title">Configuracoes</div><div class="form-row"><label class="form-lbl">Chave de API Anthropic (para Gerar com API)</label><input id="sk" type="password" value="'+e(S.apiKey)+'" placeholder="sk-ant-api03-..."></div><div class="form-row"><label class="form-lbl" style="color:var(--t3);font-weight:400;font-size:11px">A chave fica salva apenas neste navegador.</label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-primary" onclick="saveSettings()">Salvar</button></div></div>';}
 // ============================================================
 // HANDLERS
@@ -3171,7 +3252,7 @@ async function setResponsibleLeader(analystUid,newLeaderUid){
   if(newLeaderUid&&!leaderUsers().some(function(x){return x.uid===newLeaderUid;})){await loadAllUsers();render();return;}
   var _nl=newLeaderUid?S.allUsers.find(function(u){return u.uid===newLeaderUid;}):null;
   addAdminLog('leader_assigned',{targetName:_an&&_an.name,leaderName:_nl?_nl.name:'(sem líder)'});
-  var oldLeader=S.allUsers.find(function(u){return(u.role==="leader"||u.role==="admin"||u.role==="gerente")&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
+  var oldLeader=S.allUsers.find(function(u){return(u.role==="leader"||u.role==="admin")&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
   try{
     if(oldLeader&&oldLeader.uid!==newLeaderUid){
       var pulled=(oldLeader.managedUsers||[]).filter(function(id){return id!==analystUid;});
@@ -3183,7 +3264,28 @@ async function setResponsibleLeader(analystUid,newLeaderUid){
       if(pushed.indexOf(analystUid)<0)pushed=pushed.concat([analystUid]);
       await saveUserProfile(newLeaderUid,{managedUsers:pushed});
     }
-  }catch(err){alert('Não foi possível alterar o líder responsável: '+err.message);}
+  }catch(err){alert('Não foi possível alterar o supervisor responsável: '+err.message);}
+  await loadAllUsers();
+  render();
+}
+// Mesma mecanica do supervisor, um nivel acima: o gerente guarda os supervisores dele.
+async function setResponsibleGerente(supUid,newGerenteUid){
+  var sup=S.allUsers.find(function(u){return u.uid===supUid;});
+  if(!canEditUserRole(sup)){await loadAllUsers();render();return;}
+  if(newGerenteUid&&!gerenteUsers().some(function(x){return x.uid===newGerenteUid;})){await loadAllUsers();render();return;}
+  var novo=newGerenteUid?S.allUsers.find(function(u){return u.uid===newGerenteUid;}):null;
+  addAdminLog('gerente_assigned',{targetName:sup&&sup.name,leaderName:novo?novo.name:'(sem gerente)'});
+  var antigo=gerenteOfSupervisor(supUid);
+  try{
+    if(antigo&&antigo.uid!==newGerenteUid){
+      await saveUserProfile(antigo.uid,{managedUsers:(antigo.managedUsers||[]).filter(function(id){return id!==supUid;})});
+    }
+    if(newGerenteUid&&novo){
+      var lista=(novo.managedUsers||[]).slice();
+      if(lista.indexOf(supUid)<0)lista.push(supUid);
+      await saveUserProfile(newGerenteUid,{managedUsers:lista});
+    }
+  }catch(err){alert('Não foi possível alterar o gerente responsável: '+err.message);}
   await loadAllUsers();
   render();
 }
@@ -3467,7 +3569,9 @@ function lpTeamGroups(){
   var isAdminRole=S.appUser.role==='admin';
   var byA={};
   S.clients.forEach(function(c){var o=c.ownerId||"?";if(!byA[o])byA[o]=[];byA[o].push(c);});
-  var analystUids=isAdminRole?Object.keys(byA):(S.appUser.managedUsers||[]);
+  // Gerente enxerga a carteira pelos supervisores dele; supervisor, pelos analistas dele.
+  var analystUids=isAdminRole?Object.keys(byA)
+    :(S.appUser.role==='gerente'?analystsOfGerente(S.appUser.uid):(S.appUser.managedUsers||[]));
   var out={};analystUids.forEach(function(uid){if(byA[uid])out[uid]=byA[uid];});
   return out;
 }
@@ -3569,7 +3673,7 @@ function leaderQuestionsBody(mine){
       if(q.category){
         html+='<div class="alert alert-amber" style="margin-top:.75rem">Essa pergunta impacta uma categoria de score, então é sempre <strong>obrigatória</strong> e compartilhada com <strong>todos os seus analistas</strong> — pra manter o score comparável entre todo mundo. Sem opção de restringir isso aqui.</div>';
       }else{
-        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Obrigatória para os analistas? <span class="muted" style="font-weight:400">(só o líder define isso)</span></div><div class="wiz-opts" style="max-width:320px"><div class="wiz-opt'+(!draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(false)"><span class="wiz-opt-lbl">Opcional</span></div><div class="wiz-opt'+(draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(true)"><span class="wiz-opt-lbl">Obrigatória</span></div></div></div>';
+        html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Obrigatória para os analistas? <span class="muted" style="font-weight:400">(só o supervisor define isso)</span></div><div class="wiz-opts" style="max-width:320px"><div class="wiz-opt'+(!draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(false)"><span class="wiz-opt-lbl">Opcional</span></div><div class="wiz-opt'+(draft.mandatory?' sel':'')+'" onclick="leaderSetEditMandatory(true)"><span class="wiz-opt-lbl">Obrigatória</span></div></div></div>';
         if(relevantAnalysts.length){
           html+='<div style="margin-top:.75rem"><div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Compartilhar com</div>';
           relevantAnalysts.forEach(function(u){
@@ -3880,7 +3984,7 @@ function mAddUser(){
     +'<div class="form-row"><label class="form-lbl">Nome completo <span style="color:var(--rd)">*</span></label><input type="text" value="'+e(d.name)+'" placeholder="Ex: Maria Beatriz" oninput="udSet(\'name\',this.value)"></div>'
     +'<div class="form-row"><label class="form-lbl">E-mail de acesso <span style="color:var(--rd)">*</span></label><input type="text" value="'+e(d.email)+'" placeholder="maria@stays.net" oninput="udSet(\'email\',this.value)"></div>'
     +'<div class="form-row"><label class="form-lbl">Título</label><input type="text" list="user-titles" value="'+e(d.title)+'" placeholder="Ex: Analista de Sucesso do Cliente Pleno" oninput="udSet(\'title\',this.value)"><datalist id="user-titles">'+USER_TITLES.map(function(t){return'<option>'+e(t)+'</option>';}).join('')+'</datalist></div>'
-    +'<div class="form-row"><label class="form-lbl">Função</label><select onchange="udSet(\'role\',this.value)"><option value="analyst"'+(d.role==='analyst'?' selected':'')+'>Analista</option><option value="leader"'+(d.role==='leader'?' selected':'')+'>Líder</option><option value="gerente"'+(d.role==='gerente'?' selected':'')+'>Gerente</option><option value="testuser"'+(d.role==='testuser'?' selected':'')+'>Usuário teste</option></select></div>'
+    +'<div class="form-row"><label class="form-lbl">Função</label><select onchange="udSet(\'role\',this.value)"><option value="analyst"'+(d.role==='analyst'?' selected':'')+'>Analista</option><option value="leader"'+(d.role==='leader'?' selected':'')+'>Supervisor</option><option value="gerente"'+(d.role==='gerente'?' selected':'')+'>Gerente</option><option value="testuser"'+(d.role==='testuser'?' selected':'')+'>Usuário teste</option></select></div>'
     +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="createUserAccount(this)">Criar acesso</button></div></div>';
 }
 async function createUserAccount(btn){
