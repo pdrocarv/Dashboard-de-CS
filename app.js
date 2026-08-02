@@ -2321,7 +2321,27 @@ function getLastWizardFollow(c){
   return wizFollows[0]||null;
 }
 function toggleAnalyst(uid){S.expandedAnalysts=S.expandedAnalysts||{};S.expandedAnalysts[uid]=!S.expandedAnalysts[uid];render();}
-function render(){if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}var app=document.getElementById("app");if(!app)return;app.innerHTML=buildHTML();if(S.view==="client")startClocks();animateScoreNumber();syncRoute();}
+// O render redesenha a tela inteira. Se as animações de entrada rodassem em todo
+// render, cada clique piscaria a tela — que era exatamente o que acontecia.
+// Então elas só rodam quando a coisa que anima realmente mudou: a view mudou,
+// ou um modal abriu. Nos demais redesenhos a tela troca o conteúdo em silêncio.
+function render(){
+  if(S.clockInterval){clearInterval(S.clockInterval);S.clockInterval=null;}
+  var app=document.getElementById("app");if(!app)return;
+  var root=document.documentElement;
+  var viewChanged=S._lastView!==S.view;
+  var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':''));
+  S._lastView=S.view;
+  S._lastModal=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'');
+  root.classList.toggle('quiet-view',!viewChanged);
+  root.classList.toggle('quiet-modal',!modalOpened);
+  var y=window.scrollY;
+  app.innerHTML=buildHTML();
+  // Sem isso a página salta pro topo a cada clique e o usuário perde o lugar.
+  if(!viewChanged&&y)window.scrollTo(0,y);
+  if(S.view==="client")startClocks();
+  animateScoreNumber();syncRoute();
+}
 // ============================================================
 // ROTEAMENTO (URL por tela + botão voltar do navegador)
 // ============================================================
@@ -2440,7 +2460,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +'<button class="sb-item'+(S.view==="settings"?" sb-act":"")+'" onclick="goSettings()">Configurações</button>'
   +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel do líder</button>':"")
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page" style="max-width:1160px;margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="settings"?settingsView():(S.view==="leaderpanel"?leaderPanelView():(S.view==="import-clients"?clientImportView():(S.view==="import-follow"?followImportView():adminView())))))))))+"</div>"+(S.modal?modal():"")+(S.lpClientMenu?'<div class="modal-ov" onclick="if(event.target===this)lpCloseClientActions()">'+mLpClientActions()+'</div>':"")+lpToastHTML()+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page'+(S.view==="leaderpanel"?" page-wide":"")+'" style="margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="settings"?settingsView():(S.view==="leaderpanel"?leaderPanelView():(S.view==="import-clients"?clientImportView():(S.view==="import-follow"?followImportView():adminView())))))))))+"</div>"+(S.modal?modal():"")+(S.lpClientMenu?'<div class="modal-ov" onclick="if(event.target===this)lpCloseClientActions()">'+mLpClientActions()+'</div>':"")+lpToastHTML()+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
@@ -3756,7 +3776,7 @@ function lpTeamGoalRows(){
 function lpSetBand(b){S.lpBand=(S.lpBand===b?'':b);S.lpPage={};render();}
 function lpClearBand(){S.lpBand='';render();}
 function lpToggleChurnBig(){S.lpChurnBig=!S.lpChurnBig;render();}
-function lpOpenQueue(k){S.lpQueue=(S.lpQueue===k?null:k);render();}
+function lpOpenQueue(k){S.lpQueue=(!k||S.lpQueue===k)?null:k;render();}
 function lpCloseQueue(){S.lpQueue=null;render();}
 
 // ── Trilho: Score de CS do time ──
@@ -3957,9 +3977,10 @@ function lpQueueRow(it){
     +'<span class="lp-q-txt"><span class="lp-q-title">'+title+'</span><span class="lp-q-sub">'+sub+'</span></span>'
     +'<span class="lp-chev">›</span></button>';
 }
-function lpQueueDetail(it){
-  var html='<div class="lp-q-detail fade-rise">';
-  html+='<button class="lp-back press" onclick="lpCloseQueue()">← Voltar à fila</button>';
+function lpQueueDetail(it,grupo){
+  var volta=grupo?('cat:'+grupo.cat.kind):'';
+  var html='<div class="lp-q-detail">';
+  html+='<button class="lp-back press" onclick="lpOpenQueue(\''+jsq(volta)+'\')">← Voltar'+(grupo?' a '+e(grupo.cat.label.toLowerCase()):' à fila')+'</button>';
   if(it.kind==='churn'){
     var c=it.client,ci=S.clients.indexOf(c),cc=c.churnCase||{};
     html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:var(--rd50);color:var(--rd600)">'+svgIcon('alert',17)+'</span>'
@@ -4033,18 +4054,66 @@ function lpQueueDetail(it){
   html+='</div>';
   return html;
 }
-function lpQueueCard(teamClients){
+// A fila mostra CATEGORIAS, não cada caso solto: com 16 pendências a lista
+// virava uma parede. Clica na categoria, vê os casos dela; clica no caso, vê o
+// detalhe. Nunca mais de 3 categorias na tela de uma vez.
+var LP_QUEUE_CATS=[
+  {kind:'churn',label:'Alertas de churn',icon:'alert',bg:'var(--rd50)',fg:'var(--rd600)'},
+  {kind:'inad',label:'Inadimplência',icon:'invoice',bg:'var(--am50)',fg:'var(--am700)'},
+  {kind:'loop',label:'Fechamento de loop',icon:'refresh',bg:'var(--am50)',fg:'var(--am700)'},
+  {kind:'quest',label:'Perguntas para aprovar',icon:'lightbulb',bg:'var(--b50)',fg:'var(--b600)'}
+];
+var LP_QUEUE_MAX=3;
+function lpQueueGroups(teamClients){
   var items=lpQueueItems(teamClients);
-  var open=S.lpQueue?items.find(function(i){return i.key===S.lpQueue;}):null;
+  return LP_QUEUE_CATS.map(function(cat){
+    var list=items.filter(function(i){return i.kind===cat.kind;});
+    var count=cat.kind==='inad'?(list[0]?list[0].clients.length:0)
+      :(cat.kind==='quest'?(list[0]?list[0].questions.length:0):list.length);
+    var oldest=list.reduce(function(a,i){return(i.days!==null&&i.days!==undefined&&i.days>a)?i.days:a;},0);
+    return{cat:cat,items:list,count:count,oldest:oldest};
+  }).filter(function(g){return g.count>0;});
+}
+function lpQueueCard(teamClients){
+  var groups=lpQueueGroups(teamClients);
+  var total=groups.reduce(function(a,g){return a+g.count;},0);
+  var sel=String(S.lpQueue||'');
+  var openItem=null,openGroup=null;
+  if(sel.indexOf('cat:')===0){
+    openGroup=groups.find(function(g){return g.cat.kind===sel.slice(4);});
+  }else if(sel){
+    groups.forEach(function(g){var f=g.items.find(function(i){return i.key===sel;});if(f){openItem=f;openGroup=g;}});
+  }
   var html='<div class="lp-card lp-card-flush">';
   html+='<div class="lp-card-head lp-card-head-pad"><span class="lp-h">Precisa de você</span>'
-    +(items.length?'<span class="lp-badge">'+items.length+'</span>':'')+'</div>';
-  if(open){
-    html+=lpQueueDetail(open);
-  }else if(!items.length){
+    +(total?'<span class="lp-badge">'+total+'</span>':'')+'</div>';
+  if(openItem){
+    html+=lpQueueDetail(openItem,openGroup);
+  }else if(openGroup){
+    // Nível 2: os casos daquela categoria
+    html+='<div class="lp-q-detail">';
+    html+='<button class="lp-back press" onclick="lpCloseQueue()">← Voltar às categorias</button>';
+    html+='<div class="lp-d-head"><span class="lp-q-ico" style="background:'+openGroup.cat.bg+';color:'+openGroup.cat.fg+'">'+svgIcon(openGroup.cat.icon,17)+'</span>'
+      +'<div style="flex:1"><div class="lp-d-title">'+e(openGroup.cat.label)+'</div>'
+      +'<div class="lp-d-sub">'+openGroup.count+' caso'+(openGroup.count===1?'':'s')+' aguardando</div></div></div>';
+    html+='<div class="lp-q-sublist">'+openGroup.items.map(lpQueueRow).join('')+'</div>';
+    html+='</div>';
+  }else if(!groups.length){
     html+='<div class="lp-ok-row">'+svgIcon('check',15)+'<span>Nada pendente no time agora.</span></div>';
   }else{
-    html+='<div class="fade-rise">'+items.map(lpQueueRow).join('')+'</div>';
+    var shown=groups.slice(0,LP_QUEUE_MAX),rest=groups.slice(LP_QUEUE_MAX);
+    shown.forEach(function(g){
+      var soleta=g.items.length===1&&(g.cat.kind==='inad'||g.cat.kind==='quest');
+      html+='<button class="lp-q-row press" onclick="lpOpenQueue(\''+(soleta?jsq(g.items[0].key):'cat:'+g.cat.kind)+'\')">'
+        +'<span class="lp-q-ico" style="background:'+g.cat.bg+';color:'+g.cat.fg+'">'+svgIcon(g.cat.icon,15)+'</span>'
+        +'<span class="lp-q-txt"><span class="lp-q-title">'+e(g.cat.label)+'</span>'
+        +'<span class="lp-q-sub">'+g.count+' caso'+(g.count===1?'':'s')+(g.oldest?' · mais antigo '+lpAgoLabel(g.oldest):'')+'</span></span>'
+        +'<span class="lp-q-count" style="background:'+g.cat.bg+';color:'+g.cat.fg+'">'+g.count+'</span>'
+        +'<span class="lp-chev">›</span></button>';
+    });
+    if(rest.length){
+      html+='<div class="lp-q-more">+ '+rest.map(function(g){return g.count+' '+g.cat.label.toLowerCase();}).join(' · ')+'</div>';
+    }
     if(!teamClients.some(isInadimplente))html+='<div class="lp-ok-row">'+svgIcon('check',15)+'<span>Nenhum inadimplente</span></div>';
   }
   html+='</div>';

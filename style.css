@@ -687,3 +687,24 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-cli-pg{display:flex;align-items:center;justify-content:center;gap:10px;padding:9px;border-top:1px solid var(--bd)}
 .lp-cli-wrap{padding:0 14px 14px}
 .lp-a-card .lp-cli-wrap{padding:14px 15px;background:var(--surf2);border-top:1px solid var(--bd)}
+/* Redesenho silencioso: quando a view não mudou, nada re-anima na entrada.
+   Sem isto o innerHTML recriado a cada clique fazia a tela inteira piscar. */
+.quiet-view .page,.quiet-view .fade-rise,.quiet-view .fade-in,
+.quiet-view .lp-spark-bar,.quiet-view .lp-big-bar,.quiet-view .lp-big-line,
+.quiet-view .lp-q-detail{animation:none!important}
+.quiet-modal .modal-ov,.quiet-modal .modal-box,.quiet-modal .dd-menu,.quiet-modal .lp-pop{animation:none!important}
+/* O painel do líder usa a tela toda: é uma tela de leitura em reunião, com
+   muito número lado a lado. As demais mantêm largura de leitura confortável. */
+.page.page-wide{max-width:none}
+.page-wide .lp-grid{grid-template-columns:360px minmax(0,1fr);gap:20px}
+.page-wide .lp-spark{height:110px}
+.page-wide .lp-a-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+@media(min-width:1700px){.page-wide .lp-grid{grid-template-columns:400px minmax(0,1fr)}}
+/* A tabela nunca deve sobrepor coluna: se não couber, ela rola dentro do card. */
+.lp-cli{overflow-x:auto}
+.lp-cli-hd,.lp-cli-r{grid-template-columns:minmax(200px,1.6fr) 96px 108px 104px 104px minmax(110px,.9fr) 116px;min-width:900px}
+.lp-q-count{min-width:20px;height:20px;padding:0 6px;border-radius:9999px;font-size:11px;font-weight:700;line-height:20px;text-align:center;flex:none}
+.lp-q-more{padding:9px 17px;font-size:10.5px;color:var(--t3);border-top:1px solid var(--bd)}
+.lp-q-sublist{border:1px solid var(--bd);border-radius:10px;overflow:hidden;max-height:340px;overflow-y:auto}
+.lp-q-sublist .lp-q-row{padding:11px 13px}
+.lp-q-sublist .lp-q-row:last-child{border-bottom:0}
