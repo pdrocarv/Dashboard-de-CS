@@ -25,8 +25,38 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',cat:'',action:''},profileMenuOpen:false,userDraft:null,profileDraft:null,newUserCreds:null,busyMsg:'',impClients:null,lpClientMenu:null,lpToast:''};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
-const PROTECTED_ADMIN_EMAILS=['pedro.ferreira@stays.net','pdroc.ferreira@gmail.com'];
+// pedro.ferreira@stays.net e o admin master: ninguem muda a funcao dele, nem ele mesmo.
+// pdroc.ferreira@gmail.com e a conta de teste do dono: so o master mexe nela.
+const MASTER_ADMIN_EMAIL='pedro.ferreira@stays.net';
+const OWNER_TEST_EMAIL='pdroc.ferreira@gmail.com';
+const PROTECTED_ADMIN_EMAILS=[MASTER_ADMIN_EMAIL,OWNER_TEST_EMAIL];
 function isProtectedAdmin(u){return u&&PROTECTED_ADMIN_EMAILS.indexOf((u.email||'').toLowerCase())>=0;}
+function isMasterAdmin(u){return!!u&&(u.email||'').toLowerCase()===MASTER_ADMIN_EMAIL;}
+function iAmMasterAdmin(){return isMasterAdmin(S.appUser);}
+// Funcao, lider responsavel e senha do usuario
+function canEditUserRole(target){
+  if(!target||!S.appUser)return false;
+  if(isMasterAdmin(target))return false;
+  if(isProtectedAdmin(target))return iAmMasterAdmin();
+  if(target.uid===S.appUser.uid)return false;
+  return['admin','gerente'].indexOf(S.appUser.role)>=0;
+}
+// Nome, titulo e foto — o proprio usuario sempre pode; admin/gerente podem nos demais
+function canEditUserProfile(target){
+  if(!target||!S.appUser)return false;
+  if(target.uid===S.appUser.uid)return true;
+  if(isProtectedAdmin(target))return iAmMasterAdmin();
+  return['admin','gerente'].indexOf(S.appUser.role)>=0;
+}
+// Regra geral do sistema: seletor de uma funcao lista SO quem tem aquela funcao.
+// Usuario teste e pendente nunca aparecem como opcao em lugar nenhum.
+function usersWithRole(){
+  var roles=[].slice.call(arguments);
+  return(S.allUsers||[]).filter(function(u){return roles.indexOf(u.role)>=0;})
+    .sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+}
+function leaderUsers(){return usersWithRole('leader','admin');}
+function gerenteUsers(){return usersWithRole('gerente');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
 auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
   if(fbUser&&!emailPermitido(fbUser.email)){
@@ -2389,7 +2419,7 @@ var mrrTotal=all.reduce(function(acc,c){return acc+(parseFloat(c.mrr)||0);},0);
 var countries=[...new Set(all.map(function(c){return getListingCountry(c);}).filter(Boolean))].sort();
 var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(S.filterPlan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");
 var mrrOpts='<option value=""'+(S.sortMrr===""?" selected":"")+'>Ordenar por MRR</option><option value="desc"'+(S.sortMrr==="desc"?" selected":"")+'>MRR: maior primeiro</option><option value="asc"'+(S.sortMrr==="asc"?" selected":"")+'>MRR: menor primeiro</option>';
-var hasActiveFilter=!!(S.filterCountry||S.filterRisk||S.filterPlan||S.filterFollowUp||S.sortMrr||S.filterAnalyst||S.filterStatus||S.filterCategoria||S.filterAlertStatus);var filters='<div style="margin-top:1rem">'+'<div class="flex" style="gap:8px;margin-bottom:6px">'+'<button class="ver-filtros-btn'+(S.showFilters?' active':'')+'" onclick="S.showFilters=!S.showFilters;render()">'+'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>'+(S.showFilters?'Ocultar filtros':'Ver filtros')+'</button>'+(hasActiveFilter?'<span style="font-size:11px;color:var(--b600);font-weight:600;background:var(--b50);padding:3px 8px;border-radius:9999px">'+[S.filterCountry,S.filterRisk,S.filterPlan,S.filterFollowUp,S.filterStatus,S.filterCategoria].filter(Boolean).length+' ativo(s)</span>':'')+(hasActiveFilter?'<button class="btn btn-sm" onclick="S.filterCountry=S.filterRisk=S.filterPlan=S.filterFollowUp=S.sortMrr=S.filterAnalyst=S.filterStatus=S.filterCategoria=S.filterAlertStatus=\'\';render()">Limpar tudo</button>':'')+'</div>'+'<div class="filter-panel'+(S.showFilters?' fp-open':'')+'">'+'<div class="flex" style="flex-wrap:wrap;gap:8px;padding:10px 0">'+'<select style="width:auto" onchange="S.filterCountry=this.value;render()"><option value="">Todos os paises</option>'+countries.map(function(c){return'<option'+(S.filterCountry===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+'<select style="width:auto" onchange="S.filterCategoria=this.value;render()"><option value="">Todas as categorias</option><option value="elite"'+(S.filterCategoria==="elite"?' selected':'')+'>Elite</option><option value="gold"'+(S.filterCategoria==="gold"?' selected':'')+'>Gold / High Value</option><option value="silver"'+(S.filterCategoria==="silver"?' selected':'')+'>Silver / Core A-B</option><option value="bronze"'+(S.filterCategoria==="bronze"?' selected':'')+'>Bronze / Pareto</option></select>'+'<select style="width:auto" onchange="S.filterAlertStatus=this.value;render()"><option value="">Status: todos</option><option value="ativo"'+(S.filterAlertStatus==="ativo"?' selected':'')+'>Ativos</option><option value="churn"'+(S.filterAlertStatus==="churn"?' selected':'')+'>Alerta de Churn</option><option value="inadimplente"'+(S.filterAlertStatus==="inadimplente"?' selected':'')+'>Inadimplentes</option><option value="recuperacao"'+(S.filterAlertStatus==="recuperacao"?' selected':'')+'>Em recuperação</option></select>'+'<select style="width:auto" onchange="S.filterStatus=this.value;render()"><option value="">Onboarding: todos</option><option value="Em andamento"'+(S.filterStatus==="Em andamento"?' selected':'')+'>Em andamento</option><option value="Completed"'+(S.filterStatus==="Completed"?' selected':'')+'>Completed</option></select>'+'<select style="width:auto" onchange="S.filterFollowUp=this.value;render()"><option value="">Follow-up: todos</option><option value="overdue"'+(S.filterFollowUp==="overdue"?' selected':'')+'>Atrasado</option><option value="soon"'+(S.filterFollowUp==="soon"?' selected':'')+'>Proximos 15d</option></select>'+'<select style="width:auto" onchange="S.filterPlan=this.value;render()"><option value="">Todos os planos</option>'+pOpts+'</select>'+'<select style="width:auto" onchange="S.filterRisk=this.value;render()"><option value="">Todos os riscos</option><option value="risk"'+(S.filterRisk==="risk"?' selected':'')+'>Alto risco</option><option value="warn"'+(S.filterRisk==="warn"?' selected':'')+'>Atencao</option><option value="ok"'+(S.filterRisk==="ok"?' selected':'')+'>Estaveis</option></select>'+'<select style="width:auto" onchange="S.sortMrr=this.value;render()">'+mrrOpts+'</select>'+(S.appUser.role==="admin"||S.appUser.role==="leader"?'+'+'<select style="width:auto" onchange="S.filterAnalyst=this.value;render()"><option value="">Todos os analistas</option>'+S.allUsers.filter(function(u){return u.role==="analyst"||u.role==="admin";}).map(function(u){return'<option value="'+u.uid+'"'+(S.filterAnalyst===u.uid?' selected':'')+'>'+e(u.name.split(' ')[0])+'</option>';}).join('')+'</select>':"")+'</div></div></div>'+'</div>';
+var hasActiveFilter=!!(S.filterCountry||S.filterRisk||S.filterPlan||S.filterFollowUp||S.sortMrr||S.filterAnalyst||S.filterStatus||S.filterCategoria||S.filterAlertStatus);var filters='<div style="margin-top:1rem">'+'<div class="flex" style="gap:8px;margin-bottom:6px">'+'<button class="ver-filtros-btn'+(S.showFilters?' active':'')+'" onclick="S.showFilters=!S.showFilters;render()">'+'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>'+(S.showFilters?'Ocultar filtros':'Ver filtros')+'</button>'+(hasActiveFilter?'<span style="font-size:11px;color:var(--b600);font-weight:600;background:var(--b50);padding:3px 8px;border-radius:9999px">'+[S.filterCountry,S.filterRisk,S.filterPlan,S.filterFollowUp,S.filterStatus,S.filterCategoria].filter(Boolean).length+' ativo(s)</span>':'')+(hasActiveFilter?'<button class="btn btn-sm" onclick="S.filterCountry=S.filterRisk=S.filterPlan=S.filterFollowUp=S.sortMrr=S.filterAnalyst=S.filterStatus=S.filterCategoria=S.filterAlertStatus=\'\';render()">Limpar tudo</button>':'')+'</div>'+'<div class="filter-panel'+(S.showFilters?' fp-open':'')+'">'+'<div class="flex" style="flex-wrap:wrap;gap:8px;padding:10px 0">'+'<select style="width:auto" onchange="S.filterCountry=this.value;render()"><option value="">Todos os paises</option>'+countries.map(function(c){return'<option'+(S.filterCountry===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+'<select style="width:auto" onchange="S.filterCategoria=this.value;render()"><option value="">Todas as categorias</option><option value="elite"'+(S.filterCategoria==="elite"?' selected':'')+'>Elite</option><option value="gold"'+(S.filterCategoria==="gold"?' selected':'')+'>Gold / High Value</option><option value="silver"'+(S.filterCategoria==="silver"?' selected':'')+'>Silver / Core A-B</option><option value="bronze"'+(S.filterCategoria==="bronze"?' selected':'')+'>Bronze / Pareto</option></select>'+'<select style="width:auto" onchange="S.filterAlertStatus=this.value;render()"><option value="">Status: todos</option><option value="ativo"'+(S.filterAlertStatus==="ativo"?' selected':'')+'>Ativos</option><option value="churn"'+(S.filterAlertStatus==="churn"?' selected':'')+'>Alerta de Churn</option><option value="inadimplente"'+(S.filterAlertStatus==="inadimplente"?' selected':'')+'>Inadimplentes</option><option value="recuperacao"'+(S.filterAlertStatus==="recuperacao"?' selected':'')+'>Em recuperação</option></select>'+'<select style="width:auto" onchange="S.filterStatus=this.value;render()"><option value="">Onboarding: todos</option><option value="Em andamento"'+(S.filterStatus==="Em andamento"?' selected':'')+'>Em andamento</option><option value="Completed"'+(S.filterStatus==="Completed"?' selected':'')+'>Completed</option></select>'+'<select style="width:auto" onchange="S.filterFollowUp=this.value;render()"><option value="">Follow-up: todos</option><option value="overdue"'+(S.filterFollowUp==="overdue"?' selected':'')+'>Atrasado</option><option value="soon"'+(S.filterFollowUp==="soon"?' selected':'')+'>Proximos 15d</option></select>'+'<select style="width:auto" onchange="S.filterPlan=this.value;render()"><option value="">Todos os planos</option>'+pOpts+'</select>'+'<select style="width:auto" onchange="S.filterRisk=this.value;render()"><option value="">Todos os riscos</option><option value="risk"'+(S.filterRisk==="risk"?' selected':'')+'>Alto risco</option><option value="warn"'+(S.filterRisk==="warn"?' selected':'')+'>Atencao</option><option value="ok"'+(S.filterRisk==="ok"?' selected':'')+'>Estaveis</option></select>'+'<select style="width:auto" onchange="S.sortMrr=this.value;render()">'+mrrOpts+'</select>'+(S.appUser.role==="admin"||S.appUser.role==="leader"?'+'+'<select style="width:auto" onchange="S.filterAnalyst=this.value;render()"><option value="">Todos os analistas</option>'+analystUsers().map(function(u){return'<option value="'+u.uid+'"'+(S.filterAnalyst===u.uid?' selected':'')+'>'+e(String(u.name||'').split(' ')[0])+'</option>';}).join('')+'</select>':"")+'</div></div></div>'+'</div>';
 var tbl=filt.length===0?'<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><p style="color:var(--t2);margin-bottom:1.5rem">Nenhum cliente encontrado.</p><button class="btn-primary" onclick="openM(\'add-client\')">+ Primeiro cliente</button></div>'
 :'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th title="Dias sem o cliente logar no sistema">Inatividade</th><th>Lem.</th><th></th></tr></thead><tbody>'
 +filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td>'+(h==="risk"?'<span style="display:inline-block;border-left:3px solid #dc2626;background:#fde8e8;padding:1px 8px;border-radius:4px">':'<span>')+'<button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px;color:'+hC+'">'+e((c.slug||c.name).toUpperCase())+'</button></span><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+(clientHasPending(c)?' <span class="pend-badge" style="cursor:pointer" title="Resolver pendências de follow-ups importados" onclick="resolvePendencies('+ci+')">'+svgIcon('alert',11)+' '+clientPendingCount(c)+' pendente(s)</span>':'')+'</td><td>'+hB+'<div class="hrow" style="margin-top:6px"><div class="htrack" style="height:9px"><div class="hfill score-bar-live" data-score="'+score+'" data-ci="'+ci+'" style="width:'+score+'%;background:'+hC+'"></div></div><span class="score-num-live" data-score="'+score+'" data-ci="'+ci+'" style="font-size:18px;font-weight:700;color:'+hC+';min-width:28px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td>'+inactivityHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">'+svgIcon('clipboard',14)+'</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">'+svgIcon('notification',14)+'</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">'+svgIcon('document',14)+' Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">'+svgIcon('trash',13)+' Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
@@ -2473,7 +2503,7 @@ var ACTIONS={
   user_approved:{cat:'acessos',label:'aprovou o acesso de'},
   user_created:{cat:'acessos',label:'criou o acesso de'},
   user_password_reset:{cat:'acessos',label:'enviou redefinição de senha para'},
-  profile_updated:{cat:'acessos',label:'atualizou o próprio perfil'},
+  profile_updated:{cat:'acessos',label:'atualizou o perfil de'},
   user_role_changed:{cat:'acessos',label:'alterou a função de'},
   leader_assigned:{cat:'acessos',label:'definiu o líder responsável de'},
   client_deleted:{cat:'exclusoes',label:'excluiu o cliente'},
@@ -2700,24 +2730,31 @@ function adminView(){
     var users=byRole[role];if(!users.length)return;
     html+='<div class="section-hdr"><span>'+roleLabel[role]+' ('+users.length+')</span></div><div class="card" style="padding:0">';
     users.forEach(function(u){
-      var protectedUser=isProtectedAdmin(u);
+      var canRole=canEditUserRole(u),canProf=canEditUserProfile(u);
       var mn=(u.managedUsers||[]).map(function(uid){var found=S.allUsers.find(function(x){return x.uid===uid;});return found?found.name.split(" ")[0]:"?";}).join(", ");
-      var respLeader=role==="analyst"?S.allUsers.find(function(x){return(x.role==="leader"||x.role==="admin"||x.role==="gerente")&&(x.managedUsers||[]).indexOf(u.uid)>=0;}):null;
-      var leaderOpts=role==="analyst"?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+S.allUsers.filter(function(x){return x.role==="leader"||x.role==="admin"||x.role==="gerente";}).map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>':'';
+      // Líder responsável: só lista quem tem a função Líder (e o Admin, por enquanto).
+      var respLeader=role==="analyst"?S.allUsers.find(function(x){return(x.managedUsers||[]).indexOf(u.uid)>=0&&(x.role==="leader"||x.role==="admin");}):null;
+      var leaderOpts='';
+      if(role==="analyst"){
+        var lds=leaderUsers();
+        leaderOpts=canRole
+          ?'<select class="narrow" onchange="setResponsibleLeader(\''+u.uid+'\',this.value)" title="Lider responsavel"><option value="">Sem lider atribuido</option>'+lds.map(function(ld){return'<option value="'+ld.uid+'"'+(respLeader&&respLeader.uid===ld.uid?' selected':'')+'>'+e(ld.name)+'</option>';}).join('')+'</select>'
+          :'<span class="muted" style="font-size:11px">'+(respLeader?e(respLeader.name):'Sem líder')+'</span>';
+      }
       var roleSelect;
-      if(protectedUser&&!isTrueAdmin){
-        roleSelect='';
-      }else if(u.uid!==S.appUser.uid){
+      if(!canRole){
+        roleSelect=u.uid===S.appUser.uid?'<span class="muted" style="font-size:11px">Você</span>'
+          :(isMasterAdmin(u)?'<span class="muted" style="font-size:11px" title="Conta de administrador principal do sistema">Admin master</span>':'');
+      }else{
         var opts='<option value="pending"'+(u.role==="pending"?" selected":"")+'>Pendente</option><option value="analyst"'+(u.role==="analyst"?" selected":"")+'>Analista</option><option value="leader"'+(u.role==="leader"?" selected":"")+'>Lider</option><option value="gerente"'+(u.role==="gerente"?" selected":"")+'>Gerente</option>';
         if(isTrueAdmin)opts+='<option value="admin"'+(u.role==="admin"?" selected":"")+'>Admin</option>';
         else if(u.role==="admin")opts='<option value="admin" selected>Admin</option>'+opts;
         opts+='<option value="testuser"'+(u.role==="testuser"?" selected":"")+'>Usuario teste</option>';
         roleSelect='<select class="narrow" onchange="changeRole(\''+u.uid+'\',this.value)" title="Alterar funcao">'+opts+'</select>';
-      }else{
-        roleSelect='<span class="muted" style="font-size:11px">Voce</span>';
       }
-      var pwBtn=(protectedUser&&!isTrueAdmin)?'':'<button class="btn btn-sm" title="Enviar e-mail de redefinição de senha" onclick="resetUserPassword(\''+u.uid+'\')">Nova senha</button>';
-      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(u.title?'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+e(u.title)+'</div>':"")+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+pwBtn+leaderOpts+roleSelect+'</div>';
+      var editBtn=canProf?'<button class="btn btn-sm" title="Editar nome, título e foto" onclick="openUserProfileEditor(\''+u.uid+'\')">Editar</button>':'';
+      var pwBtn=canRole?'<button class="btn btn-sm" title="Enviar e-mail de redefinição de senha" onclick="resetUserPassword(\''+u.uid+'\')">Nova senha</button>':'';
+      html+='<div class="user-row"><div class="user-avatar">'+(u.photo?'<img src="'+e(u.photo)+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':(u.name||"?")[0].toUpperCase())+'</div><div style="flex:1"><div style="font-weight:500">'+e(u.name)+'</div><div class="muted">'+e(u.email)+'</div>'+(u.title?'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+e(u.title)+'</div>':"")+(mn?'<div style="font-size:11px;color:var(--t3);margin-top:1px">Gerencia: '+e(mn)+'</div>':"")+'</div>'+editBtn+pwBtn+leaderOpts+roleSelect+'</div>';
     });
     html+='</div>';
   });
@@ -2993,10 +3030,7 @@ function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entr
 function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
 // Carteira de cliente é só de quem tem a função Analista. Gerente, líder e usuário
 // teste não aparecem como responsável em lugar nenhum.
-function analystUsers(){
-  return(S.allUsers||[]).filter(function(u){return u.role==='analyst';})
-    .sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
-}
+function analystUsers(){return usersWithRole('analyst');}
 function analystOptionsHTML(selected,placeholder){
   var list=analystUsers();
   var opts='<option value="">'+e(placeholder||'— selecionar analista —')+'</option>';
@@ -3119,8 +3153,9 @@ function delKeyContact(ci,i){if(!confirm("Remover este contato-chave?"))return;S
 function saveSettings(){S.apiKey=document.getElementById("sk").value.trim();localStorage.setItem("stays_api_key",S.apiKey);closeM();}
 async function changeRole(uid,role){
   var target=S.allUsers.find(function(u){return u.uid===uid;});
+  // A UI já esconde o seletor, mas a regra tem que valer aqui também.
+  if(!canEditUserRole(target)){await loadAllUsers();render();return;}
   if(S.appUser.role!=='admin'){
-    if(isProtectedAdmin(target)){await loadAllUsers();render();return;}
     if(role==='admin'||(target&&target.role==='admin')){alert('Só o administrador pode definir ou alterar contas de Admin.');await loadAllUsers();render();return;}
   }
   var oldRole=target&&target.role;
@@ -3131,6 +3166,9 @@ async function changeRole(uid,role){
 }
 async function setResponsibleLeader(analystUid,newLeaderUid){
   var _an=S.allUsers.find(function(u){return u.uid===analystUid;});
+  if(!canEditUserRole(_an)){await loadAllUsers();render();return;}
+  // Só quem tem a função Líder (ou Admin) pode ser líder responsável.
+  if(newLeaderUid&&!leaderUsers().some(function(x){return x.uid===newLeaderUid;})){await loadAllUsers();render();return;}
   var _nl=newLeaderUid?S.allUsers.find(function(u){return u.uid===newLeaderUid;}):null;
   addAdminLog('leader_assigned',{targetName:_an&&_an.name,leaderName:_nl?_nl.name:'(sem líder)'});
   var oldLeader=S.allUsers.find(function(u){return(u.role==="leader"||u.role==="admin"||u.role==="gerente")&&(u.managedUsers||[]).indexOf(analystUid)>=0;});
@@ -3903,7 +3941,7 @@ function copyCreds(btn){var c=S.newUserCreds||{};copyFeedback(btn,'Acesso ao Das
 function closeUserCreated(){S.newUserCreds=null;closeM();}
 async function resetUserPassword(uid){
   var u=S.allUsers.find(function(x){return x.uid===uid;});if(!u)return;
-  if(isProtectedAdmin(u)&&S.appUser.role!=='admin')return;
+  if(!canEditUserRole(u))return;
   if(!confirm('Enviar e-mail de redefinição de senha para '+u.email+'?\n\nO próprio usuário escolhe a nova senha pelo link recebido.'))return;
   try{
     await auth.sendPasswordResetEmail(u.email);
@@ -3919,7 +3957,15 @@ function avatarHTML(u,size){
   if(u&&u.photo)return'<img src="'+e(u.photo)+'" style="width:'+s+'px;height:'+s+'px;border-radius:50%;object-fit:cover;display:block" referrerpolicy="no-referrer">';
   return'<span class="pf-initial" style="width:'+s+'px;height:'+s+'px;font-size:'+Math.round(s*.42)+'px">'+e(((u&&u.name)||'?')[0].toUpperCase())+'</span>';
 }
-function openProfile(){S.profileMenuOpen=false;S.profileDraft={name:S.appUser.name||'',title:S.appUser.title||'',photo:S.appUser.photo||''};openM('profile');}
+function openProfile(){S.profileMenuOpen=false;openUserProfileEditor(S.appUser.uid);}
+// Mesmo editor serve pro proprio perfil e pro perfil de outro usuario (admin/gerente).
+function openUserProfileEditor(uidVal){
+  var u=uidVal===S.appUser.uid?S.appUser:(S.allUsers||[]).find(function(x){return x.uid===uidVal;});
+  if(!u||!canEditUserProfile(u))return;
+  S.profileMenuOpen=false;
+  S.profileDraft={uid:u.uid,email:u.email||'',isSelf:u.uid===S.appUser.uid,name:u.name||'',title:u.title||'',photo:u.photo||''};
+  openM('profile');
+}
 function pdSet(field,val){if(S.profileDraft)S.profileDraft[field]=val;}
 async function pdPickPhoto(input){
   var file=input&&input.files&&input.files[0];if(!file)return;
@@ -3927,33 +3973,37 @@ async function pdPickPhoto(input){
   catch(err){alert(err.message);}
 }
 function mProfile(){
-  var d=S.profileDraft||{name:'',title:'',photo:''};
+  var d=S.profileDraft||{name:'',title:'',photo:'',isSelf:true,email:''};
   var av=d.photo?'<img src="'+d.photo+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover">':'<div class="pf-ph" style="width:64px;height:64px;font-size:24px">'+e((d.name||'?')[0].toUpperCase())+'</div>';
-  return'<div class="modal-box" style="max-width:440px"><div class="modal-title">Meu perfil</div>'
+  return'<div class="modal-box" style="max-width:440px"><div class="modal-title">'+(d.isSelf?'Meu perfil':'Editar perfil')+'</div>'
+    +(d.isSelf?'':'<div class="import-tip">Você está editando o perfil de outro usuário. Só nome, título e foto — a função e o líder responsável continuam na lista de Gestão.</div>')
     +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+av
     +'<div><label class="btn btn-sm" style="cursor:pointer;display:inline-block">Trocar foto<input type="file" accept="image/*" style="display:none" onchange="pdPickPhoto(this)"></label>'
     +(d.photo?'<button class="btn btn-sm" style="margin-left:6px" onclick="pdSet(\'photo\',\'\');render()">Remover</button>':'')
     +'</div></div>'
     +'<div class="form-row"><label class="form-lbl">Nome <span style="color:var(--rd)">*</span></label><input type="text" value="'+e(d.name)+'" oninput="pdSet(\'name\',this.value)"></div>'
     +'<div class="form-row"><label class="form-lbl">Título</label><input type="text" list="user-titles" value="'+e(d.title)+'" placeholder="Ex: Analista de Sucesso do Cliente Pleno" oninput="pdSet(\'title\',this.value)"><datalist id="user-titles">'+USER_TITLES.map(function(t){return'<option>'+e(t)+'</option>';}).join('')+'</datalist></div>'
-    +'<div class="form-row"><label class="form-lbl">E-mail</label><input type="text" value="'+e(S.appUser.email||'')+'" disabled></div>'
+    +'<div class="form-row"><label class="form-lbl">E-mail</label><input type="text" value="'+e(d.email||'')+'" disabled></div>'
     +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveProfile(this)">Salvar</button></div></div>';
 }
 async function saveProfile(btn){
   var d=S.profileDraft;if(!d)return;
-  var name=(d.name||'').trim();
-  if(!name){alert('Informe seu nome.');return;}
+  var targetUid=d.uid||S.appUser.uid;
+  var target=targetUid===S.appUser.uid?S.appUser:(S.allUsers||[]).find(function(x){return x.uid===targetUid;});
+  if(!canEditUserProfile(target)){alert('Você não pode editar o perfil deste usuário.');return;}
+  var name=(d.name||'').trim(),title=(d.title||'').trim();
+  if(!name){alert('Informe o nome.');return;}
   if(btn){btn.disabled=true;btn.textContent='Salvando...';}
   try{
     var photo=d.photo||'';
     // Salva já com a foto embutida; o Storage é tentado depois, em segundo plano.
-    await withTimeout(saveUserProfile(S.appUser.uid,{name:name,title:(d.title||'').trim(),photo:photo}),20000,'salvar o perfil');
-    S.appUser.name=name;S.appUser.title=(d.title||'').trim();S.appUser.photo=photo;
-    var me=(S.allUsers||[]).find(function(u){return u.uid===S.appUser.uid;});
-    if(me){me.name=S.appUser.name;me.title=S.appUser.title;me.photo=S.appUser.photo;}
-    addAdminLog('profile_updated',{targetName:name});
+    await withTimeout(saveUserProfile(targetUid,{name:name,title:title,photo:photo}),20000,'salvar o perfil');
+    if(targetUid===S.appUser.uid){S.appUser.name=name;S.appUser.title=title;S.appUser.photo=photo;}
+    var row=(S.allUsers||[]).find(function(u){return u.uid===targetUid;});
+    if(row){row.name=name;row.title=title;row.photo=photo;}
+    addAdminLog('profile_updated',{targetName:name,self:targetUid===S.appUser.uid});
     S.profileDraft=null;S.modal=null;showSaved();
-    upgradeAvatarToStorage(S.appUser.uid,photo);
+    upgradeAvatarToStorage(targetUid,photo);
   }catch(err){alert('Não foi possível salvar o perfil: '+err.message);if(btn){btn.disabled=false;btn.textContent='Salvar';}}
 }
 // ============================================================
