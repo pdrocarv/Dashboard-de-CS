@@ -2332,7 +2332,9 @@ function render(){
   var viewChanged=S._lastView!==S.view;
   var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':''));
   S._lastView=S.view;
-  S._lastModal=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'');
+  var mkNow=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'');
+  if(mkNow!==S._lastModal)S.modalDirty=false; // abriu/trocou de modal: nada mexido ainda
+  S._lastModal=mkNow;
   root.classList.toggle('quiet-view',!viewChanged);
   root.classList.toggle('quiet-modal',!modalOpened);
   var y=window.scrollY;
@@ -2900,7 +2902,7 @@ function mChurnHistory(ci){
   return '<div class="modal-box" style="max-width:520px"><div class="modal-title">'+svgIcon('history',16)+' Histórico de churn — '+e(c.slug||c.name)+'</div>'
     +'<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">Alertas de churn que já foram retidos (recuperados ou resolvidos).</div>'
     +rows
-    +'<div class="flex" style="justify-content:flex-end;margin-top:1rem"><button class="btn" onclick="closeM()">Fechar</button></div></div>';
+    +'<div class="flex" style="justify-content:flex-end;margin-top:1rem"><button class="btn" onclick="closeMSoft()">Fechar</button></div></div>';
 }
 function mChurnAlert(ci){
 var c=S.clients[ci];
@@ -2950,7 +2952,7 @@ if(existing){
     +'</button>'
     +'</div>'
     +'<div class="modal-ftr" style="justify-content:flex-end">'
-    +'<button class="btn" onclick="S.churnEditMode=false;closeM()">Fechar</button>'
+    +'<button class="btn" onclick="S.churnEditMode=false;closeMSoft()">Fechar</button>'
     +'</div>'
     +'</div>';
 }
@@ -2961,7 +2963,7 @@ return'<div class="modal-box" style="max-width:460px">'
   +'<div class="form-row"><label class="form-lbl">Número do caso <span style="color:var(--rd)">*</span></label><input id="cc-num" type="text" placeholder="Ex: CASO-1234"></div>'
   +'<div class="form-row"><label class="form-lbl">Link do Salesforce</label><input id="cc-link" type="text" placeholder="https://stays.salesforce.com/..."></div>'
   +'<div class="form-row"><label class="form-lbl">Anotação</label><textarea id="cc-note" rows="3" placeholder="Descreva o motivo do alerta..."></textarea></div>'
-  +'<div class="modal-ftr" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-churn" onclick="saveChurnAlert('+ci+')">'+svgIcon('alert',14)+' Confirmar Alerta de Churn</button></div>'
+  +'<div class="modal-ftr" style="justify-content:flex-end"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-churn" onclick="saveChurnAlert('+ci+')">'+svgIcon('alert',14)+' Confirmar Alerta de Churn</button></div>'
   +'</div>';}
 
 function saveChurnCaseEdit(ci){
@@ -3136,12 +3138,12 @@ function addAdminLog(action,data){var d=Object.assign({},data||{});if(!d.by)d.by
 function logClient(c){return{clientId:c&&c.id,clientName:c&&(c.slug||c.name)};}
 
 function saveChurnAlert(ci){var num=document.getElementById('cc-num').value.trim();if(!num){alert('Informe o número do caso.');return;}if(!confirm('Marcar '+S.clients[ci].name+' como Alerta de Churn? Isso ficará visível para todos os analistas.'))return;S.clients[ci].churnCase={active:true,caseNumber:num,sfLink:document.getElementById('cc-link').value.trim(),note:document.getElementById('cc-note').value.trim(),date:new Date().toLocaleDateString('pt-BR'),createdBy:S.appUser.uid,createdAt:Date.now()};saveClient(S.clients[ci]);addAdminLog('churn_opened',Object.assign(logClient(S.clients[ci]),{caseNumber:num}));closeM();render();}
-function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-close press" onclick="closeMSoft()">Fechar</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
+function mInadimplencia(ci){var c=S.clients[ci];var months=c.inadimplencia||[];var pendingMonths=months.filter(function(m){return!m.paid;});var paidMonths=months.filter(function(m){return m.paid;});var monthsHtml=pendingMonths.map(function(m,i){var realIdx=months.indexOf(m);return'<div class="inad-month-row"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+e(m.month)+'/'+e(m.year)+'</div>'+(m.amount?'<div style="font-size:11px;color:var(--t3)">Valor: '+e(m.amount)+'</div>':'')+(m.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+e(m.note)+'</div>':'')+'</div><button class="btn btn-sm" style="background:#e8f5ec;color:#145f27;border-color:#1f943c" onclick="markMonthPaid('+ci+','+realIdx+')">'+svgIcon('check',12)+' Marcar como pago</button></div>';}).join('');var paidHtml=paidMonths.length>0?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Histórico pago</div>'+paidMonths.map(function(m){return'<div class="inad-month-row paid"><span>'+e(m.month)+'/'+e(m.year)+'</span><span style="font-size:11px;color:var(--t3)">Pago em '+e(m.paidAt||'—')+'</span></div>';}).join('')+'</div>':'';return'<div class="modal-box" style="max-width:480px"><div class="modal-hdr"><h2 class="modal-title">Inadimplência — '+e((c.slug||c.name).toUpperCase())+'</h2><button class="modal-close press" onclick="closeMSoft()">Fechar</button></div>'+(monthsHtml||'<p class="muted" style="text-align:center;padding:1rem 0">Nenhuma fatura em aberto.</p>')+paidHtml+'<div style="border-top:1px solid var(--bd);margin-top:14px;padding-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:10px">Adicionar fatura em aberto</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-row"><label class="form-lbl">Mês <span style="color:var(--rd)">*</span></label><select id="ii-month"><option value="">Selecionar...</option>'+'Janeiro,Fevereiro,Março,Abril,Maio,Junho,Julho,Agosto,Setembro,Outubro,Novembro,Dezembro'.split(',').map(function(m,i){return'<option value="'+m+'">'+m+'</option>';}).join('')+'</select></div><div class="form-row"><label class="form-lbl">Ano <span style="color:var(--rd)">*</span></label><select id="ii-year"><option value="">Selecionar...</option>'+(function(){var o='';for(var y=2023;y<=2027;y++)o+='<option value="'+y+'"'+(y===new Date().getFullYear()?' selected':'')+'>'+y+'</option>';return o;})()+'</select></div></div><div class="form-row"><label class="form-lbl">Valor (opcional)</label><input id="ii-amount" type="text" placeholder="Ex: $ 1.500"></div><div class="form-row"><label class="form-lbl">Motivo (opcional)</label><textarea id="ii-note" rows="2" placeholder="Por que o cliente ficou inadimplente?"></textarea></div></div><div class="modal-ftr"><button class="btn" onclick="closeMSoft()">Fechar</button><button class="btn-inadim" onclick="saveInadimplencia('+ci+')">Adicionar fatura</button></div></div>';}
 function saveInadimplencia(ci){var month=document.getElementById('ii-month').value;var year=document.getElementById('ii-year').value;if(!month||!year){alert('Selecione mês e ano.');return;}if(!confirm('Registrar fatura de '+month+'/'+year+' como inadimplente para '+S.clients[ci].name+'?'))return;if(!S.clients[ci].inadimplencia)S.clients[ci].inadimplencia=[];S.clients[ci].inadimplencia.push({id:uid(),month:month,year:year,amount:document.getElementById('ii-amount').value.trim(),note:document.getElementById('ii-note').value.trim(),paid:false,paidAt:null,createdAt:Date.now()});saveClient(S.clients[ci]);addAdminLog('inadimplencia_added',Object.assign(logClient(S.clients[ci]),{month:month,year:year}));S.modal='inad-'+ci;render();}
 function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confirm('Confirmar pagamento da fatura de '+m.month+'/'+m.year+'? Isso será salvo no histórico.'))return;S.clients[ci].inadimplencia[idx].paid=true;S.clients[ci].inadimplencia[idx].paidAt=new Date().toLocaleDateString('pt-BR');S.clients[ci].inadimplencia[idx].paidAtTs=Date.now();saveClient(S.clients[ci]);addAdminLog('inadimplencia_paid',Object.assign(logClient(S.clients[ci]),{month:m.month,year:m.year}));S.modal='inad-'+ci;render();}
 
-function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="overlayBackdropClick(event,this)">'+inner+'</div>';}
-function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
+function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="overlayBackdropClick(event,this)" oninput="markModalDirty()" onchange="markModalDirty()">'+inner+'</div>';}
+function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
 // Lider/gerente/admin escolhem de quem é o cliente; analista só cria pra si.
 function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
 // Carteira de cliente é só de quem tem a função Analista. Gerente, líder e usuário
@@ -3159,10 +3161,10 @@ function newClientOwnerRow(){
   return'<div class="form-row"><label class="form-lbl">Analista responsável <span style="color:#ce1e5a">*</span></label><select id="mown">'+analystOptionsHTML('')+'</select></div>';
 }
 function openLeaderNewClient(){if(!confirmDiscardIfDirty())return;openM('add-client');}
-function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(c.plan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(x){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(x);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Editar cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="en" type="text" value="'+e(c.name)+'"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS)</label><input id="eslug" type="text" value="'+e(c.slug||"")+'" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="ec"><option value="">Selecionar...</option>'+countries.map(function(x){return'<option'+(c.country===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="eu" type="number" min="1" value="'+e(c.units||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="epl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="emrr" type="text" inputmode="decimal" value="'+e(c.mrr!==undefined&&c.mrr!==null&&c.mrr!==""?String(c.mrr).replace(".",","):"")+'"></div><div class="form-row"><label class="form-lbl">Dias sem atividade <span style="color:var(--t3);font-weight:400;font-size:11px">(cliente sem logar)</span></label><input id="edia" type="number" min="0" placeholder="ex: 12" value="'+e(c.daysInactive||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="ecl"><option value="">Selecionar...</option>'+allCountries.map(function(x){return'<option'+(c.clientCountry===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="ecly" type="text" value="'+e(c.clientCity||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="ecat"><option value="">Selecionar...</option><option value="elite"'+(c.categoria==='elite'?' selected':'')+'>Elite</option><option value="gold"'+(c.categoria==='gold'?' selected':'')+'>'+(isHispano(c)?'High Value':'Gold')+'</option><option value="silver"'+(c.categoria==='silver'?' selected':'')+'>'+(isHispano(c)?'Core A-B':'Silver')+'</option><option value="bronze"'+(c.categoria==='bronze'?' selected':'')+'>'+(isHispano(c)?'Pareto':'Bronze')+'</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="est"><option value="">Selecionar...</option><option value="Em andamento"'+(c.onboardingStatus==='Em andamento'?' selected':'')+'>Em andamento</option><option value="Completed"'+(c.onboardingStatus==='Completed'?' selected':'')+'>Completed</option></select></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveEditClient()">Salvar</button></div></div>';}
-function mContact(){return'<div class="modal-box"><div class="modal-title">Registrar contato externo</div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ct"><option value="meeting">Reuniao</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="churn">Alerta de Churn</option></select></div><div class="form-row"><label class="form-lbl">Data</label><input id="cd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Impacto</label><select id="ci"><option value="positive">Positivo</option><option value="neutral">Neutro</option><option value="negative">Negativo</option></select></div><div class="form-row"><label class="form-lbl">Resumo do contato</label><textarea id="cs" style="height:110px;resize:vertical" placeholder="O que foi discutido? Qual o resultado?"></textarea></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveContact()">Salvar</button></div></div>';}
-function mAddKeyContact(){var c=S.clients[S.sel];if(c.keyContacts&&c.keyContacts.length>=5)return'<div class="modal-box"><div class="modal-title">Limite atingido</div><p style="margin-bottom:1.5rem">Maximo de 5 contatos-chave por cliente.</p><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="closeM()">Fechar</button></div></div>';return'<div class="modal-box"><div class="modal-title">Adicionar contato-chave</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="kn" type="text" placeholder="Ex: Juan Carlos Rodriguez"></div><div class="form-row"><label class="form-lbl">Funcao / cargo</label><input id="kr" type="text" placeholder="Ex: CEO, Gerente, Dono"></div><div class="grid2"><div class="form-row"><label class="form-lbl">Telefone / WhatsApp</label><input id="kp" type="text" placeholder="+1 555 000 0000"></div><div class="form-row"><label class="form-lbl">E-mail</label><input id="ke" type="text" placeholder="email@cliente.com"></div></div><div class="form-row" style="margin-top:4px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer"><input id="kresp" type="checkbox" style="width:16px;height:16px;cursor:pointer"> Responsável pela conta <span style="color:var(--t3);font-size:11px">(usado para personalizar mensagens)</span></label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="saveKeyContact()">Salvar</button></div></div>';}
-function mSettings(){return'<div class="modal-box"><div class="modal-title">Configuracoes</div><div class="form-row"><label class="form-lbl">Chave de API Anthropic (para Gerar com API)</label><input id="sk" type="password" value="'+e(S.apiKey)+'" placeholder="sk-ant-api03-..."></div><div class="form-row"><label class="form-lbl" style="color:var(--t3);font-weight:400;font-size:11px">A chave fica salva apenas neste navegador.</label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Fechar</button><button class="btn-primary" onclick="saveSettings()">Salvar</button></div></div>';}
+function mEditClient(){var c=S.clients[S.sel];var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(c.plan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(x){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(x);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Editar cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="en" type="text" value="'+e(c.name)+'"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS)</label><input id="eslug" type="text" value="'+e(c.slug||"")+'" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="ec"><option value="">Selecionar...</option>'+countries.map(function(x){return'<option'+(c.country===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="eu" type="number" min="1" value="'+e(c.units||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="epl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="emrr" type="text" inputmode="decimal" value="'+e(c.mrr!==undefined&&c.mrr!==null&&c.mrr!==""?String(c.mrr).replace(".",","):"")+'"></div><div class="form-row"><label class="form-lbl">Dias sem atividade <span style="color:var(--t3);font-weight:400;font-size:11px">(cliente sem logar)</span></label><input id="edia" type="number" min="0" placeholder="ex: 12" value="'+e(c.daysInactive||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="ecl"><option value="">Selecionar...</option>'+allCountries.map(function(x){return'<option'+(c.clientCountry===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="ecly" type="text" value="'+e(c.clientCity||"")+'"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="ecat"><option value="">Selecionar...</option><option value="elite"'+(c.categoria==='elite'?' selected':'')+'>Elite</option><option value="gold"'+(c.categoria==='gold'?' selected':'')+'>'+(isHispano(c)?'High Value':'Gold')+'</option><option value="silver"'+(c.categoria==='silver'?' selected':'')+'>'+(isHispano(c)?'Core A-B':'Silver')+'</option><option value="bronze"'+(c.categoria==='bronze'?' selected':'')+'>'+(isHispano(c)?'Pareto':'Bronze')+'</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="est"><option value="">Selecionar...</option><option value="Em andamento"'+(c.onboardingStatus==='Em andamento'?' selected':'')+'>Em andamento</option><option value="Completed"'+(c.onboardingStatus==='Completed'?' selected':'')+'>Completed</option></select></div></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-save" onclick="saveEditClient()">Salvar</button></div></div>';}
+function mContact(){return'<div class="modal-box"><div class="modal-title">Registrar contato externo</div><div class="form-row"><label class="form-lbl">Tipo</label><select id="ct"><option value="meeting">Reuniao</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="churn">Alerta de Churn</option></select></div><div class="form-row"><label class="form-lbl">Data</label><input id="cd" type="date" value="'+new Date().toISOString().split("T")[0]+'"></div><div class="form-row"><label class="form-lbl">Impacto</label><select id="ci"><option value="positive">Positivo</option><option value="neutral">Neutro</option><option value="negative">Negativo</option></select></div><div class="form-row"><label class="form-lbl">Resumo do contato</label><textarea id="cs" style="height:110px;resize:vertical" placeholder="O que foi discutido? Qual o resultado?"></textarea></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-primary" onclick="saveContact()">Salvar</button></div></div>';}
+function mAddKeyContact(){var c=S.clients[S.sel];if(c.keyContacts&&c.keyContacts.length>=5)return'<div class="modal-box"><div class="modal-title">Limite atingido</div><p style="margin-bottom:1.5rem">Maximo de 5 contatos-chave por cliente.</p><div class="flex" style="justify-content:flex-end"><button class="btn" onclick="closeMSoft()">Fechar</button></div></div>';return'<div class="modal-box"><div class="modal-title">Adicionar contato-chave</div><div class="form-row"><label class="form-lbl">Nome completo</label><input id="kn" type="text" placeholder="Ex: Juan Carlos Rodriguez"></div><div class="form-row"><label class="form-lbl">Funcao / cargo</label><input id="kr" type="text" placeholder="Ex: CEO, Gerente, Dono"></div><div class="grid2"><div class="form-row"><label class="form-lbl">Telefone / WhatsApp</label><input id="kp" type="text" placeholder="+1 555 000 0000"></div><div class="form-row"><label class="form-lbl">E-mail</label><input id="ke" type="text" placeholder="email@cliente.com"></div></div><div class="form-row" style="margin-top:4px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer"><input id="kresp" type="checkbox" style="width:16px;height:16px;cursor:pointer"> Responsável pela conta <span style="color:var(--t3);font-size:11px">(usado para personalizar mensagens)</span></label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-primary" onclick="saveKeyContact()">Salvar</button></div></div>';}
+function mSettings(){return'<div class="modal-box"><div class="modal-title">Configuracoes</div><div class="form-row"><label class="form-lbl">Chave de API Anthropic (para Gerar com API)</label><input id="sk" type="password" value="'+e(S.apiKey)+'" placeholder="sk-ant-api03-..."></div><div class="form-row"><label class="form-lbl" style="color:var(--t3);font-weight:400;font-size:11px">A chave fica salva apenas neste navegador.</label></div><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeMSoft()">Fechar</button><button class="btn-primary" onclick="saveSettings()">Salvar</button></div></div>';}
 // ============================================================
 // HANDLERS
 // ============================================================
@@ -3178,8 +3180,11 @@ function selectSettingsSub(sub){if(!confirmDiscardIfDirty())return;S.settingsSub
 function initWizOrderDraft(){S.wizOrderDraft={first:getWizOrder('first'),recurring:getWizOrder('recurring')};S.wizOrderDirty=false;S.wizOrderTab='first';}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
 function openFollow(fi){S.editFollow=null;S.editFollowDirty=false;S.selFollow=fi;S.view="follow-view";S.genText="";S.importMsg="";render();}
-function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);render();}
+function openM(n,arg){S.modal=n;S.modalArg=(arg!==undefined?arg:null);S.modalDirty=false;render();}
 function closeM(){S.modal=null;S.churnEditMode=false;render();}
+// Marca que o usuário mexeu em algo dentro do modal. Sem isso, o "fechar sem
+// salvar?" apareceria mesmo quando nada foi alterado.
+function markModalDirty(){S.modalDirty=true;}
 function toggleCitiesPanel(){S.citiesOpen=!S.citiesOpen;render();}
 
 function addClient(){
@@ -3643,7 +3648,25 @@ function lpPageSizeControl(){
     +(open?'<div class="lp-pop" style="left:50%;transform:translateX(-50%);min-width:120px">'+options.map(function(n){return'<div style="padding:6px 14px;cursor:pointer;font-size:13px;text-align:center;'+(n===cur?'font-weight:700;color:var(--b600)':'')+'" onclick="lpSetPageSize(\''+mode+'\','+n+')">'+n+'</div>';}).join('')+'</div>':'')
     +'</div></div>';
 }
-function lpTogglePop(type){S.lpOpenPop=(S.lpOpenPop===type)?null:type;render();}
+function lpTogglePop(type){
+  var willOpen=S.lpOpenPop!==type;
+  S.lpOpenPop=willOpen?type:null;
+  if(willOpen&&type==='period')S.lpPeriodDraft=null;
+  render();
+  if(willOpen)lpArmOutsideClose();
+}
+// Fecha o popover ao clicar em qualquer lugar fora dele. Captura na fase de
+// captura pra funcionar mesmo com o stopPropagation que o conteúdo interno usa.
+function lpArmOutsideClose(){
+  setTimeout(function(){
+    function h(ev){
+      if(S.lpOpenPop&&ev.target.closest&&ev.target.closest('.lp-pop'))return; // clique dentro: mantém aberto
+      document.removeEventListener('click',h,true);
+      if(S.lpOpenPop){S.lpOpenPop=null;render();}
+    }
+    document.addEventListener('click',h,true);
+  },0);
+}
 function lpClosePop(){S.lpOpenPop=null;render();}
 function lpToggleFilterVal(type,val){var arr=S.lpFilters[type];var i=arr.indexOf(val);if(i>=0)arr.splice(i,1);else arr.push(val);render();}
 function lpClearFilter(type){S.lpFilters[type]=[];if(type==='country')S.lpFilters.city=[];render();}
@@ -3755,7 +3778,9 @@ function lpPeriodRange(){
   var iso=function(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;};
   if(p.key==='custom'&&p.from&&p.to){
     var dias=Math.max(1,Math.round((new Date(p.to)-new Date(p.from))/86400000));
-    return{fromISO:p.from,toISO:p.to,days:dias,label:formatDate(p.from)+' a '+formatDate(p.to)};
+    // Ano com 2 dígitos pra caber bonito na pílula: 01/07/25 – 31/08/26
+    var curto=function(iso){var x=formatDate(iso);return x.slice(0,6)+x.slice(8);};
+    return{fromISO:p.from,toISO:p.to,days:dias,label:curto(p.from)+' – '+curto(p.to),labelLong:formatDate(p.from)+' a '+formatDate(p.to)};
   }
   var d=lpPeriodDef();
   var to=new Date();
@@ -3890,8 +3915,8 @@ function lpChurnBigOverlay(teamClients){
   var maxC=Math.max(1,Math.max.apply(null,data.map(function(d){return d.clients;})));
   var step=(W-padL-padR)/Math.max(1,data.length);
   var bw=Math.min(52,step*.52);
-  var bars='',labels='',line='',dots='';
-  var pts=[];
+  var bars='',labels='',line='',dots='',hover='';
+  var pts=[];var tips=[];
   data.forEach(function(d,i){
     var cx=padL+step*i+step/2;
     var h=(d.clients/maxC)*(H-padT-padB);
@@ -3899,7 +3924,11 @@ function lpChurnBigOverlay(teamClients){
     labels+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+e(lpMonthLabel(d.month))+'</text>';
     var s=series[i]&&series[i].score;
     if(s!==null&&s!==undefined){var y=padT+(1-s/100)*(H-padT-padB);pts.push([cx,y,s]);}
+    tips.push('<b>'+e(lpMonthLabel(d.month))+'</b>'+d.clients+' cliente'+(d.clients===1?'':'s')+' perdido'+(d.clients===1?'':'s')+'<br>'+formatMRR(d.mrr)+' de MRR'+(s!==null&&s!==undefined?'<br>Score do time: '+s:''));
+    // Faixa transparente da coluna inteira: hover em qualquer altura mostra a legenda.
+    hover+='<rect x="'+(padL+step*i)+'" y="'+padT+'" width="'+step+'" height="'+(H-padT-padB)+'" fill="transparent" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
   });
+  window._lpTipRows=tips;
   if(pts.length>1){
     line='<polyline points="'+pts.map(function(p){return p[0]+','+p[1];}).join(' ')+'" fill="none" stroke="var(--b600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
     pts.forEach(function(p){dots+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--b600)" stroke-width="2.5"/>';});
@@ -3923,18 +3952,21 @@ function lpChurnBigOverlay(teamClients){
   // Três leituras da mesma coisa: quantos saíram, quanto isso custou e quem perdeu.
   var modo=S.lpChurnMode||'mes';
   html+='<div class="lp-chart-bar"><div class="lp-seg">'
-    +'<button class="'+(modo==='mes'?'on':'')+'" onclick="lpSetChurnMode(\'mes\')">Por mês</button>'
+    +'<button class="'+(modo==='mes'?'on':'')+'" onclick="lpSetChurnMode(\'mes\')">Clientes</button>'
     +'<button class="'+(modo==='mrr'?'on':'')+'" onclick="lpSetChurnMode(\'mrr\')">MRR perdido</button>'
     +'<button class="'+(modo==='analista'?'on':'')+'" onclick="lpSetChurnMode(\'analista\')">Por analista</button></div>'
     +'<button class="btn btn-sm press" onclick="lpExportChurn()">'+svgIcon('share',13)+' Exportar</button></div>';
+  // Container animado: a cada troca de tipo o gráfico entra deslizando.
+  html+='<div class="lp-chart-swap" data-mode="'+modo+'"><div class="lp-chart-host">';
   if(modo==='mes'){
     html+='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos</span><span><i class="ln" style="background:var(--b600)"></i>Score médio</span></div>';
-    html+='<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+'</svg></div>';
+    html+='<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+hover+'</svg></div>';
   }else if(modo==='mrr'){
     html+=lpChartMrr(data,W,H,padL,padR,padT,padB);
   }else{
     html+=lpChartPorAnalista(data);
   }
+  html+='<div id="lp-tip" class="lp-tip"></div></div></div>';
   html+='<div class="lp-big-foot">';
   html+='<div class="lp-kv"><span>Total perdido no histórico</span><strong>'+totC+' cliente'+(totC===1?'':'s')+' · '+formatMRR(totM)+'</strong></div>';
   if(trend!==null)html+='<div class="lp-kv"><span>Score do time no histórico</span><strong style="color:'+(trend>=0?'var(--gn600)':'var(--rd600)')+'">'+(trend>=0?'+':'')+trend+' pts</strong></div>';
@@ -4310,6 +4342,8 @@ function leaderVisaoGeral(){
   var totalA=Object.keys(groups).length;
   var viewMode=S.lpViewMode==='cards'?'cards':'list';
   var catLabels={elite:'Elite',gold:'Gold / High Value',silver:'Silver / Core A-B',bronze:'Bronze / Pareto'};
+  // Todo o bloco "Time" dentro de um card branco, igual aos outros tópicos.
+  html+='<div class="lp-team-card">';
   // Tudo alinhado à esquerda, na mesma coluna da lista — nada escapa pro lado.
   html+='<div class="lp-main-head"><span class="lp-h2">Time</span>'
     +'<span class="lp-sub">'+rows.length+' de '+totalA+' analista'+(totalA===1?'':'s')+'</span></div>';
@@ -4343,6 +4377,7 @@ function leaderVisaoGeral(){
       +'<span>Analista</span><span>Score</span><span>No período</span><span>Meta follow</span><span>Sem contato</span><span>Alertas</span></div>'
       +rows.map(lpAnalystListHTML).join('')+'</div>'+lpPageSizeControl();
   }
+  html+='</div>';
   html+='</section>';
   html+='<aside class="lp-side2">'+lpQueueCard(teamClients)+lpCoverageCard(teamClients)+'</aside>';
   html+='</div>';
@@ -4443,7 +4478,7 @@ function mAddUser(){
     +'<div class="form-row"><label class="form-lbl">E-mail de acesso <span style="color:var(--rd)">*</span></label><input type="text" value="'+e(d.email)+'" placeholder="maria@stays.net" oninput="udSet(\'email\',this.value)"></div>'
     +'<div class="form-row"><label class="form-lbl">Título</label><input type="text" list="user-titles" value="'+e(d.title)+'" placeholder="Ex: Analista de Sucesso do Cliente Pleno" oninput="udSet(\'title\',this.value)"><datalist id="user-titles">'+USER_TITLES.map(function(t){return'<option>'+e(t)+'</option>';}).join('')+'</datalist></div>'
     +'<div class="form-row"><label class="form-lbl">Função</label><select onchange="udSet(\'role\',this.value)"><option value="analyst"'+(d.role==='analyst'?' selected':'')+'>Analista</option><option value="leader"'+(d.role==='leader'?' selected':'')+'>Supervisor</option><option value="gerente"'+(d.role==='gerente'?' selected':'')+'>Gerente</option><option value="testuser"'+(d.role==='testuser'?' selected':'')+'>Usuário teste</option></select></div>'
-    +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-primary" onclick="createUserAccount(this)">Criar acesso</button></div></div>';
+    +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-primary" onclick="createUserAccount(this)">Criar acesso</button></div></div>';
 }
 async function createUserAccount(btn){
   var d=S.userDraft||{};
@@ -4546,7 +4581,7 @@ function mProfile(){
     +'<div class="form-row"><label class="form-lbl">Nome <span style="color:var(--rd)">*</span></label><input type="text" value="'+e(d.name)+'" oninput="pdSet(\'name\',this.value)"></div>'
     +'<div class="form-row"><label class="form-lbl">Título</label><input type="text" list="user-titles" value="'+e(d.title)+'" placeholder="Ex: Analista de Sucesso do Cliente Pleno" oninput="pdSet(\'title\',this.value)"><datalist id="user-titles">'+USER_TITLES.map(function(t){return'<option>'+e(t)+'</option>';}).join('')+'</datalist></div>'
     +'<div class="form-row"><label class="form-lbl">E-mail</label><input type="text" value="'+e(d.email||'')+'" disabled></div>'
-    +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn-save" onclick="saveProfile(this)">Salvar</button></div></div>';
+    +'<div class="flex" style="justify-content:flex-end;gap:8px;margin-top:1.25rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-save" onclick="saveProfile(this)">Salvar</button></div></div>';
 }
 async function saveProfile(btn){
   var d=S.profileDraft;if(!d)return;
@@ -4564,7 +4599,9 @@ async function saveProfile(btn){
     var row=(S.allUsers||[]).find(function(u){return u.uid===targetUid;});
     if(row){row.name=name;row.title=title;row.photo=photo;}
     addAdminLog('profile_updated',{targetName:name,self:targetUid===S.appUser.uid});
-    S.profileDraft=null;S.modal=null;showSaved();
+    // Fecha animado (igual às outras janelas) e só então mostra o "Salvo".
+    S.modalDirty=false;S.profileDraft=null;S.savedMsg=true;
+    dismissOverlay(function(){S.modal=null;render();setTimeout(function(){S.savedMsg=false;render();},2500);});
     upgradeAvatarToStorage(targetUid,photo);
   }catch(err){alert('Não foi possível salvar o perfil: '+err.message);if(btn){btn.disabled=false;btn.textContent='Salvar';}}
 }
@@ -5636,6 +5673,7 @@ function dismissOverlay(fn){
 // seria fácil perder o que acabou de digitar num clique errado.
 var MODAIS_COM_FORM=['add-client','edit-client','add-user','profile','add-contact','add-key-contact','settings','churn-alert'];
 function modalPedeConfirmacao(){
+  if(!S.modalDirty)return false; // nada mexido, nada a perder
   var m=S.modal||'';
   if(MODAIS_COM_FORM.indexOf(m)>=0)return true;
   if(m.indexOf('inad-')===0)return true;
@@ -5791,8 +5829,15 @@ function lpChartMrr(data,W,H,padL,padR,padT,padB){
   var poly='<polyline points="'+linha+'" fill="none" stroke="var(--rd600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
   var dots=pts.map(function(p){return'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--rd600)" stroke-width="2.5"><title>'+e(lpMonthLabel(p[2].month))+': '+formatMRR(p[2].mrr)+'</title></circle>';}).join('');
   var pior=data.slice().sort(function(a,b){return b.mrr-a.mrr;})[0];
+  var colStep=(W-padL-padR)/Math.max(1,data.length);
+  var hover='',tips=[];
+  pts.forEach(function(p,i){
+    tips.push('<b>'+e(lpMonthLabel(p[2].month))+'</b>'+formatMRR(p[2].mrr)+' de MRR perdido<br>'+p[2].clients+' cliente'+(p[2].clients===1?'':'s'));
+    hover+='<rect x="'+(padL+colStep*i)+'" y="'+padT+'" width="'+colStep+'" height="'+(H-padT-padB)+'" fill="transparent" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
+  });
+  window._lpTipRows=tips;
   return'<div class="lp-legend"><span><i style="background:var(--rd600)"></i>MRR perdido por mês</span></div>'
-    +'<div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+area+poly+dots+labels+'</svg></div>'
+    +'<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+area+poly+dots+labels+hover+'</svg></div>'
     +(pior?'<div class="lp-note" style="margin-top:6px">Pior mês: '+e(lpMonthLabel(pior.month))+' com '+formatMRR(pior.mrr)+' perdidos em '+pior.clients+' cliente'+(pior.clients===1?'':'s')+'.</div>':'');
 }
 // Ranking por analista: quem concentra a perda. Ordena pelo total do histórico.
@@ -5805,18 +5850,36 @@ function lpChartPorAnalista(data){
   }).filter(function(r){return r.cli>0||r.mrr>0;}).sort(function(x,y){return y.cli-x.cli;});
   if(!rows.length)return'<div class="lp-empty-box">Sem churn registrado para os analistas deste time no histórico.</div>';
   var maxC=Math.max.apply(null,rows.map(function(r){return r.cli;}))||1;
+  var totC0=rows.reduce(function(a,r){return a+r.cli;},0)||1;
+  var tips=[];
   var html='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos no histórico</span></div>';
   html+='<div class="lp-hbars">';
   rows.forEach(function(r,i){
-    html+='<div class="lp-hbar-row">'
+    tips.push('<b>'+e(r.name)+'</b>'+r.cli+' cliente'+(r.cli===1?'':'s')+' perdido'+(r.cli===1?'':'s')+'<br>'+formatMRR(r.mrr)+' de MRR<br>'+Math.round(r.cli/totC0*100)+'% do churn do time');
+    html+='<div class="lp-hbar-row" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()">'
       +'<span class="lp-hbar-name">'+e(r.name)+'</span>'
       +'<span class="lp-hbar-track"><i class="lp-hbar-fill" style="width:'+(r.cli/maxC*100)+'%;animation-delay:'+(i*55)+'ms"></i></span>'
       +'<span class="lp-hbar-val">'+r.cli+'</span>'
       +'<span class="lp-hbar-mrr">'+formatMRR(r.mrr)+'</span></div>';
   });
+  window._lpTipRows=tips;
   html+='</div>';
   var top=rows[0];
   var totC=rows.reduce(function(a,r){return a+r.cli;},0);
   html+='<div class="lp-note" style="margin-top:8px">'+e(top.name)+' concentra '+Math.round(top.cli/totC*100)+'% dos clientes perdidos no período.</div>';
   return html;
 }
+// ── Tooltip do gráfico expandido ──
+// Guarda o texto de cada coluna/ponto no render e mostra ao passar o mouse.
+// Segue o cursor dentro do próprio gráfico, sem depender do tooltip nativo (lento e feio).
+function lpTip(ev,idx){
+  var t=document.getElementById('lp-tip');if(!t)return;
+  var rows=(window._lpTipRows||[]);var d=rows[idx];if(!d)return;
+  t.innerHTML=d;t.style.display='block';
+  var host=t.parentElement.getBoundingClientRect();
+  var x=ev.clientX-host.left,y=ev.clientY-host.top;
+  var w=t.offsetWidth||160;
+  t.style.left=Math.max(4,Math.min(x-w/2,host.width-w-4))+'px';
+  t.style.top=Math.max(4,y-t.offsetHeight-12)+'px';
+}
+function lpTipHide(){var t=document.getElementById('lp-tip');if(t)t.style.display='none';}

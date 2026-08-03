@@ -756,3 +756,25 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-hbar-mrr{font-size:11.5px;color:var(--t3);text-align:right}
 /* Cabeçalho de modal com botão Fechar */
 .modal-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+
+/* ── Ajustes: card do Time, popover do período, pílula, gráfico, tooltip ── */
+.lp-team-card{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;box-shadow:var(--sh)}
+.lp-team-card .lp-l-table{border:0;box-shadow:none;border-radius:0}
+.lp-team-card .lp-l-hdr{border-radius:0}
+.lp-team-card .lp-a-grid{margin-top:2px}
+/* Popover do período: sem barrinha de rolagem, um pouco mais largo */
+.lp-pop.glass{max-height:none;overflow:visible;min-width:264px;padding:6px}
+.lp-pop-dates input{width:100%;box-sizing:border-box}
+/* Pílula do período aceita duas linhas sem esmagar (data personalizada longa) */
+.lp-pill{height:auto;min-height:24px;padding:4px 10px;line-height:1.35;white-space:nowrap;gap:3px}
+.lp-card-head{align-items:flex-start;flex-wrap:wrap;row-gap:8px}
+.lp-head-tools{flex-wrap:wrap;justify-content:flex-end}
+/* Troca de tipo de gráfico com deslize suave (fora do quiet-view de propósito) */
+.lp-chart-host{position:relative}
+.lp-chart-swap{animation:chart-swap 460ms var(--e-out) both}
+@keyframes chart-swap{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* Tooltip do gráfico */
+.lp-tip{position:absolute;z-index:5;display:none;pointer-events:none;background:var(--stays-petrol);color:#fff;font-size:11.5px;line-height:1.5;padding:7px 10px;border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.28);max-width:200px;white-space:nowrap}
+.lp-tip b{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.75;margin-bottom:2px}
+.lp-hbar-row{cursor:default;border-radius:8px;padding:2px 4px;transition:background var(--t-hover) var(--e-hover)}
+.lp-hbar-row:hover{background:var(--surf2)}
