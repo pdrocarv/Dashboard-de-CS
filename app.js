@@ -3759,40 +3759,102 @@ function leaderQuestionsBody(mine){
 // Periodo: o score do time e calculado no fim do intervalo escolhido, e a
 // tendencia compara com o inicio dele. "Ultimos 7 dias" numa reuniao semanal,
 // "ultimo mes" no fechamento, "ultimo ano" na reuniao anual.
+// ── Seletor de período reutilizável ──
+// Cada card tem o seu (o score é um, a cobertura é outro): mudar o período de um
+// não mexe no outro. Todos usam este mesmo mecanismo, então o comportamento e o
+// visual são iguais em qualquer calendário do dashboard.
 var LP_PERIODS=[
+  {key:'mes',label:'Mês atual',mes:true},
   {key:'7d',label:'Últimos 7 dias',days:7},
   {key:'30d',label:'Último mês',days:30},
   {key:'12m',label:'Último ano',days:365}
 ];
-function lpPeriod(){
-  if(!S.lpPeriod)S.lpPeriod={key:'30d'};
-  return S.lpPeriod;
+var PERIOD_DEFAULTS={score:'30d',cov:'mes'};
+function periodState(id){
+  if(!S.periods)S.periods={};
+  if(!S.periods[id])S.periods[id]={key:PERIOD_DEFAULTS[id]||'30d'};
+  return S.periods[id];
 }
-function lpPeriodDef(){
-  var p=lpPeriod();
-  return LP_PERIODS.find(function(x){return x.key===p.key;})||LP_PERIODS[1];
+function periodDef(id){
+  var p=periodState(id);
+  return LP_PERIODS.find(function(x){return x.key===p.key;})||LP_PERIODS[2];
 }
-function lpSetPeriod(k){S.lpPeriod={key:k};S.lpOpenPop=null;render();}
-function lpPeriodRange(){
-  var p=lpPeriod();
-  var iso=function(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;};
+function isoDate(x){var m=x.getMonth()+1,dd=x.getDate();return x.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;}
+function periodRange(id){
+  var p=periodState(id);
   if(p.key==='custom'&&p.from&&p.to){
     var dias=Math.max(1,Math.round((new Date(p.to)-new Date(p.from))/86400000));
-    // Ano com 2 dígitos pra caber bonito na pílula: 01/07/25 – 31/08/26
-    var curto=function(iso){var x=formatDate(iso);return x.slice(0,6)+x.slice(8);};
+    var curto=function(v){var x=formatDate(v);return x.slice(0,6)+x.slice(8);};
     return{fromISO:p.from,toISO:p.to,days:dias,label:curto(p.from)+' – '+curto(p.to),labelLong:formatDate(p.from)+' a '+formatDate(p.to)};
   }
-  var d=lpPeriodDef();
+  var d=periodDef(id);
   var to=new Date();
+  if(d.mes){
+    var ini=new Date(to.getFullYear(),to.getMonth(),1);
+    return{fromISO:isoDate(ini),toISO:isoDate(to),days:Math.round((to-ini)/86400000)+1,label:d.label};
+  }
   var from=new Date(to.getTime()-d.days*86400000);
-  return{fromISO:iso(from),toISO:iso(to),days:d.days,label:d.label};
+  return{fromISO:isoDate(from),toISO:isoDate(to),days:d.days,label:d.label};
 }
-// Meses cobertos pelo periodo, pro grafico de churn e pras metas da planilha.
-function lpPeriodMonths(){
-  var r=lpPeriodRange();
+function periodMonths(id){
+  var r=periodRange(id);
   var fromM=r.fromISO.slice(0,7),toM=r.toISO.slice(0,7);
   return TEAM_MONTHS.filter(function(m){return m>=fromM&&m<=toM;});
 }
+function setPeriodPreset(id,k){periodState(id);S.periods[id]={key:k};S.lpOpenPop=null;S.periodDraft=null;render();}
+// O rascunho já nasce com as datas que aparecem na tela. Sem isso, clicar em
+// "Aplicar" sem tocar nos campos falhava dizendo que nada foi escolhido.
+function periodDraft(id){
+  var r=periodRange(id);
+  var d=(S.periodDraft&&S.periodDraft.id===id)?S.periodDraft:null;
+  return{from:(d&&d.from)||r.fromISO,to:(d&&d.to)||r.toISO};
+}
+function setPeriodDraftPart(id,field,val){
+  if(!S.periodDraft||S.periodDraft.id!==id){var b=periodDraft(id);S.periodDraft={id:id,from:b.from,to:b.to};}
+  S.periodDraft[field]=val;
+  // Só redesenha quando a data está completa, senão o campo perde o foco no
+  // meio da digitação do ano.
+  var ok=function(v){return v&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&+v.slice(0,4)>=1000;};
+  if(ok(S.periodDraft.from)&&ok(S.periodDraft.to))render();
+}
+function applyCustomPeriod(id){
+  var d=periodDraft(id);
+  if(!d.from||!d.to){alert('Escolha a data inicial e a final.');return;}
+  if(d.from>d.to){alert('A data inicial precisa ser anterior à final.');return;}
+  periodState(id);
+  S.periods[id]={key:'custom',from:d.from,to:d.to};
+  S.periodDraft=null;S.lpOpenPop=null;render();
+}
+// Pílula + popover. A pílula tem largura fixa pra não empurrar nada quando o
+// rótulo muda de "Último mês" pra uma data longa.
+function periodPickerHTML(id,popKey){
+  var r=periodRange(id);
+  var open=S.lpOpenPop===popKey;
+  var d=periodDraft(id);
+  var html='<div class="lp-cal-wrap">';
+  html+='<button class="lp-pill lp-cal-pill press'+(periodState(id).key==='custom'?' on':'')+'" onclick="lpTogglePop(\''+popKey+'\')" title="'+e(r.labelLong||r.label)+'">'
+    +svgIcon('calendar',13)+'<span class="lp-cal-lbl">'+e(r.label)+'</span><span class="lp-cal-caret">▾</span></button>';
+  if(open){
+    html+='<div class="lp-pop lp-cal-pop glass" onclick="event.stopPropagation()">';
+    LP_PERIODS.forEach(function(p){
+      html+='<button class="lp-pop-item'+(periodState(id).key===p.key?' on':'')+'" onclick="setPeriodPreset(\''+id+'\',\''+p.key+'\')">'+e(p.label)+'</button>';
+    });
+    html+='<div class="lp-pop-sep">Período personalizado</div>';
+    html+='<div class="lp-cal-dates">'
+      +'<label><span>De</span><input type="date" value="'+e(d.from)+'" oninput="setPeriodDraftPart(\''+id+'\',\'from\',this.value)"></label>'
+      +'<label><span>Até</span><input type="date" value="'+e(d.to)+'" oninput="setPeriodDraftPart(\''+id+'\',\'to\',this.value)"></label></div>';
+    html+='<button class="lp-pop-apply press" onclick="applyCustomPeriod(\''+id+'\')">Aplicar período</button>';
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+// Compatibilidade: o resto do painel continua chamando estes nomes.
+function lpPeriod(){return periodState('score');}
+function lpPeriodDef(){return periodDef('score');}
+function lpPeriodRange(){return periodRange('score');}
+function lpPeriodMonths(){return periodMonths('score');}
+function lpSetPeriod(k){setPeriodPreset('score',k);}
 // Os analistas do time, no formato da planilha (pra somar meta/churn so deles).
 function lpTeamGoalRows(){
   var out=[];
@@ -3822,25 +3884,12 @@ function lpScoreCard(teamClients){
   teamClients.forEach(function(c){var h=hl(calcScore(c));if(h==='risk')risk++;else if(h==='warn')warn++;else ok++;});
   var tot=Math.max(1,risk+warn+ok);
   var pct=function(n){return(n/tot*100).toFixed(1);};
-  var open=S.lpOpenPop==='period';
   var html='<div class="lp-card lp-score-panel" style="border-top:3px solid '+col+'">';
   html+='<div class="lp-card-head"><span class="lp-eyebrow">Score de CS do time</span>';
   html+='<div class="lp-head-tools">';
   html+='<button class="lp-icon-btn press" title="Exportar o score e o cálculo para planilha" onclick="lpExportScore()">'+svgIcon('share',14)+'</button>';
-  html+='<div style="position:relative"><button class="lp-pill press" onclick="lpTogglePop(\'period\')">'+svgIcon('calendar',13)+'<span style="margin:0 3px">'+e(r.label)+'</span><span style="font-size:9px">▾</span></button>';
-  if(open){
-    var d=S.lpPeriodDraft||{from:r.fromISO,to:r.toISO};
-    html+='<div class="lp-pop glass" style="right:0;left:auto;min-width:250px" onclick="event.stopPropagation()">';
-    LP_PERIODS.forEach(function(p){
-      html+='<button class="lp-pop-item'+(lpPeriod().key===p.key?' on':'')+'" onclick="lpSetPeriod(\''+p.key+'\')">'+e(p.label)+'</button>';
-    });
-    html+='<div class="lp-pop-sep">Período personalizado</div>';
-    html+='<div class="lp-pop-dates"><label>De<input type="date" value="'+e(d.from||'')+'" oninput="lpSetCustomPart(\'from\',this.value)"></label>'
-      +'<label>Até<input type="date" value="'+e(d.to||'')+'" oninput="lpSetCustomPart(\'to\',this.value)"></label></div>';
-    html+='<button class="lp-pop-apply press" onclick="lpApplyCustom()">Aplicar período</button>';
-    html+='</div>';
-  }
-  html+='</div></div></div>';
+  html+=periodPickerHTML('score','period');
+  html+='</div></div>';
   html+='<div class="lp-score-row"><span class="lp-score-big score-num-live" data-score="'+(now===null?0:now)+'" style="color:'+col+'">'+(now===null?'—':now)+'</span>';
   if(delta!==null&&delta!==0){
     var up=delta>0;
@@ -3917,21 +3966,25 @@ function lpChurnBigOverlay(teamClients){
   var bw=Math.min(52,step*.52);
   var bars='',labels='',line='',dots='',hover='';
   var pts=[];var tips=[];
+  // A legenda aparece só quando o cursor está sobre o dado (a barra ou o ponto da
+  // linha), não em qualquer lugar do branco da coluna.
   data.forEach(function(d,i){
     var cx=padL+step*i+step/2;
     var h=(d.clients/maxC)*(H-padT-padB);
-    bars+='<rect x="'+(cx-bw/2)+'" y="'+(H-padB-h)+'" width="'+bw+'" height="'+h+'" rx="5" fill="var(--rd600)" opacity=".85" class="lp-big-bar" style="animation-delay:'+(i*60)+'ms"/>';
+    bars+='<rect x="'+(cx-bw/2)+'" y="'+(H-padB-h)+'" width="'+bw+'" height="'+h+'" rx="5" fill="var(--rd600)" opacity=".85" class="lp-big-bar lp-hit" style="animation-delay:'+(i*60)+'ms" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
     labels+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+e(lpMonthLabel(d.month))+'</text>';
     var s=series[i]&&series[i].score;
-    if(s!==null&&s!==undefined){var y=padT+(1-s/100)*(H-padT-padB);pts.push([cx,y,s]);}
+    if(s!==null&&s!==undefined){var y=padT+(1-s/100)*(H-padT-padB);pts.push([cx,y,s,i]);}
     tips.push('<b>'+e(lpMonthLabel(d.month))+'</b>'+d.clients+' cliente'+(d.clients===1?'':'s')+' perdido'+(d.clients===1?'':'s')+'<br>'+formatMRR(d.mrr)+' de MRR'+(s!==null&&s!==undefined?'<br>Score do time: '+s:''));
-    // Faixa transparente da coluna inteira: hover em qualquer altura mostra a legenda.
-    hover+='<rect x="'+(padL+step*i)+'" y="'+padT+'" width="'+step+'" height="'+(H-padT-padB)+'" fill="transparent" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
   });
   window._lpTipRows=tips;
   if(pts.length>1){
     line='<polyline points="'+pts.map(function(p){return p[0]+','+p[1];}).join(' ')+'" fill="none" stroke="var(--b600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
-    pts.forEach(function(p){dots+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--b600)" stroke-width="2.5"/>';});
+    // Ponto visível de 4.5 + área de captura invisível de 11, senão é difícil acertar.
+    pts.forEach(function(p){
+      dots+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--b600)" stroke-width="2.5"/>'
+        +'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="11" fill="transparent" class="lp-hit" onmousemove="lpTip(event,'+p[3]+')" onmouseleave="lpTipHide()"/>';
+    });
   }
   var grid='';
   [0,Math.round(maxC/2),maxC].forEach(function(v){
@@ -3960,7 +4013,7 @@ function lpChurnBigOverlay(teamClients){
   html+='<div class="lp-chart-swap" data-mode="'+modo+'"><div class="lp-chart-host">';
   if(modo==='mes'){
     html+='<div class="lp-legend"><span><i style="background:var(--rd600)"></i>Clientes perdidos</span><span><i class="ln" style="background:var(--b600)"></i>Score médio</span></div>';
-    html+='<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+hover+'</svg></div>';
+    html+='<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+line+dots+labels+'</svg></div>';
   }else if(modo==='mrr'){
     html+=lpChartMrr(data,W,H,padL,padR,padT,padB);
   }else{
@@ -4181,21 +4234,45 @@ function lpQueueCard(teamClients){
 // ── Trilho: Cobertura do time ──
 // Duas leituras diferentes no mesmo card, de propósito: a meta é o compromisso
 // negociado (planilha), o vencido é a realidade da carteira (dashboard).
+// A cobertura tem o SEU período (padrão: mês atual). Mudar o período do score
+// não mexe aqui — são leituras diferentes: uma é a saúde da carteira, a outra é
+// o trabalho feito no mês.
 function lpCoverageCard(teamClients){
   var rows=lpTeamGoalRows();
-  var months=lpPeriodMonths();
+  var months=periodMonths('cov');
+  var r=periodRange('cov');
   var fu=months.length?tdAttainment('followReal','followMeta',months,rows):null;
   var vencidos=teamClients.filter(function(c){var s=fuSt(c);return s.days!==null&&s.days<0;}).length;
   var semContato=teamClients.filter(function(c){var d=getDaysWithoutContact(c);return d!==null&&d>=30;}).length;
-  var html='<div class="lp-card"><span class="lp-eyebrow">Cobertura do time</span><div class="lp-cov">';
+  var html='<div class="lp-card">';
+  html+='<div class="lp-card-head"><span class="lp-eyebrow">Cobertura do time</span>'
+    +'<div class="lp-head-tools">'+periodPickerHTML('cov','covperiod')+'</div></div>';
+  html+='<div class="lp-cov">';
   if(fu){
     var col=fu.pct>=100?'var(--gn600)':(fu.pct>=80?'var(--am600)':'var(--rd600)');
-    html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span><strong style="color:'+col+'">'+fu.pct+'%</strong></div>'
+    html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span>'
+      +'<strong><span class="lp-cov-frac">'+fu.real+'/'+fu.meta+'</span> <span style="color:'+col+'">'+fu.pct+'%</span></strong></div>'
       +'<div class="lp-mini-bar"><div style="width:'+Math.min(100,fu.pct)+'%;background:'+col+'"></div></div>'
-      +'<div class="lp-note">'+fu.real+' de '+fu.meta+' no período · meta é 100%</div></div>';
+      +'<div class="lp-note">'+e(r.labelLong||r.label)+' · meta é 100%</div></div>';
   }else{
-    html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span><strong class="muted">—</strong></div>'
-      +'<div class="lp-note">sem dado da planilha para este período</div></div>';
+    // Mês corrente costuma não estar fechado na planilha ainda. Em vez de um
+    // traço, mostra o mês mais recente que tem número — e diz qual é.
+    var ult=null;
+    for(var _i=TEAM_MONTHS.length-1;_i>=0;_i--){
+      var _t=tdAttainment('followReal','followMeta',[TEAM_MONTHS[_i]],rows);
+      if(_t&&_t.meta){ult={mes:TEAM_MONTHS[_i],fu:_t};break;}
+    }
+    if(ult){
+      var col2=ult.fu.pct>=100?'var(--gn600)':(ult.fu.pct>=80?'var(--am600)':'var(--rd600)');
+      var nome=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][parseInt(ult.mes.slice(5),10)-1]||ult.mes;
+      html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span>'
+        +'<strong><span class="lp-cov-frac">'+ult.fu.real+'/'+ult.fu.meta+'</span> <span style="color:'+col2+'">'+ult.fu.pct+'%</span></strong></div>'
+        +'<div class="lp-mini-bar"><div style="width:'+Math.min(100,ult.fu.pct)+'%;background:'+col2+'"></div></div>'
+        +'<div class="lp-note">'+e(nome)+' — último mês fechado na planilha</div></div>';
+    }else{
+      html+='<div class="lp-cov-item"><div class="lp-kv"><span>Meta de follow-ups</span><strong class="muted">—</strong></div>'
+        +'<div class="lp-note">sem dado da planilha para '+e(String(r.label).toLowerCase())+'</div></div>';
+    }
   }
   var vc=vencidos?'var(--rd600)':'var(--gn600)';
   html+='<div class="lp-cov-item"><div class="lp-kv"><span>Clientes com follow vencido</span><strong style="color:'+vc+'">'+vencidos+'</strong></div>'
@@ -4297,7 +4374,8 @@ function lpAnalystCardHTML(r){
   html+='<div class="lp-note" style="margin-top:5px">'+r.risk+' críticos · '+r.warn+' atenção · '+r.ok+' estáveis</div>';
   html+='</div></div>';
   html+='<div class="lp-a-stats">'
-    +'<div><b style="color:'+(r.fu&&r.fu.pct<80?'var(--rd600)':(r.fu?'var(--gn600)':'var(--t3)'))+'">'+(r.fu?r.fu.pct+'%':'—')+'</b><span>Meta de follow</span></div>'
+    +'<div><b style="color:'+(r.fu&&r.fu.pct<80?'var(--rd600)':(r.fu?'var(--gn600)':'var(--t3)'))+'">'
+      +(r.fu?'<span class="lp-fu-frac">'+r.fu.real+'/'+r.fu.meta+'</span> '+r.fu.pct+'%':'—')+'</b><span>Meta de follow</span></div>'
     +'<div><b style="color:'+(r.semContato?'var(--rd600)':'var(--t)')+'">'+r.semContato+'</b><span>Sem contato 30d+</span></div></div>';
   var chips=lpAlertChips(r);
   if(chips)html+='<div class="lp-a-alerts">'+chips+'</div>';
@@ -5487,6 +5565,8 @@ function pendingBannerHTML(c,ci){
 // follow — nao precisa ser aberto na mao. O que fica guardado em c.loopCase e
 // so o que o analista/integracao preenche depois (feedback, link, fechamento).
 var LOOP_NPS_LIMITE=7;
+// Janela de validade da avaliacao ruim, na mesma ideia da cadencia de follow-up.
+var LOOP_JANELA_MESES=6;
 function getLoopFollow(c){
   if(!c||!c.follows)return null;
   return getFollowsSorted(c).filter(function(f){
@@ -5497,6 +5577,13 @@ function isLoopOpen(c){
   var f=getLoopFollow(c);
   if(!f)return false;
   if(+f.answers.nps_score>=LOOP_NPS_LIMITE)return false;
+  // Avaliacao velha nao vira pendencia: quem foi detrator um ano atras pode nao
+  // se sentir mais assim hoje. Fora da janela, o caso simplesmente nao aparece.
+  var abriu=loopOpenedAt(c);
+  if(abriu){
+    var meses=(Date.now()-new Date(abriu+'T00:00:00').getTime())/(1000*60*60*24*30.44);
+    if(meses>LOOP_JANELA_MESES)return false;
+  }
   var lc=c.loopCase;
   // Ja foi fechado para esta mesma avaliacao? Entao nao esta mais aberto.
   return!(lc&&lc.closedAt&&lc.followId===f.id);
@@ -5786,26 +5873,6 @@ function lpExportChurn(){
   baixarCSV('churn-saude-'+hojeArquivo()+'.csv',out);
 }
 // ── Período personalizado ──
-function lpPeriodCustom(){
-  var p=lpPeriod();
-  return p.key==='custom'&&p.from&&p.to?p:null;
-}
-function lpSetCustomPart(field,val){
-  if(!S.lpPeriodDraft)S.lpPeriodDraft={};
-  S.lpPeriodDraft[field]=val;
-  var d=S.lpPeriodDraft;
-  // Só redesenha quando a data está completa, senão o campo perde o foco no
-  // meio da digitação do ano — mesmo problema que já corrigimos no histórico.
-  var ok=function(v){return v&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&+v.slice(0,4)>=1000;};
-  if(ok(d.from)&&ok(d.to))render();
-}
-function lpApplyCustom(){
-  var d=S.lpPeriodDraft||{};
-  if(!d.from||!d.to){alert('Escolha a data inicial e a final.');return;}
-  if(d.from>d.to){alert('A data inicial precisa ser anterior à final.');return;}
-  S.lpPeriod={key:'custom',from:d.from,to:d.to};
-  S.lpOpenPop=null;render();
-}
 function lpSetChurnMode(m){S.lpChurnMode=m;render();}
 // Área do MRR perdido mês a mês: a mesma perda, mas em dinheiro em vez de contagem.
 // Um mês com poucos clientes grandes dói mais que um com muitos pequenos.
@@ -5827,14 +5894,14 @@ function lpChartMrr(data,W,H,padL,padR,padT,padB){
   var linha=pts.map(function(p){return p[0]+','+p[1];}).join(' ');
   var area='<polygon points="'+padL+','+(H-padB)+' '+linha+' '+pts[pts.length-1][0]+','+(H-padB)+'" fill="var(--rd600)" opacity=".13"/>';
   var poly='<polyline points="'+linha+'" fill="none" stroke="var(--rd600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lp-big-line"/>';
-  var dots=pts.map(function(p){return'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--rd600)" stroke-width="2.5"><title>'+e(lpMonthLabel(p[2].month))+': '+formatMRR(p[2].mrr)+'</title></circle>';}).join('');
   var pior=data.slice().sort(function(a,b){return b.mrr-a.mrr;})[0];
-  var colStep=(W-padL-padR)/Math.max(1,data.length);
+  // Legenda só sobre o ponto do mês (com área de captura maior que o ponto visível).
   var hover='',tips=[];
-  pts.forEach(function(p,i){
+  var dots=pts.map(function(p,i){
     tips.push('<b>'+e(lpMonthLabel(p[2].month))+'</b>'+formatMRR(p[2].mrr)+' de MRR perdido<br>'+p[2].clients+' cliente'+(p[2].clients===1?'':'s'));
-    hover+='<rect x="'+(padL+colStep*i)+'" y="'+padT+'" width="'+colStep+'" height="'+(H-padT-padB)+'" fill="transparent" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
-  });
+    hover+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="12" fill="transparent" class="lp-hit" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
+    return'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4.5" fill="var(--surf)" stroke="var(--rd600)" stroke-width="2.5"/>';
+  }).join('');
   window._lpTipRows=tips;
   return'<div class="lp-legend"><span><i style="background:var(--rd600)"></i>MRR perdido por mês</span></div>'
     +'<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+area+poly+dots+labels+hover+'</svg></div>'
@@ -5856,9 +5923,10 @@ function lpChartPorAnalista(data){
   html+='<div class="lp-hbars">';
   rows.forEach(function(r,i){
     tips.push('<b>'+e(r.name)+'</b>'+r.cli+' cliente'+(r.cli===1?'':'s')+' perdido'+(r.cli===1?'':'s')+'<br>'+formatMRR(r.mrr)+' de MRR<br>'+Math.round(r.cli/totC0*100)+'% do churn do time');
-    html+='<div class="lp-hbar-row" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()">'
+    // Só a barra preenchida ativa a legenda — o trilho vazio não.
+    html+='<div class="lp-hbar-row">'
       +'<span class="lp-hbar-name">'+e(r.name)+'</span>'
-      +'<span class="lp-hbar-track"><i class="lp-hbar-fill" style="width:'+(r.cli/maxC*100)+'%;animation-delay:'+(i*55)+'ms"></i></span>'
+      +'<span class="lp-hbar-track"><i class="lp-hbar-fill lp-hit" style="width:'+(r.cli/maxC*100)+'%;animation-delay:'+(i*55)+'ms" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"></i></span>'
       +'<span class="lp-hbar-val">'+r.cli+'</span>'
       +'<span class="lp-hbar-mrr">'+formatMRR(r.mrr)+'</span></div>';
   });
