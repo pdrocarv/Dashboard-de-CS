@@ -157,6 +157,8 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
       await loadClients();
       if(["admin","gerente","leader"].indexOf(S.appUser.role)>=0)await loadAllUsers();
       await loadCustomQuestions();
+      // Depois das perguntas customizadas, senão elas ficariam de fora do texto.
+      refreshAllSFTexts();
       S.appReady=true;
       migrateFromLocalStorage();
       applyRoute(location.hash);
@@ -5994,13 +5996,13 @@ function sfStepText(k,a,c){
       if(a.pricing_tool==='sim')pm+=' | Usa ferramenta de precificação'+(a.pricing_tool_name?': '+a.pricing_tool_name:'');
       else if(a.pricing_tool==='nao')pm+=' | Sem ferramenta de precificação';
       return pm;
-    case'channels':return sfChannels(a);
-    case'notifs':return sfOpt(SF_OPT.notifs,a.notifs_option);
-    case'ch_perf':return sfOpt(SF_OPT.chperf,a.chperf_option);
+    case'channels':return sfChannels(a)+(a.channels_note?' | Obs. dos canais: '+a.channels_note:'');
+    case'notifs':return sfOpt(SF_OPT.notifs,a.notifs_option)+(a.notifs_note?' — '+a.notifs_note:'');
+    case'ch_perf':return sfOpt(SF_OPT.chperf,a.chperf_option)+(a.chperf_note?' — '+a.chperf_note:'');
     case'ch_usab':
       var itens=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
       if(!itens.length)return'Não avaliado';
-      return itens.map(function(it){return it.label+': '+(it.opts[a['usab_'+it.key]]||'?');}).join(' | ');
+      return itens.map(function(it){return it.label+': '+(it.opts[a['usab_'+it.key]]||'?');}).join(' | ')+(a.usab_note?' — '+a.usab_note:'');
     case'domain':return a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'Não informado');
     case'tz_check':return a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'Não avaliado');
     case'site':return sfOpt(SF_OPT.site,a.site_option)+(a.site_other?' — '+a.site_other:'');
@@ -6031,6 +6033,7 @@ function sfStepText(k,a,c){
       else if(a.inadimplencia_opt==='nao')inad='Não, pagamentos em dia';
       var abertos=((c&&c.inadimplencia)||[]).filter(function(m){return!m.paid;});
       if(abertos.length)inad+=' — em aberto: '+abertos.map(function(m){return m.month+'/'+m.year+(m.amount?' ('+m.amount+')':'');}).join(', ');
+      if(a.inadimplencia_note)inad+=' — '+a.inadimplencia_note;
       return inad;
     case'nego':return a.nego_has===true?'Sim'+(a.nego_note?' — '+a.nego_note:''):(a.nego_has===false?'Não':'Não informado');
     case'nps_churn':
@@ -6044,9 +6047,11 @@ function sfStepText(k,a,c){
       if(a.cases_n2==='sim')cs+=' — tem N2/Website em aberto'+(a.cases_n2_detail?' ('+a.cases_n2_detail+')':'');
       else if(a.cases_n2==='nao')cs+=' — sem N2/Website em aberto';
       return cs;
-    case'upgrade':return sfOpt(SF_OPT.upgrade,a.upgrade_option,'Não avaliado');
+    case'upgrade':return sfOpt(SF_OPT.upgrade,a.upgrade_option,'Não avaliado')+(a.upgrade_note?' — '+a.upgrade_note:'');
     case'acct_plan':
       var ac=a.acct_has===true?'Plano de contas preenchido':(a.acct_has===false?'Plano de contas não preenchido':'Não informado');
+      if(a.acct_positives)ac+=' | Destaques positivos: '+a.acct_positives;
+      if(a.acct_attention)ac+=' | Pontos de cuidado: '+a.acct_attention;
       if(a.acct_next)ac+=' | Próximos passos: '+a.acct_next;
       return ac;
     default:
@@ -6096,4 +6101,23 @@ function buildSFText(type,a,c){
     if(a.next_steps)lines.push('Próximos passos: '+a.next_steps);
   }
   return lines.join('\n');
+}
+// Todo texto do Salesforce ja gerado e reconstruido quando o dashboard carrega.
+// Assim, qualquer melhoria no gerador — pergunta que faltava, observacao que nao
+// entrava — aparece sem o analista precisar clicar em "Texto Salesforce" de novo.
+// A reconstrucao fica em memoria: o banco e atualizado no proximo clique ou em
+// qualquer outro salvamento daquele cliente, o que evita reescrever a base toda
+// a cada login.
+function refreshAllSFTexts(){
+  var mudados=0;
+  (S.clients||[]).forEach(function(c){
+    (c.follows||[]).forEach(function(f){
+      if(!f||!f.answers||!f.answers.sf_text)return;
+      try{
+        var novo=buildSFText(f.type||'first',f.answers,c);
+        if(novo!==f.answers.sf_text){f.answers.sf_text=novo;mudados++;}
+      }catch(err){console.warn('Nao foi possivel refazer o texto do Salesforce:',err);}
+    });
+  });
+  return mudados;
 }
