@@ -1391,14 +1391,16 @@ function wizTryAdvance(target){
   S.wizBlockedMsg=false;
   if(target==='summary')wizGoSummary();else wizGo(target);
 }
+// Follow ja salvo: regenera SEMPRE do zero, com as perguntas do tipo daquele
+// follow e as respostas que estao la agora. Texto antigo (inclusive os que sairam
+// errados, com as perguntas da primeira analise num follow recorrente) e
+// substituido no clique — nao existe cache.
 function genSFForFollow(ci,fi){
-  var f=S.clients[ci].follows[fi];
+  var c=S.clients[ci];
+  var f=c&&c.follows[fi];
   if(!f)return;
-  var backup=S.wiz;
-  S.wiz={step:0,type:f.type||'first',answers:Object.assign({},f.answers),humors:Object.assign({},f.humors||{}),autoHumors:{},prevAnswers:null};
-  wizGenSF();
-  f.answers.sf_text=S.wiz.answers.sf_text;
-  S.wiz=backup;
+  if(!f.answers)f.answers={};
+  f.answers.sf_text=buildSFText(f.type||'first',f.answers,c);
   saveState();render();
 }
 function genWhatsForFollow(ci,fi){
@@ -2119,53 +2121,10 @@ function wizAutoAttention(){
   return pts.join('\n');
 }
 
+// Gera o texto durante o wizard. A lista de perguntas vem do tipo do follow em
+// andamento, entao o recorrente sai com as perguntas dele.
 function wizGenSF(){
-  var a=S.wiz.answers;
-  var c=S.clients[S.sel];
-  var CHAN_NAMES={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'Homes & Villas'};
-  var activeChs=((a.channels||[]).filter(function(c){return c.active;}).map(function(c){return CHAN_NAMES[c.key]||c.key;})).join(', ')||'Não informado';
-  var cityNames=((a.cities||[]).map(function(c){return c.name;})).join(', ')||'Não informado';
-  var HUMOR_LABELS=['Péssimo','Ruim','Neutro','Bom','Ótimo'];
-  function hLabel(key){return HUMOR_LABELS[S.wiz.humors[key]!==undefined?S.wiz.humors[key]:2];}
-  var SF_OPTS_SITE=['Site bem personalizado','Personalização básica','Tem site sem personalização','Não tem site','Outro'];
-  var SF_OPTS_OCC_HIGH=['Ótimo (75%+)','Bom (50-74%)','Neutro (35-49%)','Ruim (25-34%)','Péssimo (<25%)','Sem dados'];
-  var SF_OPTS_OCC_LOW=['Ótimo (50%+)','Bom (35-49%)','Neutro (25-34%)','Ruim (15-24%)','Péssimo (<15%)','Sem dados'];
-  var SF_OPTS_PRICE=['Competitivo e bem posicionado','Na média do mercado','Um pouco fora do ideal','Muito fora do mercado','Sem dados'];
-  var SF_OPTS_FIN=['Utiliza ativamente','Utiliza pouco','Não utiliza','Não tem acesso'];
-  var SF_OPTS_OPE=['Utiliza ativamente','Utiliza pouco','Não utiliza','Não tem acesso'];
-  var SF_OPTS_APP=['2+ integrações ativas','1 integração ativa','Nenhuma'];
-  var SF_OPTS_CASES=['Sem casos abertos','Poucos casos, nada crítico','Muitos casos abertos','Casos críticos'];
-  var season=wizCurrentSeason();
-  var occOpts=season==='low'?SF_OPTS_OCC_LOW:SF_OPTS_OCC_HIGH;
-  var lines=[];
-  lines.push('Follow up:');
-  lines.push('');
-  lines.push('1. Diminuiu/aumentou unidades? - '+(a.units_changed==='nao'?'Não. Total: '+(a.units_count||'?'):(a.units_changed==='ganhou'?'Aumentou '+a.units_delta+' unidade(s). Total atual: '+(a.units_count||'?'):'Perdeu '+a.units_delta+' unidade(s). Total atual: '+(a.units_count||'?'))));
-  lines.push('2. Localização das unidades - '+cityNames);
-  lines.push('3. Modelo de precificação - '+(a.pricing_model==='fixo'?'Fixo (per listing)':'Flexível')||'Não informado');
-  lines.push('4. Listings e canais conectados - '+activeChs+(a.channels_note?' | '+a.channels_note:''));
-  lines.push('5. Migração de domínio - '+(a.domain_migration==='sim'?'Sim':'Não'));
-  lines.push('6. Personalização de site - '+(a.site_option!==undefined&&a.site_option!==null?SF_OPTS_SITE[a.site_option]+(a.site_other?' — '+a.site_other:''):'Não informado'));
-  lines.push('7. Ocupação - '+((a.occ_current&&a.occ_current.option!==undefined&&a.occ_current.option!==null)?occOpts[a.occ_current.option]+((a.occ_lastyear&&a.occ_lastyear.option!==undefined&&a.occ_lastyear.option!==null)?' (ano anterior: '+occOpts[a.occ_lastyear.option]+')':''):'Não informado'));
-  lines.push('8. Preço competitivo? - '+(a.price_option!==undefined&&a.price_option!==null?SF_OPTS_PRICE[a.price_option]:'Não informado')+(a.pricing_tool==='sim'?' | Usa ferramenta de precificação: '+(a.pricing_tool_name||'sim'):''));
-  lines.push('9. Last minute padrão - '+(a.lastminute==='sim'?'Sim — '+( a.lastminute_time||'horário não informado'):'Não'));
-  lines.push('10. Boas fotos? Boa descrição? - '+(a.photos_option!==undefined?['Excelentes','Boas, podem melhorar','Fracas','Sem fotos'][a.photos_option]:'Não avaliado')+' / '+(a.description_option!==undefined?['Completa e atrativa','Básica','Fraca/incompleta','Sem descrição'][a.description_option]:'Não avaliado'));
-  lines.push('11. Utiliza módulo financeiro? - '+(a.financial_option!==undefined&&a.financial_option!==null?SF_OPTS_FIN[a.financial_option]:'Não informado'));
-  lines.push('12. Utiliza módulo operacional ou integração? - '+(a.operational_option!==undefined&&a.operational_option!==null?SF_OPTS_OPE[a.operational_option]:'Não informado'));
-  lines.push('13. Tem integração ativa no App Center? - '+(a.appcenter_option!==undefined&&a.appcenter_option!==null?SF_OPTS_APP[a.appcenter_option]+(a.appcenter_detail?' — '+a.appcenter_detail:''):'Não informado'));
-  lines.push('14. Utiliza Open API? - '+(a.openapi==='sim'?'Sim — '+(a.openapi_detail||'detalhe não informado'):'Não'));
-  lines.push('15. Canal de pagamento - '+(a.payment==='sim'?'Tem canal configurado':'Não tem canal'));
-  lines.push('16. Costuma ficar inadimplente? - '+(isInadimplente(S.clients[S.sel])?'Sim, tem faturas em aberto':'Não')+(a.inadimplencia_note?' — '+a.inadimplencia_note:''));
-  lines.push('17. Cancelamento/NPS/Reclame Aqui - '+(isChurnAlert(S.clients[S.sel])?'Alerta de churn ativo':'Sem churn')+(a.churn_note?' — '+a.churn_note:'')+' | NPS: '+(a.nps_avaliou==='sim'?a.nps_score+'/10':'Não avaliou')+' | Reclame Aqui: '+(a.reclame_aqui==='sim'?'Sim':'Não'));
-  lines.push('18. Abertura de casos - '+(a.cases_option!==undefined&&a.cases_option!==null?SF_OPTS_CASES[a.cases_option]:'Não informado')+(a.cases_n2==='sim'?' — Tem N2/Website em aberto'+(a.cases_n2_detail?' ('+a.cases_n2_detail+')':''):''));
-  lines.push('19. Oportunidade de upgrade - '+(a.upgrade_option!==undefined&&a.upgrade_option!==null?['Bem no plano atual','Tem limitações, sem interesse','Oportunidade clara de upgrade','Não conhece planos superiores','Já está no plano máximo (Agency)'][a.upgrade_option]:'Não avaliado')+(a.upgrade_note?' — '+a.upgrade_note:''));
-  lines.push('Fuso horário do sistema - '+(a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'Não avaliado')));
-  if(a.attention_points||a.next_steps){
-    lines.push('');
-    if(a.attention_points)lines.push('Pontos de atenção: '+a.attention_points);
-    if(a.next_steps)lines.push('Próximos passos: '+a.next_steps);
-  }
-  S.wiz.answers.sf_text=lines.join('\n');
+  S.wiz.answers.sf_text=buildSFText(S.wiz.type,S.wiz.answers,S.clients[S.sel]);
   render();
 }
 
@@ -5959,3 +5918,182 @@ function lpTip(ev,idx){
   t.style.top=Math.max(4,y-t.offsetHeight-12)+'px';
 }
 function lpTipHide(){var t=document.getElementById('lp-tip');if(t)t.style.display='none';}
+// ============================================================
+// TEXTO DO SALESFORCE
+// ============================================================
+// Gerado a partir da lista real de perguntas daquele follow — primeira análise
+// tem as suas, recorrente tem as suas, e perguntas customizadas aprovadas entram
+// automaticamente. A ORDEM é sempre a padrão do sistema: se o analista reordenou
+// as perguntas nas Configurações, o texto do Salesforce continua saindo na mesma
+// sequência pra todo mundo, senão dois analistas mandariam o caso em ordens
+// diferentes e ninguém conseguiria comparar.
+var SF_OPT={
+  site:['Site bem personalizado','Personalização básica','Tem site sem personalização','Não tem site','Outro'],
+  occHigh:['Ótimo (75%+)','Bom (50-74%)','Neutro (35-49%)','Ruim (25-34%)','Péssimo (<25%)','Sem dados'],
+  occLow:['Ótimo (50%+)','Bom (35-49%)','Neutro (25-34%)','Ruim (15-24%)','Péssimo (<15%)','Sem dados'],
+  price:['Competitivo e bem posicionado','Na média do mercado','Um pouco fora do ideal','Muito fora do mercado','Sem dados'],
+  modulo:['Utiliza ativamente','Utiliza pouco','Não utiliza','Não tem acesso'],
+  app:['2+ integrações ativas','1 integração ativa','Nenhuma'],
+  cases:['Sem casos abertos','Poucos casos, nada crítico','Muitos casos abertos','Casos críticos'],
+  photos:['Excelentes','Boas, podem melhorar','Fracas','Sem fotos'],
+  desc:['Completa e atrativa','Básica','Fraca/incompleta','Sem descrição'],
+  notifs:['Painel limpo, sem pendências','Poucas notificações, nada crítico','Muitas pendências sem acompanhamento','Alertas críticos (overbooking, sem preço)'],
+  chperf:['Boa performance em múltiplos canais','Razoável, concentrada em poucos canais','Fraca ou dependência de um único canal','Queda significativa vs. período anterior','Sem dados suficientes'],
+  upgrade:['Bem no plano atual','Tem limitações, sem interesse','Oportunidade clara de upgrade','Não conhece planos superiores','Já está no plano máximo (Agency)']
+};
+function sfOpt(list,idx,fallback){
+  return(idx!==undefined&&idx!==null&&list[idx])?list[idx]:(fallback||'Não informado');
+}
+// Canais com a quantidade de anúncios em cada um — é o dado que o time usa pra
+// saber se o cliente está distribuindo de verdade ou só num canal.
+function sfChannels(a){
+  var nomes={};WIZ_CHANNELS.forEach(function(ch){nomes[ch.key]=ch.name;});
+  var ativos=(a.channels||[]).filter(function(x){return x.active;});
+  if(!ativos.length)return'Não informado';
+  var total=+a.units_count||0;
+  return ativos.map(function(x){
+    var nome=nomes[x.key]||x.key;
+    var qtd=(x.qty!==undefined&&x.qty!==null&&x.qty!=='')?+x.qty:null;
+    if(x.all)return nome+': todos os '+(qtd||total||'?')+' anúncios';
+    if(qtd!==null)return nome+': '+qtd+(total?' de '+total:'')+' anúncio'+(qtd===1?'':'s');
+    return nome+': quantidade não informada';
+  }).join(' | ');
+}
+function sfCities(a){
+  var list=a.cities||[];
+  if(!list.length)return'Não informado';
+  return list.map(function(ct){
+    var partes=[ct.name];
+    if(ct.units)partes.push(ct.units+' unidade'+(+ct.units===1?'':'s'));
+    var s=ct.seasons||{};
+    var temp=[];
+    if(s.alta&&s.alta.length)temp.push('alta: '+s.alta.map(function(p){return monthName(p.from)+'–'+monthName(p.to);}).join(', '));
+    if(s.baixa&&s.baixa.length)temp.push('baixa: '+s.baixa.map(function(p){return monthName(p.from)+'–'+monthName(p.to);}).join(', '));
+    if(temp.length)partes.push(temp.join(' / '));
+    if(ct.principal)partes.push('principal');
+    return partes.join(' — ');
+  }).join(' | ');
+}
+function sfOccPeriod(o){
+  if(!o||(!o.period_start&&!o.period_end))return'';
+  if(o.period_start&&o.period_end)return' ['+formatDate(o.period_start)+' a '+formatDate(o.period_end)+']';
+  return' ['+formatDate(o.period_start||o.period_end)+']';
+}
+// Resposta de uma pergunta em texto puro, com o detalhe que o analista escreveu.
+function sfStepText(k,a,c){
+  var occArr=wizFollowSeason(a)==='low'?SF_OPT.occLow:SF_OPT.occHigh;
+  switch(k){
+    case'units':
+      if(a.units_changed==='nao')return'Manteve igual. Total: '+(a.units_count||'?');
+      if(a.units_changed==='ganhou')return'Aumentou '+(a.units_delta||'?')+' unidade(s). Total atual: '+(a.units_count||'?');
+      if(a.units_changed==='perdeu')return'Perdeu '+(a.units_delta||'?')+' unidade(s). Total atual: '+(a.units_count||'?');
+      return a.units_count?'Total: '+a.units_count:'Não informado';
+    case'cities':return sfCities(a);
+    case'pricing':
+      var pm=a.pricing_model==='fixo'?'Fixo (per listing)':(a.pricing_model==='flexivel'?'Flexível':'Não informado');
+      if(a.pricing_tool==='sim')pm+=' | Usa ferramenta de precificação'+(a.pricing_tool_name?': '+a.pricing_tool_name:'');
+      else if(a.pricing_tool==='nao')pm+=' | Sem ferramenta de precificação';
+      return pm;
+    case'channels':return sfChannels(a);
+    case'notifs':return sfOpt(SF_OPT.notifs,a.notifs_option);
+    case'ch_perf':return sfOpt(SF_OPT.chperf,a.chperf_option);
+    case'ch_usab':
+      var itens=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
+      if(!itens.length)return'Não avaliado';
+      return itens.map(function(it){return it.label+': '+(it.opts[a['usab_'+it.key]]||'?');}).join(' | ');
+    case'domain':return a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'Não informado');
+    case'tz_check':return a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'Não avaliado');
+    case'site':return sfOpt(SF_OPT.site,a.site_option)+(a.site_other?' — '+a.site_other:'');
+    case'photos':return'Fotos: '+sfOpt(SF_OPT.photos,a.photos_option,'Não avaliado')+' | Descrição: '+sfOpt(SF_OPT.desc,a.description_option,'Não avaliado');
+    case'occupation':
+      var oc=a.occ_current,op=a.occ_lastyear;
+      if(!oc||oc.option===undefined||oc.option===null)return'Não informado';
+      var t=occArr[oc.option]+sfOccPeriod(oc);
+      if(oc.listings)t+=' ('+oc.listings+' anúncios)';
+      if(op&&op.option!==undefined&&op.option!==null)t+=' | Ano anterior: '+occArr[op.option]+sfOccPeriod(op);
+      return t;
+    case'price':return sfOpt(SF_OPT.price,a.price_option);
+    case'lastminute':
+      if(a.lastminute==='sim')return'Sim — até '+(a.lastminute_time||'horário não informado')+(a.lastminute_days?' ('+a.lastminute_days+' dia(s) de antecedência)':'');
+      return a.lastminute==='nao'?'Não':'Não informado';
+    case'financial':return sfOpt(SF_OPT.modulo,a.financial_option);
+    case'operational':return sfOpt(SF_OPT.modulo,a.operational_option);
+    case'appcenter':return sfOpt(SF_OPT.app,a.appcenter_option)+(a.appcenter_detail?' — '+a.appcenter_detail:'');
+    case'openapi':return a.openapi==='sim'?'Sim — '+(a.openapi_detail||'detalhe não informado'):(a.openapi==='nao'?'Não':'Não informado');
+    case'prod_sug':return a.prodsug_has===true?'Sim — '+(a.prodsug_note||'sem detalhe'):(a.prodsug_has===false?'Não':'Não informado');
+    case'payment':
+      var pay=a.payment==='sim'?'Tem canal configurado':(a.payment==='nao'?'Não tem canal':'Não informado');
+      if(a.payment==='sim'&&(a.payment_providers||[]).length)pay+=' ('+a.payment_providers.join(', ')+')';
+      return pay;
+    case'inadimplencia':
+      var inad=(c&&isInadimplente(c))?'Sim, tem faturas em aberto':'Sem faturas em aberto';
+      if(a.inadimplencia_opt==='sim')inad='Sim, costuma ficar inadimplente';
+      else if(a.inadimplencia_opt==='nao')inad='Não, pagamentos em dia';
+      var abertos=((c&&c.inadimplencia)||[]).filter(function(m){return!m.paid;});
+      if(abertos.length)inad+=' — em aberto: '+abertos.map(function(m){return m.month+'/'+m.year+(m.amount?' ('+m.amount+')':'');}).join(', ');
+      return inad;
+    case'nego':return a.nego_has===true?'Sim'+(a.nego_note?' — '+a.nego_note:''):(a.nego_has===false?'Não':'Não informado');
+    case'nps_churn':
+      var partes=[];
+      partes.push('Churn: '+((c&&isChurnAlert(c))?'alerta ativo':'sem alerta')+(a.churn_note?' — '+a.churn_note:''));
+      partes.push('NPS: '+(a.nps_avaliou==='sim'?(a.nps_score+'/10'+(a.nps_date?' em '+formatDate(a.nps_date):'')):'não avaliou'));
+      partes.push('Reclame Aqui: '+(a.reclame_aqui==='sim'?'sim':(a.reclame_aqui==='nao'?'não':'não informado')));
+      return partes.join(' | ');
+    case'cases':
+      var cs=sfOpt(SF_OPT.cases,a.cases_option);
+      if(a.cases_n2==='sim')cs+=' — tem N2/Website em aberto'+(a.cases_n2_detail?' ('+a.cases_n2_detail+')':'');
+      else if(a.cases_n2==='nao')cs+=' — sem N2/Website em aberto';
+      return cs;
+    case'upgrade':return sfOpt(SF_OPT.upgrade,a.upgrade_option,'Não avaliado');
+    case'acct_plan':
+      var ac=a.acct_has===true?'Plano de contas preenchido':(a.acct_has===false?'Plano de contas não preenchido':'Não informado');
+      if(a.acct_next)ac+=' | Próximos passos: '+a.acct_next;
+      return ac;
+    default:
+      if(k.indexOf('custom_')===0){
+        var qid=k.slice(7);
+        var q=(S.customQuestions||[]).find(function(x){return x.id===qid;});
+        if(!q)return'Não informado';
+        var sel=a.custom&&a.custom[qid];
+        return(sel!==undefined&&sel!==null&&q.answers&&q.answers[sel])?q.answers[sel].label:'Não respondido';
+      }
+      return'Não informado';
+  }
+}
+// Ordem PADRÃO do sistema, ignorando a reordenação pessoal do analista, com as
+// perguntas customizadas aprovadas dele no fim.
+function sfStepOrder(type,a){
+  var base=(type==='recurring'?WIZ_STEPS_REC:WIZ_STEPS_FIRST).slice();
+  var custom=[];
+  try{
+    (getMyApprovedCustomQuestions(S.appUser&&S.appUser.uid,type)||[]).forEach(function(q){custom.push('custom_'+q.id);});
+  }catch(err){}
+  // Customizada respondida neste follow que já não está mais compartilhada
+  // continua entrando, senão o texto perderia uma resposta que existe.
+  Object.keys((a&&a.custom)||{}).forEach(function(qid){
+    var k='custom_'+qid;
+    if(custom.indexOf(k)<0)custom.push(k);
+  });
+  return base.concat(custom);
+}
+function buildSFText(type,a,c){
+  var order=sfStepOrder(type,a);
+  var labels=wizStepLabels();
+  var lines=[];
+  lines.push('Follow up '+(type==='recurring'?'recorrente':'— primeira análise')+':');
+  lines.push('');
+  order.forEach(function(k,i){
+    var label=(k.indexOf('custom_')===0)?wizOrderLabel(k):(labels[k]||k);
+    lines.push((i+1)+'. '+label+' - '+sfStepText(k,a,c));
+    // A observação do analista vira uma linha própria embaixo da resposta.
+    var nota=a['note_'+k];
+    if(nota&&String(nota).trim())lines.push('   Obs.: '+String(nota).trim());
+  });
+  if(a.positive_points||a.attention_points||a.next_steps){
+    lines.push('');
+    if(a.positive_points)lines.push('Pontos positivos: '+a.positive_points);
+    if(a.attention_points)lines.push('Pontos de atenção: '+a.attention_points);
+    if(a.next_steps)lines.push('Próximos passos: '+a.next_steps);
+  }
+  return lines.join('\n');
+}
