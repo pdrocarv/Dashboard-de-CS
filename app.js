@@ -2291,24 +2291,32 @@ function openWizard(type,resumeDraft){
   if(resumeDraft&&c&&c.wizDraft){
     S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',answers:Object.assign({},c.wizDraft.answers),humors:Object.assign({},c.wizDraft.humors),autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),prevAnswers:null};
   }else if(type==='recurring'){
+    // Follow recorrente não exige um follow anterior: quem já acompanha o cliente
+    // há tempo, fora do dashboard, começa direto no recorrente. Sem histórico, os
+    // campos nascem vazios e as comparações com o período anterior simplesmente
+    // não aparecem (todas já são condicionais a prevAnswers).
     var prevFollow=getLastWizardFollow(c);
-    if(!prevFollow){alert('Não há follow-up anterior para basear a análise recorrente. Faça uma primeira análise antes.');return;}
-    var prevA=prevFollow.answers||{};
+    var prevA=prevFollow?(prevFollow.answers||{}):null;
     var carried={};
-    // Carry forward reference data
-    carried.units_count=prevA.units_count;
-    carried.prev_units_count=prevA.units_count;
-    carried.cities=JSON.parse(JSON.stringify(prevA.cities||[]));
-    carried.pricing_model=prevA.pricing_model;
-    carried.channels=JSON.parse(JSON.stringify(prevA.channels||[]));
-    carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
-    carried.domain_migration=prevA.domain_migration;
-    carried.site_option=prevA.site_option;
-    carried.lastminute=prevA.lastminute;
-    carried.lastminute_time=prevA.lastminute_time;
-    carried.prev_occupation_option=prevA.occupation_option;
-    carried.prev_price_option=prevA.price_option;
-    S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow.date,prevHumors:Object.assign({},prevFollow.humors||{})};
+    if(prevA){
+      // Carry forward reference data
+      carried.units_count=prevA.units_count;
+      carried.prev_units_count=prevA.units_count;
+      carried.cities=JSON.parse(JSON.stringify(prevA.cities||[]));
+      carried.pricing_model=prevA.pricing_model;
+      carried.channels=JSON.parse(JSON.stringify(prevA.channels||[]));
+      carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
+      carried.domain_migration=prevA.domain_migration;
+      carried.site_option=prevA.site_option;
+      carried.lastminute=prevA.lastminute;
+      carried.lastminute_time=prevA.lastminute_time;
+      carried.prev_occupation_option=prevA.occupation_option;
+      carried.prev_price_option=prevA.price_option;
+    }else if(c&&c.units!==undefined&&c.units!==null&&c.units!==''){
+      // Sem follow anterior, a única referência confiável é o cadastro do cliente.
+      carried.units_count=c.units;
+    }
+    S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow?prevFollow.date:null,prevHumors:prevFollow?Object.assign({},prevFollow.humors||{}):{}};
   }else{
     S.wiz={step:0,type:type||'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
   }
