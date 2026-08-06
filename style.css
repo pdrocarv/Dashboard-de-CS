@@ -798,3 +798,58 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-fu-frac{font-size:10px;color:var(--t3);font-weight:600}
 /* Área de captura da legenda do gráfico */
 .lp-hit{cursor:default}
+
+/* ── Usabilidade dos canais, versão nova ── */
+/* Selo que diz se o item pesa no score. Era exatamente a dúvida dos analistas:
+   eles não sabiam o que estava sendo avaliado e o que era só registro. */
+.wiz-tag{display:inline-block;margin-left:7px;padding:2px 7px;border-radius:5px;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;vertical-align:middle}
+.wiz-tag-score{background:var(--gn50);color:var(--gn800)}
+.wiz-tag-info{background:var(--badge-na-bg);color:var(--badge-na-t)}
+/* Sim/Não: o "Sim" acende verde com o visto, o "Não" acende neutro. */
+.wiz-yn{display:flex;gap:8px;flex-wrap:wrap}
+.wiz-yn-b{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--bd);border-radius:9px;background:var(--surf);color:var(--t);font:inherit;font-size:13px;cursor:pointer;transition:border-color var(--e-hover),background var(--e-hover)}
+.wiz-yn-b:hover{border-color:var(--b600)}
+.wiz-yn-box{width:19px;height:19px;flex:0 0 auto;border-radius:5px;border:1.5px solid var(--bd);background:var(--surf2);display:inline-flex;align-items:center;justify-content:center;color:#fff;transition:background var(--e-hover),border-color var(--e-hover)}
+.wiz-yn-b.on-yes{border-color:var(--gn600);background:var(--gn50)}
+.wiz-yn-b.on-yes .wiz-yn-box{background:var(--gn600);border-color:var(--gn600)}
+.wiz-yn-b.on-no{border-color:var(--t3);background:var(--surf2)}
+.wiz-yn-b.on-no .wiz-yn-box{background:var(--t3);border-color:var(--t3)}
+/* Uma linha por canal: nome à esquerda, Sim/Não à direita */
+.wiz-yn-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--bd)}
+.wiz-yn-row:last-child{border-bottom:0}
+.wiz-yn-lbl{font-size:13px;font-weight:600;color:var(--t)}
+/* Canais com a política de cancelamento vinculada */
+.wiz-chips{display:flex;gap:7px;flex-wrap:wrap}
+.wiz-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--bd);border-radius:20px;background:var(--surf);color:var(--t2);font:inherit;font-size:12px;cursor:pointer;transition:border-color var(--e-hover),background var(--e-hover),color var(--e-hover)}
+.wiz-chip:hover{border-color:var(--b600)}
+.wiz-chip.on{border-color:var(--gn600);background:var(--gn50);color:var(--gn800);font-weight:600}
+
+/* ── Memória de cidade e temporada ── */
+.wiz-city-sug-box{display:flex;flex-direction:column;gap:5px;margin-bottom:.75rem}
+.wiz-city-sug-box:empty{display:none}
+.wiz-city-sug-hd{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:1px}
+.wiz-city-sug{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:7px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--t);font:inherit;font-size:12.5px;cursor:pointer;transition:border-color var(--e-hover),background var(--e-hover)}
+.wiz-city-sug:hover{border-color:var(--b600);background:var(--b50)}
+.wiz-city-sug-n{display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap}
+.wiz-city-sug-s{font-size:11px;color:var(--t3);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* Aviso de que a temporada veio de sugestão e ainda não foi conferida */
+.wiz-city-warn{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:8px;padding:7px 11px;border:1px solid var(--b600);border-radius:8px;background:var(--b50);font-size:11.5px;color:var(--b600);line-height:1.5}
+
+/* ── Cobertura do time, expandida: log de follow-ups ── */
+.lp-cov-filter{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin:2px 0 10px;padding-bottom:11px;border-bottom:1px solid var(--bd)}
+.lp-cov-filter-lbl{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding-top:8px;flex:0 0 auto}
+.lp-cov-chip-n{font-size:10px;font-weight:700;color:var(--t3);margin-left:2px}
+.wiz-chip.on .lp-cov-chip-n{color:var(--gn600)}
+.lp-cov-fill{background:var(--b600)}
+.lp-cov-log{display:flex;flex-direction:column}
+.lp-cov-log-hd,.lp-cov-log-r{display:grid;grid-template-columns:96px minmax(110px,1.2fr) 96px minmax(0,2fr) 104px;gap:10px;align-items:center}
+.lp-cov-log-hd{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);padding:0 4px 7px;border-bottom:1px solid var(--bd)}
+.lp-cov-log-r{padding:9px 4px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.lp-cov-log-r:last-child{border-bottom:0}
+.lp-cov-log-d{font-weight:600;color:var(--t2);white-space:nowrap}
+.lp-cov-log-a{color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-cov-log-s a{font-weight:700;color:var(--b600);text-decoration:none}
+.lp-cov-log-s a:hover{text-decoration:underline}
+.lp-cov-log-n{color:var(--t3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Marca o follow antigo, salvo antes de o sistema gravar quem respondeu */
+.lp-cov-inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:5px;border-radius:50%;background:var(--surf3);color:var(--t3);font-size:9px;font-weight:700;cursor:help;vertical-align:middle}

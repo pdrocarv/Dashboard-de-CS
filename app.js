@@ -25,14 +25,27 @@ const CS={"Argentina":["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Cordo
 const S={appUser:null,appReady:false,clients:[],allUsers:[],customQuestions:[],view:"dashboard",sel:null,selFollow:null,modal:null,theme:localStorage.getItem("stays_theme")||"light",filterCountry:"",filterRisk:"",filterPlan:"",filterFollowUp:"",sortMrr:"",sortName:"",filterAnalyst:"",clientTab:"info",importMsg:"",genText:"",generating:false,copied:false,undoMsg:"",undoCI:null,undoFollow:null,undoFollowIdx:null,clockInterval:null,citiesOpen:false,apiKey:localStorage.getItem("stays_api_key")||"",savedMsg:false,filterStatus:'',filterCategoria:'',filterAlertStatus:'',expandedAnalysts:{},showFilters:false,showAdminFilters:false,adminLog:[],churnEditMode:false,modalArg:null,slidePanel:null,slidePanelTab:'activities',slideAddOpen:false,wiz:{step:0,type:'first',answers:{},humors:{},autoHumors:{},prevAnswers:null},chartType:'timeline',lpFilters:{cat:[],plan:[],analyst:[],country:[],city:[]},lpMrrSort:null,lpOpenPop:null,lpOpen:{churn:false,inad:false,loop:false,quest:false},lpViewMode:'list',lpSearch:'',lpPageSize:{list:20,cards:10},lpPage:{},settingsCat:null,settingsSub:null,wizOrderTab:'first',wizOrderDraft:null,wizOrderDirty:false,wizBlockedMsg:false,ahFilters:{from:'',to:'',user:'',cat:'',action:''},profileMenuOpen:false,userDraft:null,profileDraft:null,newUserCreds:null,busyMsg:'',impClients:null,lpClientMenu:null,lpToast:'',lpPeriod:{key:'30d'},lpPeriodDraft:null,lpBand:'',lpQueue:null,lpChurnBig:false,lpChurnMode:'mes',impFollow:null,_lastView:null,_lastModal:null};
 setTheme(S.theme);
 function emailPermitido(email){return email&&(email.endsWith('@stays.net')||email==='pdroc.ferreira@gmail.com');}
-// pedro.ferreira@stays.net e o admin master: ninguem muda a funcao dele, nem ele mesmo.
-// pdroc.ferreira@gmail.com e a conta de teste do dono: so o master mexe nela.
+// pedro.ferreira@stays.net e o admin master: a funcao dele nao muda (nem por ele
+// mesmo) e a conta nao aparece na Gestao de ninguem — nem de outro admin, nem do
+// usuario teste. Quem precisa mexer no proprio nome/foto usa o Perfil, no topo.
 const MASTER_ADMIN_EMAIL='pedro.ferreira@stays.net';
 const OWNER_TEST_EMAIL='pdroc.ferreira@gmail.com';
-const PROTECTED_ADMIN_EMAILS=[MASTER_ADMIN_EMAIL,OWNER_TEST_EMAIL];
+// So o master e blindado. A conta de teste do dono virou conta comum de proposito:
+// e ela que recebe o papel "Usuario teste" pra provar as novidades antes do time.
+const PROTECTED_ADMIN_EMAILS=[MASTER_ADMIN_EMAIL];
 function isProtectedAdmin(u){return u&&PROTECTED_ADMIN_EMAILS.indexOf((u.email||'').toLowerCase())>=0;}
 function isMasterAdmin(u){return!!u&&(u.email||'').toLowerCase()===MASTER_ADMIN_EMAIL;}
 function iAmMasterAdmin(){return isMasterAdmin(S.appUser);}
+// ── Usuario teste: acesso de admin + as novidades em prova ──
+// O usuario teste navega o dashboard como um admin. A unica coisa que ele nao
+// alcanca e a conta do admin master, que e invisivel pra todo mundo.
+function isAdminLike(u){var r=u&&u.role;return r==='admin'||r==='testuser';}
+function iAmAdminLike(){return isAdminLike(S.appUser);}
+// Porta das novidades. O que ainda esta em prova aparece pra quem tem o papel
+// "Usuario teste" e pro admin master (que precisa ver pra decidir se libera); o
+// resto do time continua com o dashboard de ontem ate a aprovacao. Uma feature
+// "sai da porta" quando esta chamada e removida do codigo dela.
+function hasBeta(){return!!(S.appUser&&(S.appUser.role==='testuser'||iAmMasterAdmin()));}
 // ── Hierarquia: Gerente -> Supervisor -> Analista ──
 // managedUsers do supervisor guarda analistas; managedUsers do gerente guarda supervisores.
 function supervisorOfAnalyst(analystUid){
@@ -64,7 +77,7 @@ function canEditUserRole(target){
   if(isProtectedAdmin(target))return iAmMasterAdmin();
   if(target.uid===S.appUser.uid)return false;
   var r=S.appUser.role;
-  if(r==='admin')return true;
+  if(isAdminLike(S.appUser))return true;
   if(target.role==='admin'||target.role==='testuser')return false;
   // Aprovar quem entrou sozinho e ficou pendente: qualquer gerente ou supervisor.
   if(target.role==='pending')return r==='gerente'||r==='leader';
@@ -80,7 +93,7 @@ function canEditUserRole(target){
 // Funcoes que cada perfil pode atribuir a outro usuario
 function assignableRoles(){
   var r=S.appUser&&S.appUser.role;
-  if(r==='admin')return['pending','analyst','leader','gerente','admin','testuser'];
+  if(isAdminLike(S.appUser))return['pending','analyst','leader','gerente','admin','testuser'];
   if(r==='gerente')return['pending','analyst','leader'];
   if(r==='leader')return['pending','analyst'];
   return[];
@@ -91,15 +104,18 @@ function canEditUserProfile(target){
   if(target.uid===S.appUser.uid)return true;
   if(isProtectedAdmin(target))return iAmMasterAdmin();
   var r=S.appUser.role;
-  if(r==='admin')return true;
+  if(isAdminLike(S.appUser))return true;
   if(target.role==='admin'||target.role==='testuser')return false;
   return r==='gerente'||r==='leader';
 }
-// Quem aparece na tela de Gestao: gerente e supervisor nao veem admin nem usuario teste.
+// Quem aparece na tela de Gestao: gerente e supervisor nao veem admin nem usuario
+// teste. O admin master nao aparece pra ninguem — nem pra ele mesmo, que edita o
+// proprio nome/foto pelo Perfil no topo. Assim ninguem tropeca naquela linha.
 function adminVisibleUsers(){
   if(!S.appUser)return[];
-  if(S.appUser.role==='admin')return(S.allUsers||[]).slice();
-  return(S.allUsers||[]).filter(function(u){return u.role!=='admin'&&u.role!=='testuser';});
+  var base=(S.allUsers||[]).filter(function(u){return!isMasterAdmin(u);});
+  if(iAmAdminLike())return base;
+  return base.filter(function(u){return u.role!=='admin'&&u.role!=='testuser';});
 }
 // ── Historico de atividades: quem enxerga a atividade de quem ──
 // Admin ve tudo. Gerente ve a si, os supervisores atribuidos a ele e os analistas.
@@ -108,11 +124,11 @@ function adminVisibleUsers(){
 function canSeeLogOf(actorUid){
   var me=S.appUser;
   if(!me)return false;
-  if(me.role==='admin')return true;
+  if(isAdminLike(me))return true;
   if(actorUid&&actorUid===me.uid)return true;
   var actor=(S.allUsers||[]).find(function(u){return u.uid===actorUid;});
   if(!actor)return false;
-  if(actor.role==='admin')return false;
+  if(isAdminLike(actor))return false;
   if(me.role==='gerente'){
     if(actor.role==='analyst')return true;
     if(actor.role==='leader')return(me.managedUsers||[]).indexOf(actor.uid)>=0;
@@ -130,7 +146,7 @@ function usersWithRole(){
 }
 // Admin ainda conta como supervisor possível, mas só quem é admin enxerga isso —
 // pra gerente e supervisor nenhum admin aparece em lugar nenhum da Gestão.
-function leaderUsers(){return S.appUser&&S.appUser.role==='admin'?usersWithRole('leader','admin'):usersWithRole('leader');}
+function leaderUsers(){return iAmAdminLike()?usersWithRole('leader','admin'):usersWithRole('leader');}
 function gerenteUsers(){return usersWithRole('gerente');}
 var _authTimer=setTimeout(function(){if(!S.appReady){console.warn("Auth timeout — reloading");window.location.reload();}},9000);
 auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
@@ -155,7 +171,7 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
         if(profile.role==="pending"){S.appReady=true;render();return;}
       }
       await loadClients();
-      if(["admin","gerente","leader"].indexOf(S.appUser.role)>=0)await loadAllUsers();
+      if(["admin","gerente","leader","testuser"].indexOf(S.appUser.role)>=0)await loadAllUsers();
       await loadCustomQuestions();
       // Depois das perguntas customizadas, senão elas ficariam de fora do texto.
       refreshAllSFTexts();
@@ -673,9 +689,124 @@ function wizUnitsChanged(){
   render();
 }
 
+// ══════════════════════════════════════════════════
+// MEMORIA DE CIDADE E TEMPORADA (em prova)
+// ══════════════════════════════════════════════════
+// Temporada e geografia, nao segredo de carteira: se alguem ja registrou que em
+// Sao Paulo a alta vai de Dez a Mar, o proximo analista com cliente em Sao Paulo
+// nao precisa descobrir isso de novo. A memoria le o que JA foi preenchido em
+// todos os clientes e sugere; o analista confirma ou corrige. Nada e inventado —
+// se ninguem nunca registrou aquela cidade, nao ha sugestao nenhuma.
+function cityKey(nome){
+  return String(nome||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+var _citySeasonCache=null;
+function invalidateCitySeasonMemory(){_citySeasonCache=null;}
+function citySeasonMemory(){
+  if(_citySeasonCache)return _citySeasonCache;
+  var mapa={};
+  (S.clients||[]).forEach(function(c){
+    var f=getLatestFollow(c);
+    var cities=(f&&f.answers&&f.answers.cities)||[];
+    cities.forEach(function(ct){
+      var k=cityKey(ct.name);if(!k)return;
+      var s=ct.seasons||{};
+      var alta=(s.alta||[]).filter(function(p){return p.start&&p.end;});
+      var baixa=(s.baixa||[]).filter(function(p){return p.start&&p.end;});
+      if(!alta.length&&!baixa.length)return; // cidade sem temporada nao tem o que lembrar
+      if(!mapa[k])mapa[k]={nome:String(ct.name).trim(),variantes:{}};
+      // Clientes que registraram a MESMA temporada contam juntos, pra sugerir a
+      // versao mais comum em vez da ultima que apareceu na varredura.
+      var sig=JSON.stringify({alta:alta,baixa:baixa});
+      if(!mapa[k].variantes[sig])mapa[k].variantes[sig]={alta:alta,baixa:baixa,n:0};
+      mapa[k].variantes[sig].n++;
+    });
+  });
+  var out={};
+  Object.keys(mapa).forEach(function(k){
+    var vars=Object.keys(mapa[k].variantes).map(function(s){return mapa[k].variantes[s];});
+    vars.sort(function(x,y){return y.n-x.n;});
+    out[k]={nome:mapa[k].nome,alta:vars[0].alta,baixa:vars[0].baixa,
+      n:vars[0].n,total:vars.reduce(function(t,v){return t+v.n;},0)};
+  });
+  _citySeasonCache=out;
+  return out;
+}
+// Cidades ja registradas que combinam com o que esta sendo digitado. Cidade que
+// ja esta neste follow nao aparece de novo.
+function citySuggestions(termo){
+  var t=cityKey(termo);
+  var mem=citySeasonMemory();
+  var jaTem=((S.wiz&&S.wiz.answers&&S.wiz.answers.cities)||[]).map(function(c){return cityKey(c.name);});
+  return Object.keys(mem)
+    .filter(function(k){return jaTem.indexOf(k)<0&&(!t||k.indexOf(t)>=0);})
+    .sort(function(x,y){
+      var ax=t&&x.indexOf(t)===0?0:1,ay=t&&y.indexOf(t)===0?0:1;
+      if(ax!==ay)return ax-ay;                          // quem comeca com o termo vem antes
+      if(mem[y].total!==mem[x].total)return mem[y].total-mem[x].total; // depois, o mais usado
+      return x.localeCompare(y);
+    })
+    .slice(0,6).map(function(k){return mem[k];});
+}
+function citySeasonResumo(s){
+  var r=[];
+  if(s.alta.length)r.push('alta '+s.alta.map(function(p){return p.start+'–'+p.end;}).join(', '));
+  if(s.baixa.length)r.push('baixa '+s.baixa.map(function(p){return p.start+'–'+p.end;}).join(', '));
+  return r.join(' · ');
+}
+function wizCitySugHTML(termo){
+  var sug=citySuggestions(termo);
+  if(!sug.length)return'';
+  var h='<div class="wiz-city-sug-hd">Cidades já registradas — clique pra trazer a temporada junto</div>';
+  sug.forEach(function(s){
+    h+='<button class="wiz-city-sug" onclick="wizPickCitySuggestion(\''+jsq(s.nome)+'\')">'
+      +'<span class="wiz-city-sug-n">'+svgIcon('pin',12)+' '+e(s.nome)+'</span>'
+      +'<span class="wiz-city-sug-s">'+e(citySeasonResumo(s))+'</span></button>';
+  });
+  return h;
+}
+// Atualiza so a lista, sem render() — um render a cada tecla faria o campo perder
+// o foco no meio da palavra (o mesmo tropeco do calendario do NPS).
+function wizCityInput(v){
+  var box=document.getElementById('wiz-city-sug');
+  if(box)box.innerHTML=wizCitySugHTML(v);
+}
+function wizPickCitySuggestion(nome){
+  if(S.editFollow)S.editFollowDirty=true;
+  var mem=citySeasonMemory()[cityKey(nome)];
+  var a=S.wiz.answers;if(!a.cities)a.cities=[];
+  var copia=function(arr){return JSON.parse(JSON.stringify(arr||[]));};
+  a.cities.push({
+    name:mem?mem.nome:nome,units:'',principal:false,
+    seasons:{alta:copia(mem&&mem.alta),baixa:copia(mem&&mem.baixa)},
+    // Fica marcado como sugestao ate o analista confirmar ou editar: ninguem deve
+    // levar adiante um palpite do sistema sem ter olhado.
+    seasonSuggested:!!(mem&&(mem.alta.length||mem.baixa.length))
+  });
+  wizRecalcPrincipal();
+  S.wiz.editingCityIdx=a.cities.length-1;
+  var inp=document.getElementById('wiz-city-inp');if(inp)inp.value='';
+  render();
+}
+function wizConfirmCitySeason(i){
+  var c=((S.wiz.answers||{}).cities||[])[i];if(!c)return;
+  delete c.seasonSuggested;
+  if(S.editFollow)S.editFollowDirty=true;
+  render();
+}
+// "Todas": copia o total de unidades do cliente pra esta cidade, igual ao atalho
+// que ja existe em cada canal de venda.
+function wizCityAll(i){
+  var a=S.wiz.answers;var c=(a.cities||[])[i];if(!c)return;
+  if(S.editFollow)S.editFollowDirty=true;
+  c.units=+(a.units_count)||0;
+  wizRecalcPrincipal();
+  render();
+}
 function wizQ2(){
   var a=S.wiz.answers;
   var cities=a.cities||[];
+  var unitsTotal=+(a.units_count)||0;
   var months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   function mOpts(sel){return months.map(function(m){return '<option value="'+m+'"'+(sel===m?' selected':'')+'>'+m+'</option>';}).join('');}
   function periodsHTML(i,kind,label,icon){
@@ -696,9 +827,13 @@ function wizQ2(){
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
     html+='<span style="cursor:pointer;flex:1;font-weight:'+(c.principal?'700':'500')+'" onclick="wizOpenCity('+i+')">'+svgIcon('pin',14)+' '+e(c.name)+(c.principal?' <span style="color:var(--b600);font-size:11px">(principal)</span>':'')+'</span>';
     html+='<input class="wiz-input wiz-input-sm" type="number" min="0" placeholder="Unidades" style="width:90px" value="'+(c.units!==undefined&&c.units!==null&&c.units!==''?c.units:'')+'" onchange="wizCitySet('+i+',\'units\',this.value)">';
+    if(hasBeta()&&unitsTotal)html+='<button class="btn btn-sm" title="Usar o total de '+unitsTotal+' unidades do cliente" onclick="wizCityAll('+i+')">Todas</button>';
     if(!c.principal)html+='<button class="btn btn-sm" onclick="wizSetPrincipal('+i+')">Marcar principal</button>';
     html+='<button style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:14px" onclick="wizRemCity('+i+')">×</button>';
     html+='</div>';
+    if(hasBeta()&&c.seasonSuggested){
+      html+='<div class="wiz-city-warn">'+svgIcon('lightbulb',13)+' Temporada sugerida a partir de outros clientes em <strong>'+e(c.name)+'</strong>. Confira e ajuste se precisar. <button class="btn btn-sm" style="margin-left:6px" onclick="wizConfirmCitySeason('+i+')">Confirmar</button></div>';
+    }
     if(isOpen){
       html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">'+periodsHTML(i,'alta','Alta temporada','sun')+periodsHTML(i,'baixa','Baixa temporada','moon')+'</div>';
     }else{
@@ -707,7 +842,12 @@ function wizQ2(){
     }
     html+='</div>';
   });
-  html+='<div class="wiz-row" style="margin-bottom:.5rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Nome da cidade..." style="flex:1"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar cidade</button></div>';
+  if(hasBeta()){
+    html+='<div class="wiz-row" style="margin-bottom:.4rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Buscar ou escrever a cidade..." autocomplete="off" style="flex:1" oninput="wizCityInput(this.value)"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar cidade</button></div>';
+    html+='<div class="wiz-city-sug-box" id="wiz-city-sug">'+wizCitySugHTML('')+'</div>';
+  }else{
+    html+='<div class="wiz-row" style="margin-bottom:.5rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Nome da cidade..." style="flex:1"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar cidade</button></div>';
+  }
   html+='</div>';
   return html;
 }
@@ -750,16 +890,20 @@ function wizSetPrincipal(i){
 function wizAddSeasonPeriod(i,kind){
   var a=S.wiz.answers;var c=a.cities&&a.cities[i];if(!c)return;if(!c.seasons)c.seasons={alta:[],baixa:[]};if(!c.seasons[kind])c.seasons[kind]=[];
   c.seasons[kind].push({start:'',end:''});
+  delete c.seasonSuggested;
   if(S.editFollow)S.editFollowDirty=true;render();
 }
 function wizRemSeasonPeriod(i,kind,pi){
   var a=S.wiz.answers;var c=a.cities&&a.cities[i];if(!c||!c.seasons||!c.seasons[kind])return;
   c.seasons[kind].splice(pi,1);
+  delete c.seasonSuggested;
   if(S.editFollow)S.editFollowDirty=true;render();
 }
 function wizSetSeasonPeriod(i,kind,pi,field,val){
   var a=S.wiz.answers;var c=a.cities&&a.cities[i];if(!c||!c.seasons||!c.seasons[kind]||!c.seasons[kind][pi])return;
   c.seasons[kind][pi][field]=val;
+  // Mexer na temporada a mao ja e a conferencia: o aviso de sugestao sai sozinho.
+  delete c.seasonSuggested;
   if(S.editFollow)S.editFollowDirty=true;render();
 }
 
@@ -1014,6 +1158,10 @@ function wizQ8(){
   if(a.pricing_tool==='sim'){
     html+='<div style="margin-top:.6rem"><label style="font-size:13px;color:var(--t2)">Qual ferramenta?</label><br><select class="wiz-input wiz-input-sm" style="margin-top:4px" onchange="wizA(\'pricing_tool_name\',this.value)"><option value="">Selecionar...</option>'+['Pricelabs','Turbosuite','Beyond Pricing','Outra'].map(function(opt){return'<option value="'+opt+'"'+(a.pricing_tool_name===opt?' selected':'')+'>'+opt+'</option>';}).join('')+'</select></div>';
   }
+  // O mesmo conflito PriceLabs x desconto por duracao de estadia tambem aparece
+  // aqui: esta pergunta vem DEPOIS da de usabilidade, entao quem escolheu o
+  // desconto la atras so descobre o PriceLabs agora.
+  if(hasBeta()&&wizPricelabsConflict(a))html+=wizPricelabsAlertHTML();
   html+='</div>';
   html+='</div>';
   return html;
@@ -1373,7 +1521,8 @@ function wizStepAnswered(stepKey){
   if(!key)return true;
   if(key==='cities')return!!(a.cities&&a.cities.length);
   if(key==='channels')return!!(a.channels&&a.channels.some(function(c){return c.active;}));
-  if(key==='usab')return WIZ_USAB_ITEMS.every(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
+  if(key==='usab')return usabIsV2(a)?wizUsabAnsweredV2(a)
+    :WIZ_USAB_ITEMS.every(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
   if(key==='occupation')return!!(a.occ_current&&a.occ_current.option!==undefined&&a.occ_current.option!==null);
   var v=a[key];
   return v!==undefined&&v!==null&&v!=='';
@@ -1383,7 +1532,7 @@ function wizStepMandatory(stepKey){
   return true;
 }
 // Admin, Gerente e Líder sempre podem pular perguntas obrigatórias; analista nunca.
-function wizCanSkipMandatory(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
+function wizCanSkipMandatory(){return!!(S.appUser&&['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0);}
 function wizTryAdvance(target){
   var effSteps=getWizOrder(S.wiz.type);
   var stepKey=effSteps[S.wiz.step];
@@ -1523,7 +1672,10 @@ function followWizardView(){
       case'channels':return activeChs+(a.channels_note?' — '+e(a.channels_note):'');
       case'notifs':return(a.notifs_option!==undefined&&a.notifs_option!==null?NOTIFS[a.notifs_option]:'—')+(a.notifs_note?' — '+e(a.notifs_note):'');
       case'ch_perf':return(a.chperf_option!==undefined&&a.chperf_option!==null?CHPERF[a.chperf_option]:'—')+(a.chperf_note?' — '+e(a.chperf_note):'');
-      case'ch_usab':var _uCount=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;}).length;return _uCount+' de '+WIZ_USAB_ITEMS.length+' itens avaliados'+(a.usab_note?' — '+e(a.usab_note):'');
+      case'ch_usab':
+        if(usabIsV2(a))return e(usabTextV2(a))+(a.usab_note?' — '+e(a.usab_note):'');
+        var _uCount=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;}).length;
+        return _uCount+' de '+WIZ_USAB_ITEMS.length+' itens avaliados'+(a.usab_note?' — '+e(a.usab_note):'');
       case'domain':return a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—');
       case'tz_check':return a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'—');
       case'site':return a.site_option!==undefined&&a.site_option!==null?SITE[a.site_option]+(a.site_other?' — '+e(a.site_other):''):'—';
@@ -1796,6 +1948,7 @@ function wizUsabMajority(){
   return leaders[0];
 }
 function wizR3(){
+  if(hasBeta())return wizR3v2();
   var a=S.wiz.answers;
   var auto=wizUsabMajority();
   var html='<div class="wiz-card">';
@@ -1815,6 +1968,262 @@ function wizR3(){
     html+='</div>';
   });
   html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Observações gerais (opcional)</label><textarea class="wiz-note" rows="2" placeholder="Notas sobre usabilidade..." oninput="wizAText(\'usab_note\',this.value)">'+(a.usab_note||'')+'</textarea></div>';
+  html+=wizFaces('usab',auto,true);
+  html+='</div>';
+  return html;
+}
+
+// ══════════════════════════════════════════════════
+// USABILIDADE DOS CANAIS — VERSAO NOVA (em prova)
+// ══════════════════════════════════════════════════
+// O que os analistas relataram testando o sistema: as 5 escalas de carinha eram
+// ambiguas. Elas pediam uma NOTA DE QUALIDADE pra coisas que sao caracteristica
+// do cliente (cobra por noite ou por temporada?) ou fato binario (o pagamento via
+// Booking esta configurado?) — nao existe resposta "boa" ou "ruim" ali.
+// Agora cada item pergunta o que realmente da pra observar, e so dois deles pesam
+// no score: periodo de disponibilidade e promocoes ativas.
+
+// Disponibilidade em meses de calendario aberto. Mesma leitura da pergunta de
+// ocupacao: a faixa vem escrita no rotulo, sem campo numerico livre. Ordem da
+// melhor pra pior na tela; o indice do humor vai em `h` (0=pessimo, 4=otimo).
+var WIZ_DISP_OPTS=[
+  {h:4,label:'Ótimo — mais de 12 meses de calendário aberto',ico:'fire'},
+  {h:3,label:'Bom — 12 meses de calendário aberto',ico:'check'},
+  {h:2,label:'Neutro — de 8 a 11 meses',ico:'info_triangle'},
+  {h:1,label:'Ruim — 7 meses',ico:'alert'},
+  {h:0,label:'Péssimo — menos de 7 meses',ico:'cancel'}
+];
+// Só Airbnb e Booking têm promoção; os outros canais não oferecem o recurso,
+// então nem entram na pergunta.
+var WIZ_PROMO_CHANNELS=['airbnb','booking'];
+function wizChannelName(k){var c=WIZ_CHANNELS.find(function(x){return x.key===k;});return c?c.name:k;}
+function wizActiveChannelKeys(a){
+  return(a.channels||[]).filter(function(c){return c.active;}).map(function(c){return c.key;});
+}
+function wizPromoChannels(a){
+  var act=wizActiveChannelKeys(a);
+  return WIZ_PROMO_CHANNELS.filter(function(k){return act.indexOf(k)>=0;});
+}
+// Promocao ativa sobe o score, mas NAO ter promocao nao derruba: da Neutro, nunca
+// Pessimo — nem todo periodo pede promocao. Com os dois canais ativos e respostas
+// diferentes, vale a media dos dois.
+function wizPromoHumor(a){
+  var vals=[];
+  wizPromoChannels(a).forEach(function(k){
+    var v=a['usab_promo_'+k];
+    if(v===true)vals.push(3);
+    else if(v===false)vals.push(2);
+  });
+  if(!vals.length)return null;
+  return Math.round(vals.reduce(function(x,y){return x+y;},0)/vals.length);
+}
+// Com so dois itens pontuando, "maioria" nao faz mais sentido: e a media dos que
+// foram respondidos. Nenhum respondido continua Neutro, como antes.
+function wizUsabHumorV2(){
+  var a=S.wiz.answers;
+  var votos=[];
+  if(a.usab_disponibilidade!==undefined&&a.usab_disponibilidade!==null)votos.push(a.usab_disponibilidade);
+  var p=wizPromoHumor(a);
+  if(p!==null)votos.push(p);
+  if(!votos.length)return 2;
+  return Math.round(votos.reduce(function(x,y){return x+y;},0)/votos.length);
+}
+// PriceLabs + desconto por duracao de estadia na Stays nao convivem: com os dois
+// ligados a Stays nao recebe os precos certos do PriceLabs, e o cliente paga a
+// ferramenta a toa. Vale so o PriceLabs — as outras ferramentas nao tem o problema.
+// O nome da ferramenta pode nao ter sido respondido ainda neste follow (aquela
+// pergunta vem depois desta), entao vale tambem o que o follow anterior registrou.
+// So o que ESTE follow registrou. E o que vale pra texto de follow salvo, que
+// tem que refletir aquele follow e mais nada.
+function answersUsePricelabs(a){
+  return a.pricing_tool==='sim'&&String(a.pricing_tool_name||'').toLowerCase()==='pricelabs';
+}
+function wizUsesPricelabs(a){
+  if(answersUsePricelabs(a))return true;
+  var p=S.wiz&&S.wiz.prevAnswers;
+  return!!(p&&p.pricing_tool==='sim'&&String(p.pricing_tool_name||'').toLowerCase()==='pricelabs');
+}
+function wizPricelabsConflict(a){
+  return a.usab_pricing_noite_mode==='desconto'&&wizUsesPricelabs(a)&&!a.usab_pricelabs_alert_ignored;
+}
+function wizPricelabsAlertHTML(){
+  return'<div class="wiz-alert">'+svgIcon('alert',14)+' Este cliente usa <strong>PriceLabs</strong> e está com <strong>desconto por duração de estadia</strong>. Os dois juntos não funcionam: a Stays não recebe os preços corretos do PriceLabs, e o cliente acaba pagando a ferramenta à toa. O desconto precisa ficar <strong>só no PriceLabs</strong>. <button class="btn btn-sm" style="margin-left:8px" onclick="wizCreateReminderPricelabs()">Criar lembrete (2 dias)</button> <button class="btn btn-sm" style="margin-left:4px" onclick="wizA(\'usab_pricelabs_alert_ignored\',true)">Ignorar</button></div>';
+}
+function wizCreateReminderPricelabs(){
+  var ci=S.sel;
+  var dueDate=new Date(Date.now()+2*24*60*60*1000).toISOString().split('T')[0];
+  if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
+  S.clients[ci].reminders.push({id:uid(),type:'proativo',title:'Desconto por duração de estadia x PriceLabs',dueDate:dueDate,note:'Cliente usa PriceLabs e tem desconto por duração de estadia configurado na Stays. Alinhar: o desconto precisa ficar só no PriceLabs, senão os preços não chegam corretamente e o cliente paga a ferramenta à toa.',done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
+  saveState();
+  wizA('usab_pricelabs_alert_ignored',true);
+}
+function wizSetUsabPricingType(v){
+  var a=S.wiz.answers;
+  // Trocar pra "por temporada" apaga o detalhe de "por noite" (e o aviso ignorado
+  // junto), senao o texto do Salesforce sairia com um detalhe que nao vale mais.
+  if(v==='temporada'){delete a.usab_pricing_noite_mode;delete a.usab_pricelabs_alert_ignored;}
+  wizA('usab_pricing_type',v);
+}
+function wizSetCancelStatus(v){
+  var a=S.wiz.answers;
+  if(v!=='alguns')delete a.usab_cancel_channels;
+  wizA('usab_cancel_status',v);
+}
+function wizToggleCancelChannel(k){
+  if(S.editFollow)S.editFollowDirty=true;
+  var a=S.wiz.answers;
+  if(!a.usab_cancel_channels)a.usab_cancel_channels=[];
+  var i=a.usab_cancel_channels.indexOf(k);
+  if(i>=0)a.usab_cancel_channels.splice(i,1);else a.usab_cancel_channels.push(k);
+  render();
+}
+// Sim/Nao. O "Sim" carrega o visto verde que o Pedro pediu, mas ficam os dois
+// botoes em vez de uma caixinha que so liga/desliga: "nao verifiquei" e "nao tem"
+// precisam ser coisas diferentes, senao o texto do Salesforce afirma o que ninguem
+// olhou — e esse texto vai pro registro do cliente.
+function wizYesNoHTML(key,val,labelSim,labelNao){
+  return'<div class="wiz-yn">'
+    +'<button class="wiz-yn-b'+(val===true?' on-yes':'')+'" onclick="wizA(\''+key+'\',true)">'
+      +'<span class="wiz-yn-box">'+(val===true?svgIcon('check',12):'')+'</span>'+e(labelSim||'Sim')+'</button>'
+    +'<button class="wiz-yn-b'+(val===false?' on-no':'')+'" onclick="wizA(\''+key+'\',false)">'
+      +'<span class="wiz-yn-box">'+(val===false?svgIcon('cancel',12):'')+'</span>'+e(labelNao||'Não')+'</button>'
+    +'</div>';
+}
+// Follow salvo no formato novo carrega esta marca. E assim que o resumo do wizard
+// e o texto do Salesforce sabem qual leitura usar, mesmo meses depois — follow
+// antigo continua sendo lido do jeito que foi salvo, sem reescrever historico.
+// Respondido = tudo que apareceu na tela foi preenchido. Item de canal inativo
+// nao entra na conta, porque nem chegou a ser mostrado.
+function wizUsabAnsweredV2(a){
+  var falta=function(v){return v===undefined||v===null;};
+  if(falta(a.usab_pricing_type))return false;
+  if(a.usab_pricing_type==='noite'&&falta(a.usab_pricing_noite_mode))return false;
+  var act=wizActiveChannelKeys(a);
+  if(act.indexOf('booking')>=0&&falta(a.usab_pagbooking_ok))return false;
+  if(falta(a.usab_cancel_status))return false;
+  if(a.usab_cancel_status==='alguns'&&act.length&&!(a.usab_cancel_channels||[]).length)return false;
+  if(falta(a.usab_disponibilidade))return false;
+  return wizPromoChannels(a).every(function(k){return!falta(a['usab_promo_'+k]);});
+}
+function usabIsV2(a){
+  if(a.usab_v2===true)return true;
+  return['usab_pricing_type','usab_pagbooking_ok','usab_cancel_status','usab_promo_airbnb','usab_promo_booking']
+    .some(function(k){return a[k]!==undefined&&a[k]!==null;});
+}
+// Texto da usabilidade nova. Uma fonte so pro resumo e pro Salesforce, senao os
+// dois acabam discordando com o tempo.
+function usabTextV2(a){
+  var partes=[];
+  if(a.usab_pricing_type==='temporada')partes.push('Precificação: por temporada');
+  else if(a.usab_pricing_type==='noite'){
+    var det=a.usab_pricing_noite_mode==='desconto'?'desconto por duração de estadia'
+      :(a.usab_pricing_noite_mode==='comum'?'planos tarifários comuns':'tipo não informado');
+    partes.push('Precificação: por noite ('+det+')');
+    if(a.usab_pricing_noite_mode==='desconto'&&answersUsePricelabs(a))
+      partes.push('ATENÇÃO: usa PriceLabs junto com desconto por duração de estadia — configuração incompatível');
+  }
+  if(a.usab_pagbooking_ok===true)partes.push('Pagamentos via Booking: configurado');
+  else if(a.usab_pagbooking_ok===false)partes.push('Pagamentos via Booking: não configurado');
+  if(a.usab_cancel_status==='todos')partes.push('Política de cancelamento: vinculada em todos os canais de venda');
+  else if(a.usab_cancel_status==='nenhum')partes.push('Política de cancelamento: não vinculada em nenhum canal');
+  else if(a.usab_cancel_status==='alguns'){
+    var chs=(a.usab_cancel_channels||[]).map(wizChannelName);
+    partes.push('Política de cancelamento: vinculada só em '+(chs.length?chs.join(', '):'canais não informados'));
+  }
+  if(a.usab_disponibilidade!==undefined&&a.usab_disponibilidade!==null){
+    var d=WIZ_DISP_OPTS.find(function(o){return o.h===a.usab_disponibilidade;});
+    partes.push('Período de disponibilidade: '+(d?d.label:'não informado'));
+  }
+  var promo=[];
+  WIZ_PROMO_CHANNELS.forEach(function(k){
+    var v=a['usab_promo_'+k];
+    if(v===true)promo.push(wizChannelName(k)+': tem promoção');
+    else if(v===false)promo.push(wizChannelName(k)+': não tem');
+  });
+  if(promo.length)partes.push('Promoções ativas — '+promo.join(', '));
+  return partes.length?partes.join(' | '):'Não avaliado';
+}
+function wizR3v2(){
+  var a=S.wiz.answers;
+  if(!a.usab_v2)a.usab_v2=true;
+  var auto=wizUsabHumorV2();
+  var actKeys=wizActiveChannelKeys(a);
+  var selo=function(conta){return conta
+    ?'<span class="wiz-tag wiz-tag-score">conta no score</span>'
+    :'<span class="wiz-tag wiz-tag-info">sem score</span>';};
+  var html='<div class="wiz-card">';
+  html+='<div class="wiz-q">Usabilidade dos canais de venda</div>';
+  html+='<div class="wiz-q-sub">Disponibilidade e promoções entram no score. Precificação, pagamento via Booking e política de cancelamento são registro do que o cliente usa hoje — sem nota.</div>';
+
+  // ── Precificação (era "planos tarifários") ──
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Como o cliente precifica '+selo(false)+'</div>';
+  html+='<div class="wiz-opts">';
+  html+='<div class="wiz-opt'+(a.usab_pricing_type==='noite'?' sel':'')+'" onclick="wizSetUsabPricingType(\'noite\')"><span class="wiz-opt-ico">'+svgIcon('moon',16)+'</span><span class="wiz-opt-lbl">Por noite</span></div>';
+  html+='<div class="wiz-opt'+(a.usab_pricing_type==='temporada'?' sel':'')+'" onclick="wizSetUsabPricingType(\'temporada\')"><span class="wiz-opt-ico">'+svgIcon('calendar',16)+'</span><span class="wiz-opt-lbl">Por temporada</span></div>';
+  html+='</div>';
+  if(a.usab_pricing_type==='noite'){
+    html+='<div class="wiz-sub-q" style="margin:12px 0 .75rem">Qual o tipo, dentro de "por noite"?</div><div class="wiz-opts">';
+    html+='<div class="wiz-opt'+(a.usab_pricing_noite_mode==='comum'?' sel':'')+'" onclick="wizA(\'usab_pricing_noite_mode\',\'comum\')"><span class="wiz-opt-ico">'+svgIcon('columns',16)+'</span><span class="wiz-opt-lbl">Planos tarifários comuns</span></div>';
+    html+='<div class="wiz-opt'+(a.usab_pricing_noite_mode==='desconto'?' sel':'')+'" onclick="wizA(\'usab_pricing_noite_mode\',\'desconto\')"><span class="wiz-opt-ico">'+svgIcon('sand_watch',16)+'</span><span class="wiz-opt-lbl">Desconto por duração de estadia</span></div>';
+    html+='</div>';
+    if(wizPricelabsConflict(a))html+=wizPricelabsAlertHTML();
+  }
+  html+='</div>';
+
+  // ── Pagamentos via Booking (só se o cliente vende no Booking) ──
+  if(actKeys.indexOf('booking')>=0){
+    html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Recebimento de pagamentos via Booking está configurado? '+selo(false)+'</div>';
+    html+=wizYesNoHTML('usab_pagbooking_ok',a.usab_pagbooking_ok,'Sim, está configurado','Não está configurado');
+    html+='</div>';
+  }
+
+  // ── Política de cancelamento ──
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Política de cancelamento vinculada aos canais '+selo(false)+'</div>';
+  html+='<div class="wiz-opts">';
+  [['todos','Tem vinculada em todos os canais de venda','check'],
+   ['alguns','Tem em alguns canais','info_triangle'],
+   ['nenhum','Não tem vinculada em nenhum canal','cancel']].forEach(function(o){
+    html+='<div class="wiz-opt'+(a.usab_cancel_status===o[0]?' sel':'')+'" onclick="wizSetCancelStatus(\''+o[0]+'\')"><span class="wiz-opt-ico">'+svgIcon(o[2],16)+'</span><span class="wiz-opt-lbl">'+o[1]+'</span></div>';
+  });
+  html+='</div>';
+  if(a.usab_cancel_status==='alguns'){
+    if(!actKeys.length){
+      html+='<div class="wiz-prev-note" style="margin-top:10px;margin-bottom:0">Nenhum canal foi marcado como ativo na pergunta de canais — volte lá pra poder escolher quais têm a política.</div>';
+    }else{
+      html+='<div class="wiz-sub-q" style="margin:12px 0 .5rem">Quais canais têm a política vinculada?</div><div class="wiz-chips">';
+      actKeys.forEach(function(k){
+        var on=(a.usab_cancel_channels||[]).indexOf(k)>=0;
+        html+='<button class="wiz-chip'+(on?' on':'')+'" onclick="wizToggleCancelChannel(\''+k+'\')">'+(on?svgIcon('check',12)+' ':'')+e(wizChannelName(k))+'</button>';
+      });
+      html+='</div>';
+    }
+  }
+  html+='</div>';
+
+  // ── Período de disponibilidade (pontua) ──
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Período de disponibilidade '+selo(true)+'</div>';
+  html+='<div class="wiz-q-sub" style="margin-top:-4px">Quanto tempo de calendário aberto o cliente tem à frente.</div>';
+  html+='<div class="wiz-opts">';
+  WIZ_DISP_OPTS.forEach(function(o){
+    html+='<div class="wiz-opt'+(a.usab_disponibilidade===o.h?' sel':'')+'" onclick="wizA(\'usab_disponibilidade\','+o.h+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
+  });
+  html+='</div></div>';
+
+  // ── Promoções ativas, por canal (pontua) ──
+  var promoCh=wizPromoChannels(a);
+  html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Promoções ativas '+selo(true)+'</div>';
+  if(!promoCh.length){
+    html+='<div class="wiz-prev-note" style="margin-bottom:0">Só Airbnb e Booking têm promoção, e nenhum dos dois está marcado como canal ativo — nada a verificar aqui.</div>';
+  }else{
+    html+='<div class="wiz-q-sub" style="margin-top:-4px">Não ter promoção não derruba o score (fica neutro); ter promoção ativa sobe.</div>';
+    promoCh.forEach(function(k){
+      html+='<div class="wiz-yn-row"><span class="wiz-yn-lbl">'+e(wizChannelName(k))+'</span>'
+        +wizYesNoHTML('usab_promo_'+k,a['usab_promo_'+k],'Tem promoção','Não tem')+'</div>';
+    });
+  }
+  html+='</div>';
+
+  html+='<div style="margin-top:1rem"><label style="font-size:13px;color:var(--t2)">Observações gerais (opcional)</label><textarea class="wiz-note" rows="2" placeholder="Notas sobre usabilidade..." oninput="wizAText(\'usab_note\',this.value)">'+(a.usab_note||'')+'</textarea></div>';
   html+=wizFaces('usab',auto,true);
   html+='</div>';
   return html;
@@ -2229,6 +2638,11 @@ function wizFinish(){
     date:new Date().toISOString().split('T')[0],
     type:S.wiz.type,
     wizard:true,
+    // Quem respondeu fica gravado no proprio follow. Antes so existia o dono atual
+    // do cliente, o que dava a resposta errada depois de uma transferencia: o
+    // follow que o analista anterior fez aparecia no nome de quem recebeu.
+    byUid:S.appUser&&S.appUser.uid,
+    byName:S.appUser&&S.appUser.name,
     answers:Object.assign({},S.wiz.answers),
     humors:wizEffectiveHumors(),
     indicators:{}
@@ -2249,6 +2663,9 @@ function resumeDraft(ci){S.sel=ci;var c=S.clients[ci];openWizard(c.wizDraft?c.wi
 function openFollowCharts(){S.view='follow-charts';S.chartType='timeline';render();}
 function openWizard(type,resumeDraft){
   var c=S.clients[S.sel];
+  // A memoria de cidade e recalculada a cada follow que abre: se alguem registrou
+  // uma cidade nova enquanto isto rodava, a sugestao ja nasce atualizada.
+  invalidateCitySeasonMemory();
   if(resumeDraft&&c&&c.wizDraft){
     S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',answers:Object.assign({},c.wizDraft.answers),humors:Object.assign({},c.wizDraft.humors),autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),prevAnswers:null};
   }else if(type==='recurring'){
@@ -2299,9 +2716,9 @@ function render(){
   var app=document.getElementById("app");if(!app)return;
   var root=document.documentElement;
   var viewChanged=S._lastView!==S.view;
-  var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':''));
+  var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig||S.lpCovBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':''));
   S._lastView=S.view;
-  var mkNow=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'');
+  var mkNow=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':'');
   if(mkNow!==S._lastModal)S.modalDirty=false; // abriu/trocou de modal: nada mexido ainda
   S._lastModal=mkNow;
   root.classList.toggle('quiet-view',!viewChanged);
@@ -2420,7 +2837,7 @@ function animateScoreNumber(){
 function smsBtn(c){if(!c.slug)return"";var url="https://stays.cc/web/stays/"+encodeURIComponent(c.slug)+"/dashboard";return'<a href="'+url+'" target="_blank" rel="noopener" title="Abrir no SMS Stays" style="text-decoration:none"><button class="sms-btn"><svg viewBox="0 0 40 40" width="20" height="20"><rect x="2" y="6" width="36" height="8" rx="4" fill="white"/><rect x="2" y="17" width="36" height="8" rx="4" fill="white"/><rect x="2" y="28" width="22" height="8" rx="4" fill="white"/><rect x="28" y="28" width="10" height="8" rx="4" fill="white"/></svg></button></a>';}
 function savedBadge(){return S.savedMsg?'<span class="saved-badge">Salvo</span>':"";}
 function startClocks(){function tick(){var cc=document.getElementById("clock-client");if(cc&&S.sel!==null){var c=S.clients[S.sel];var tz=COUNTRY_TZ[c.clientCountry];cc.textContent=tz?getTimeInTZ(tz):"--:--:--";}}tick();S.clockInterval=setInterval(tick,1000);}
-function buildHTML(){if(!S.appReady)return'<div class="loading-wrap"><div class="spinner" style="width:24px;height:24px"></div><span>Carregando...</span></div>';if(!S.appUser)return loginView();if(S.appUser&&S.appUser.unauthorized)return unauthorizedView();if(S.appUser.role==="pending")return pendingView();var undo=S.undoMsg?'<div class="undo-banner">'+e(S.undoMsg)+'<button class="btn btn-sm" style="background:#fff;color:#1e2329;margin-left:4px" onclick="undoDelete()">Desfazer</button><button class="btn btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="clearUndo()">x</button></div>':"";var isAdmin=S.appUser&&S.appUser.role==='admin';
+function buildHTML(){if(!S.appReady)return'<div class="loading-wrap"><div class="spinner" style="width:24px;height:24px"></div><span>Carregando...</span></div>';if(!S.appUser)return loginView();if(S.appUser&&S.appUser.unauthorized)return unauthorizedView();if(S.appUser.role==="pending")return pendingView();var undo=S.undoMsg?'<div class="undo-banner">'+e(S.undoMsg)+'<button class="btn btn-sm" style="background:#fff;color:#1e2329;margin-left:4px" onclick="undoDelete()">Desfazer</button><button class="btn btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="clearUndo()">x</button></div>':"";var isAdmin=isAdminLike(S.appUser);
 var isLeader=S.appUser&&S.appUser.role==='leader';
 var isGerente=S.appUser&&S.appUser.role==='gerente';
 // Supervisor tambem entra na Gestao: precisa aprovar pendente e editar analista.
@@ -2456,7 +2873,7 @@ function profileMenuHTML(){
   }
   return'<div class="pf-wrap"><button class="pf-btn'+(S.profileMenuOpen?' open':'')+'" title="'+e(u.name||'')+'" onclick="toggleProfileMenu(event)">'+avatarHTML(u,30)+'</button>'+menu+'</div>';
 }
-function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="gerente"?'<span class="gerente-badge">Gerente</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Supervisor</span>':(S.appUser.role==="testuser"?'<span class="testuser-badge">Usuario teste</span>':'<span class="analyst-badge">Analista</span>')));var adminBtn=(['admin','gerente','leader'].indexOf(S.appUser.role)>=0)?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea=roleBadge+profileMenuHTML();if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
+function nav(){var t=S.theme||"light";var thSel='<select class="theme-select" onchange="setTheme(this.value)"><option value="light"'+(t==="light"?" selected":"")+'>'+svgIcon('sun',14)+' Claro</option><option value="dark"'+(t==="dark"?" selected":"")+'>'+svgIcon('moon',14)+' Escuro</option><option value="night"'+(t==="night"?" selected":"")+'>'+svgIcon('star',14)+' Noite</option></select>';var roleBadge=S.appUser.role==="admin"?'<span class="admin-badge">Admin</span>':(S.appUser.role==="gerente"?'<span class="gerente-badge">Gerente</span>':(S.appUser.role==="leader"?'<span class="leader-badge">Supervisor</span>':(S.appUser.role==="testuser"?'<span class="testuser-badge">Usuario teste</span>':'<span class="analyst-badge">Analista</span>')));var adminBtn=(['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0)?'<button class="btn btn-sm'+(S.view==="admin"?" btn-primary":"")+'" onclick="goAdmin()">Gestao</button>':"";var userArea=roleBadge+profileMenuHTML();if(S.view==="dashboard"){return'<nav class="nav"><span class="brand" style="margin-left:52px">Stays CS</span><div class="divider"></div><span class="nav-title">Dashboard</span><div class="nav-right">'+thSel+userArea+'</div></nav>';}
 if(S.view==="admin")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="settings")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Configurações</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
 if(S.view==="leaderpanel")return'<nav class="nav"><button class="btn btn-sm" onclick="goBack()">← Voltar</button><div class="divider"></div><span style="font-size:14px;font-family:\'Roboto Slab\',serif">Painel do líder</span><div class="nav-right">'+thSel+userArea+'</div></nav>';
@@ -2516,7 +2933,7 @@ html+=archived.map(function(c){
     +'</div>'
     +'</div>'
     +'<button class="btn btn-sm" onclick="restoreClient('+ci+')">Restaurar</button>'
-    +(S.appUser.role==='admin'||S.appUser.role==='gerente'?
+    +(iAmAdminLike()||S.appUser.role==='gerente'?
       '<button class="btn btn-sm btn-danger" onclick="permanentDelete('+ci+')">Excluir permanentemente</button>'
     :'')
     +'</div>';
@@ -2601,7 +3018,7 @@ function ahSetDate(k,v){
 }
 function ahClearFilters(){S.ahFilters={from:'',to:'',user:'',cat:'',action:''};render();}
 function adminLogView(){
-  var canSeeAll=['admin','gerente','leader'].indexOf(S.appUser.role)>=0;
+  var canSeeAll=['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0;
   if(!S.ahFilters)S.ahFilters={from:'',to:'',user:'',cat:'',action:''};
   var f=S.ahFilters;
   var all=lpVisibleLog();
@@ -2788,8 +3205,7 @@ function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizD
 // ADMIN VIEW
 // ============================================================
 function adminView(){
-  if(['admin','gerente','leader'].indexOf(S.appUser.role)<0)return'<p>Acesso negado.</p>';
-  var isTrueAdmin=S.appUser.role==="admin";
+  if(['admin','gerente','leader','testuser'].indexOf(S.appUser.role)<0)return'<p>Acesso negado.</p>';
   var canAssign=assignableRoles();
   var html='<div class="flex-between" style="margin-bottom:1.5rem"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Gestao de usuarios</h1><button class="btn-primary" onclick="udInit();openM(\'add-user\')">+ Criar acesso de usuário</button></div>';
   var byRole={admin:[],gerente:[],leader:[],analyst:[],testuser:[],pending:[]};
@@ -3114,7 +3530,7 @@ function markMonthPaid(ci,idx){var m=S.clients[ci].inadimplencia[idx];if(!confir
 function modal(){var fns={"add-client":mAddClient,"add-contact":mContact,"add-key-contact":mAddKeyContact,"settings":mSettings,"add-user":mAddUser,"edit-client":mEditClient,"user-created":mUserCreated,"profile":mProfile};var inner="";if(S.modal&&S.modal.startsWith("inad-")){var _ci=parseInt(S.modal.split("-")[1]);inner=mInadimplencia(_ci);}else if(S.modal==="churn-history"){inner=mChurnHistory(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else if(S.modal==="churn-alert"){inner=mChurnAlert(S.modalArg!==null&&S.modalArg!==undefined?S.modalArg:S.sel);}else{inner=(fns[S.modal]||function(){return"";})();}return'<div class="modal-ov" onclick="overlayBackdropClick(event,this)" oninput="markModalDirty()" onchange="markModalDirty()">'+inner+'</div>';}
 function mAddClient(){var countries=Object.keys(CS).sort();var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'">'+e[1]+'</option>';}).join("");var allCountries=["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].concat(countries.filter(function(c){return!["Estados Unidos","Brasil","Argentina","Colombia","México","Perú","Chile","Uruguay","Paraguay","Venezuela","Ecuador","Bolivia"].includes(c);}));return'<div class="modal-box" style="max-width:560px"><div class="modal-title">Novo cliente</div><div class="grid2"><div class="form-row"><label class="form-lbl">Nome <span style="color:#ce1e5a">*</span></label><input id="mn" type="text" placeholder="Ex: CARIBBEAN RENTALS"></div><div class="form-row"><label class="form-lbl">Sigla (ID no SMS) <span style="color:#ce1e5a">*</span></label><input id="mslug" type="text" placeholder="Ex: caribbeanrentals" style="font-family:monospace"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais dos anuncios <span style="color:#ce1e5a">*</span></label><select id="mc"><option value="">Selecionar...</option>'+countries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Unidades <span style="color:#ce1e5a">*</span></label><input id="mu" type="number" min="1" placeholder="Ex: 15"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Plano</label><select id="mpl"><option value="">Selecionar...</option>'+pOpts+'</select></div><div class="form-row"><label class="form-lbl">MRR (USD)</label><input id="mmrr" type="text" inputmode="decimal" placeholder="Ex: 1.500,00"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Pais do cliente (mora em)</label><select id="mcl"><option value="">Selecionar...</option>'+allCountries.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div><div class="form-row"><label class="form-lbl">Cidade do cliente</label><input id="mcly" type="text" placeholder="Ex: Miami, FL"></div></div><div class="grid2"><div class="form-row"><label class="form-lbl">Categoria</label><select id="mcat"><option value="">Selecionar...</option><option value="elite">Elite</option><option value="gold">Gold / High Value</option><option value="silver">Silver / Core A-B</option><option value="bronze">Bronze / Pareto</option></select></div><div class="form-row"><label class="form-lbl">Status de Onboarding</label><select id="mst"><option value="">Selecionar...</option><option value="Em andamento">Em andamento</option><option value="Completed">Completed</option></select></div></div>'+newClientOwnerRow()+'<p style="font-size:11px;color:var(--t3);margin-bottom:1rem"><span style="color:#ce1e5a">*</span> Campos obrigatórios</p><div class="flex" style="justify-content:flex-end;gap:8px;margin-top:.5rem"><button class="btn" onclick="closeMSoft()">Cancelar</button><button class="btn-save" onclick="addClient()">Criar cliente</button></div></div>';}
 // Lider/gerente/admin escolhem de quem é o cliente; analista só cria pra si.
-function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
+function canAssignOwner(){return!!(S.appUser&&['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0);}
 // Carteira de cliente é só de quem tem a função Analista. Gerente, líder e usuário
 // teste não aparecem como responsável em lugar nenhum.
 function analystUsers(){return usersWithRole('analyst');}
@@ -3244,7 +3660,7 @@ async function changeRole(uid,role){
   var target=S.allUsers.find(function(u){return u.uid===uid;});
   // A UI já esconde o seletor, mas a regra tem que valer aqui também.
   if(!canEditUserRole(target)){await loadAllUsers();render();return;}
-  if(S.appUser.role!=='admin'){
+  if(!iAmAdminLike()){
     if(role==='admin'||(target&&target.role==='admin')){alert('Só o administrador pode definir ou alterar contas de Admin.');await loadAllUsers();render();return;}
   }
   var oldRole=target&&target.role;
@@ -3480,12 +3896,12 @@ function settingsView(){
 }
 function leaderMyQuestions(){
   var all=(S.customQuestions||[]).slice();
-  if(S.appUser.role==='admin')return all;
+  if(iAmAdminLike())return all;
   var managed=S.appUser.managedUsers||[];
   return all.filter(function(q){return managed.indexOf(q.createdBy)>=0;});
 }
 function leaderRelevantAnalysts(){
-  return S.appUser.role==='admin'?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
+  return iAmAdminLike()?S.allUsers.filter(function(u){return u.role==='analyst';}):S.allUsers.filter(function(u){return(S.appUser.managedUsers||[]).indexOf(u.uid)>=0;});
 }
 function leaderStartEdit(qid){
   if(S.leaderEditDraft&&S.leaderEditDraft.qid===qid){S.leaderEditDraft=null;render();return;}
@@ -3574,7 +3990,7 @@ async function leaderDeleteQuestion(qid){
 // ============================================================
 function jsq(s){return e(String(s||"")).replace(/'/g,"\\'");}
 function lpTeamGroups(){
-  var isAdminRole=S.appUser.role==='admin';
+  var isAdminRole=iAmAdminLike();
   var byA={};
   S.clients.forEach(function(c){var o=c.ownerId||"?";if(!byA[o])byA[o]=[];byA[o].push(c);});
   // Gerente enxerga a carteira pelos supervisores dele; supervisor, pelos analistas dele.
@@ -4215,7 +4631,9 @@ function lpCoverageCard(teamClients){
   var semContato=teamClients.filter(function(c){var d=getDaysWithoutContact(c);return d!==null&&d>=30;}).length;
   var html='<div class="lp-card">';
   html+='<div class="lp-card-head"><span class="lp-eyebrow">Cobertura do time</span>'
-    +'<div class="lp-head-tools">'+periodPickerHTML('cov','covperiod')+'</div></div>';
+    +'<div class="lp-head-tools">'+periodPickerHTML('cov','covperiod')
+    +(hasBeta()?'<button class="lp-icon-btn press" onclick="lpToggleCovBig()" title="Ver os follow-ups: data, analista e cliente">'+svgIcon('chart',14)+'</button>':'')
+    +'</div></div>';
   html+='<div class="lp-cov">';
   if(fu){
     var col=fu.pct>=100?'var(--gn600)':(fu.pct>=80?'var(--am600)':'var(--rd600)');
@@ -4252,6 +4670,220 @@ function lpCoverageCard(teamClients){
   return html;
 }
 
+// ── Cobertura do time, expandida: o log dos follow-ups ──
+// O card mostra o placar (meta, vencidos, sem contato). Aqui embaixo fica a prova:
+// cada follow feito, com data, analista e cliente — a mesma leitura do relatorio
+// do Salesforce, mas ja filtrada pelo periodo do card e com os graficos do time.
+function lpToggleCovBig(){if(S.lpCovBig){lpCloseCovBig();return;}S.lpCovBig=true;render();}
+function lpCloseCovBig(){dismissOverlay(function(){S.lpCovBig=false;render();});}
+function lpSetCovMode(m){S.lpCovMode=m;render();}
+function lpCovAnalysts(){return S.lpCovAnalysts||[];}
+// Lista vazia significa "todos" — mais honesto que marcar todo mundo, porque
+// analista novo entra na conta sozinho em vez de ficar de fora silenciosamente.
+function lpCovAllAnalysts(){S.lpCovAnalysts=[];S.lpCovPage=0;render();}
+function lpToggleCovAnalyst(uid){
+  var sel=lpCovAnalysts().slice();
+  var i=sel.indexOf(uid);
+  if(i>=0)sel.splice(i,1);else sel.push(uid);
+  S.lpCovAnalysts=sel;S.lpCovPage=0;render();
+}
+function lpUserName(uid){var u=(S.allUsers||[]).find(function(x){return x.uid===uid;});return u?u.name:'—';}
+// Quem fez o follow. Vale o que ficou gravado no proprio follow; follow antigo nao
+// tem esse campo, entao sobra o dono atual do cliente — o que pode estar errado se
+// o cliente foi transferido depois. Esse caso vem marcado como herdado, pra tabela
+// poder avisar em vez de afirmar algo que nao da pra provar.
+function lpFollowAuthor(c,f){
+  if(f.byUid)return{uid:f.byUid,name:f.byName||lpUserName(f.byUid),herdado:false};
+  return{uid:c.ownerId||'?',name:lpAnalystOf(c),herdado:true};
+}
+function lpFollowLog(teamClients){
+  var r=periodRange('cov');
+  var sel=lpCovAnalysts();
+  var out=[];
+  (teamClients||[]).forEach(function(c){
+    (c.follows||[]).forEach(function(f){
+      if(!f.date||f.date<r.fromISO||f.date>r.toISO)return;
+      var a=lpFollowAuthor(c,f);
+      if(sel.length&&sel.indexOf(a.uid)<0)return;
+      out.push({date:f.date,uid:a.uid,name:a.name,herdado:a.herdado,
+        slug:String(c.slug||c.name||'').toUpperCase(),clientName:c.name||'',
+        ci:S.clients.indexOf(c),tipo:f.type==='recurring'?'Recorrente':'Primeiro'});
+    });
+  });
+  out.sort(function(x,y){
+    if(x.date!==y.date)return x.date<y.date?1:-1; // mais recente primeiro
+    return String(x.name).localeCompare(String(y.name));
+  });
+  return out;
+}
+// Opcoes do filtro: quem tem follow no periodo. Nao depende da selecao atual, senao
+// um analista desmarcado desapareceria da lista e nao daria pra marcar de novo.
+function lpCovAnalystOptions(teamClients){
+  var r=periodRange('cov');
+  var seen={};
+  (teamClients||[]).forEach(function(c){
+    (c.follows||[]).forEach(function(f){
+      if(!f.date||f.date<r.fromISO||f.date>r.toISO)return;
+      var a=lpFollowAuthor(c,f);
+      if(!seen[a.uid])seen[a.uid]={uid:a.uid,name:a.name,n:0};
+      seen[a.uid].n++;
+    });
+  });
+  return Object.keys(seen).map(function(k){return seen[k];})
+    .sort(function(x,y){return String(x.name).localeCompare(String(y.name));});
+}
+function lpCovGoPage(d,max){S.lpCovPage=Math.max(0,Math.min((S.lpCovPage||0)+d,max));render();}
+function lpCovLista(log){
+  if(!log.length)return'<div class="lp-empty-box">Nenhum follow-up registrado no período escolhido.</div>';
+  var pageSize=25;
+  var totalPages=Math.max(1,Math.ceil(log.length/pageSize));
+  var page=Math.min(S.lpCovPage||0,totalPages-1);
+  var slice=log.slice(page*pageSize,page*pageSize+pageSize);
+  var html='<div class="lp-cov-log"><div class="lp-cov-log-hd">'
+    +'<span>Data</span><span>Analista</span><span>Sigla</span><span>Empresa / conta</span><span>Follow</span></div>';
+  slice.forEach(function(x){
+    html+='<div class="lp-cov-log-r">'
+      +'<span class="lp-cov-log-d">'+formatDate(x.date)+'</span>'
+      +'<span class="lp-cov-log-a">'+e(x.name)
+        +(x.herdado?'<span class="lp-cov-inf" title="Este follow foi salvo antes de o sistema gravar quem respondeu — aqui aparece o analista responsável pelo cliente hoje">?</span>':'')+'</span>'
+      +'<span class="lp-cov-log-s">'+(x.ci>=0?'<a href="#" onclick="openClient('+x.ci+');return false">'+e(x.slug)+'</a>':e(x.slug))+'</span>'
+      +'<span class="lp-cov-log-n">'+e(x.clientName)+'</span>'
+      +'<span><span class="lp-chip">'+x.tipo+'</span></span></div>';
+  });
+  html+='</div>';
+  if(totalPages>1){
+    html+='<div class="lp-cli-pg">'
+      +'<button class="btn btn-sm" '+(page===0?'disabled':'')+' onclick="lpCovGoPage(-1,'+(totalPages-1)+')">&lsaquo;</button>'
+      +'<span class="lp-note">Página '+(page+1)+' de '+totalPages+' · '+log.length+' follow-up'+(log.length===1?'':'s')+'</span>'
+      +'<button class="btn btn-sm" '+(page===totalPages-1?'disabled':'')+' onclick="lpCovGoPage(1,'+(totalPages-1)+')">&rsaquo;</button></div>';
+  }
+  return html;
+}
+// Barras no tempo. Um ano viraria uma parede de 365 barras, entao acima de ~2 meses
+// o grafico agrupa por mes — e o rotulo da aba diz qual leitura esta valendo.
+function lpCovChartTempo(log){
+  var r=periodRange('cov');
+  var porMes=r.days>62;
+  var buckets={};
+  log.forEach(function(x){var k=porMes?x.date.slice(0,7):x.date;buckets[k]=(buckets[k]||0)+1;});
+  var keys=Object.keys(buckets).sort();
+  if(!keys.length)return'<div class="lp-empty-box">Nenhum follow-up registrado no período escolhido.</div>';
+  var W=880,H=280,padL=40,padR=20,padT=20,padB=54;
+  var max=Math.max.apply(null,keys.map(function(k){return buckets[k];}));
+  var step=(W-padL-padR)/keys.length;
+  var bw=Math.min(46,step*.6);
+  var bars='',labels='',grid='',tips=[];
+  var pulo=Math.ceil(keys.length/14);
+  keys.forEach(function(k,i){
+    var cx=padL+step*i+step/2;
+    var h=(buckets[k]/max)*(H-padT-padB);
+    bars+='<rect x="'+(cx-bw/2)+'" y="'+(H-padB-h)+'" width="'+bw+'" height="'+h+'" rx="5" fill="var(--b600)" opacity=".85" class="lp-big-bar lp-hit" style="animation-delay:'+(i*38)+'ms" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"/>';
+    if(i%pulo===0){
+      var lbl=porMes?lpMonthLabel(k):(k.slice(8)+'/'+k.slice(5,7));
+      labels+='<text x="'+cx+'" y="'+(H-padB+16)+'" text-anchor="end" font-size="9" fill="var(--t3)" transform="rotate(-40 '+cx+' '+(H-padB+16)+')">'+e(lbl)+'</text>';
+    }
+    tips.push('<b>'+e(porMes?lpMonthLabel(k):formatDate(k))+'</b>'+buckets[k]+' follow-up'+(buckets[k]===1?'':'s'));
+  });
+  [0,Math.round(max/2),max].forEach(function(v){
+    var y=H-padB-(v/max)*(H-padT-padB);
+    grid+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="var(--bd)" stroke-width="1"/>'
+      +'<text x="'+(padL-8)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="var(--t3)">'+v+'</text>';
+  });
+  window._lpTipRows=tips;
+  var html='<div class="lp-legend"><span><i style="background:var(--b600)"></i>Follow-ups '+(porMes?'por mês':'por dia')+'</span></div>';
+  html+='<div style="overflow-x:auto;position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;min-width:640px;height:'+H+'px">'+grid+bars+labels+'</svg></div>';
+  return html;
+}
+function lpCovChartAnalista(log){
+  var by={};
+  log.forEach(function(x){
+    if(!by[x.uid])by[x.uid]={name:x.name,n:0,clientes:{}};
+    by[x.uid].n++;by[x.uid].clientes[x.slug]=true;
+  });
+  var rows=Object.keys(by).map(function(k){var b=by[k];return{name:b.name,n:b.n,cli:Object.keys(b.clientes).length};})
+    .sort(function(x,y){return y.n-x.n;});
+  if(!rows.length)return'<div class="lp-empty-box">Nenhum follow-up registrado no período escolhido.</div>';
+  var max=rows[0].n||1;
+  var tot=rows.reduce(function(a,r){return a+r.n;},0)||1;
+  var tips=[];
+  var html='<div class="lp-legend"><span><i style="background:var(--b600)"></i>Follow-ups no período</span></div><div class="lp-hbars">';
+  rows.forEach(function(r,i){
+    tips.push('<b>'+e(r.name)+'</b>'+r.n+' follow-up'+(r.n===1?'':'s')+'<br>'+r.cli+' cliente'+(r.cli===1?'':'s')+' diferente'+(r.cli===1?'':'s')+'<br>'+Math.round(r.n/tot*100)+'% dos follows do time');
+    html+='<div class="lp-hbar-row">'
+      +'<span class="lp-hbar-name">'+e(r.name)+'</span>'
+      +'<span class="lp-hbar-track"><i class="lp-hbar-fill lp-cov-fill lp-hit" style="width:'+(r.n/max*100)+'%;animation-delay:'+(i*55)+'ms" onmousemove="lpTip(event,'+i+')" onmouseleave="lpTipHide()"></i></span>'
+      +'<span class="lp-hbar-val">'+r.n+'</span>'
+      +'<span class="lp-hbar-mrr">'+r.cli+' cliente'+(r.cli===1?'':'s')+'</span></div>';
+  });
+  window._lpTipRows=tips;
+  html+='</div>';
+  return html;
+}
+function lpCovBigOverlay(teamClients){
+  if(!S.lpCovBig)return'';
+  var r=periodRange('cov');
+  var log=lpFollowLog(teamClients);
+  var opts=lpCovAnalystOptions(teamClients);
+  var sel=lpCovAnalysts();
+  var modo=S.lpCovMode||'lista';
+  var clientes={};log.forEach(function(x){clientes[x.slug]=true;});
+  var nCli=Object.keys(clientes).length;
+  var html='<div class="modal-ov" onclick="if(event.target===this)lpCloseCovBig()">';
+  html+='<div class="modal-box lp-big-box" style="max-width:1000px">';
+  html+='<div class="modal-hdr"><div><h2 class="modal-title" style="margin:0">Follow-ups do time</h2>'
+    +'<div class="muted" style="font-size:12px;margin-top:2px">'+e(r.labelLong||r.label)+' · '
+    +log.length+' follow-up'+(log.length===1?'':'s')+' · '+nCli+' cliente'+(nCli===1?'':'s')+'</div></div>'
+    +'<button class="modal-close press" onclick="lpCloseCovBig()">Fechar</button></div>';
+  html+='<div class="lp-cov-filter"><span class="lp-cov-filter-lbl">Analistas</span><div class="lp-chips-row">';
+  html+='<button class="wiz-chip'+(!sel.length?' on':'')+'" onclick="lpCovAllAnalysts()">Todos</button>';
+  opts.forEach(function(o){
+    var on=sel.indexOf(o.uid)>=0;
+    html+='<button class="wiz-chip'+(on?' on':'')+'" onclick="lpToggleCovAnalyst(\''+jsq(o.uid)+'\')">'
+      +(on?svgIcon('check',11)+' ':'')+e(o.name)+' <span class="lp-cov-chip-n">'+o.n+'</span></button>';
+  });
+  if(!opts.length)html+='<span class="lp-note">Nenhum analista com follow-up no período.</span>';
+  html+='</div></div>';
+  html+='<div class="lp-chart-bar"><div class="lp-seg">'
+    +'<button class="'+(modo==='lista'?'on':'')+'" onclick="lpSetCovMode(\'lista\')">Lista</button>'
+    +'<button class="'+(modo==='tempo'?'on':'')+'" onclick="lpSetCovMode(\'tempo\')">'+(r.days>62?'Por mês':'Por dia')+'</button>'
+    +'<button class="'+(modo==='analista'?'on':'')+'" onclick="lpSetCovMode(\'analista\')">Por analista</button></div>'
+    +'<button class="btn btn-sm press" onclick="lpExportCov()">'+svgIcon('share',13)+' Exportar</button></div>';
+  html+='<div class="lp-chart-swap" data-mode="'+modo+'"><div class="lp-chart-host">';
+  if(modo==='tempo')html+=lpCovChartTempo(log);
+  else if(modo==='analista')html+=lpCovChartAnalista(log);
+  else html+=lpCovLista(log);
+  html+='<div id="lp-tip" class="lp-tip"></div></div></div>';
+  html+='<div class="lp-big-foot">';
+  html+='<div class="lp-kv"><span>Média por dia no período</span><strong>'
+    +(log.length/Math.max(1,r.days)).toFixed(1).replace('.',',')+' follow-ups</strong></div>';
+  html+='<div class="lp-kv"><span>Analistas com follow no período</span><strong>'+opts.length+'</strong></div>';
+  html+='</div></div></div>';
+  return html;
+}
+function lpExportCov(){
+  var teamClients=lpFlatten(lpTeamGroups());
+  var log=lpFollowLog(teamClients);
+  var r=periodRange('cov');
+  var sel=lpCovAnalysts();
+  var out=[];
+  out.push(['Follow-ups do time']);
+  out.push(['Período',r.labelLong||r.label]);
+  out.push(['Gerado em',new Date().toLocaleString('pt-BR')]);
+  out.push(['Filtro de analistas',sel.length
+    ?lpCovAnalystOptions(teamClients).filter(function(o){return sel.indexOf(o.uid)>=0;}).map(function(o){return o.name;}).join(', ')
+    :'todos']);
+  out.push([]);
+  out.push(['Data','Analista','Sigla do cliente','Empresa/Conta','Tipo de follow','Analista veio do cadastro?']);
+  log.forEach(function(x){out.push([formatDate(x.date),x.name,x.slug,x.clientName,x.tipo,x.herdado?'sim':'não']);});
+  out.push([]);
+  out.push(['POR ANALISTA']);
+  out.push(['Analista','Follow-ups','Clientes distintos']);
+  var by={};
+  log.forEach(function(x){if(!by[x.uid])by[x.uid]={name:x.name,n:0,cli:{}};by[x.uid].n++;by[x.uid].cli[x.slug]=true;});
+  Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.n-a.n;})
+    .forEach(function(b){out.push([b.name,b.n,Object.keys(b.cli).length]);});
+  baixarCSV('followups-time-'+hojeArquivo()+'.csv',out);
+}
 // ── Area principal: o time ──
 function lpSetViewMode(m){S.lpViewMode=m;S.lpPage={};render();}
 // A carteira de cada analista, ja com os filtros da tela aplicados.
@@ -4429,6 +5061,7 @@ function leaderVisaoGeral(){
   html+='<aside class="lp-side2">'+lpQueueCard(teamClients)+lpCoverageCard(teamClients)+'</aside>';
   html+='</div>';
   html+=lpChurnBigOverlay(teamClients);
+  html+=lpCovBigOverlay(teamClients);
   return html;
 }
 function leaderPanelView(){
@@ -4960,7 +5593,7 @@ function ciBackToText(){S.impClients.parsed=false;render();}
 // TRANSFERIR / EXCLUIR CLIENTE (PAINEL DO LIDER)
 // ============================================================
 // Só líder, gerente e admin gerenciam a carteira de outro analista.
-function canManageClientOwner(){return!!(S.appUser&&['admin','gerente','leader'].indexOf(S.appUser.role)>=0);}
+function canManageClientOwner(){return!!(S.appUser&&['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0);}
 function lpOpenClientActions(cid){
   if(!canManageClientOwner())return;
   S.lpClientMenu=cid;render();
@@ -5685,10 +6318,11 @@ function lpClientTable(cs,oid,mode){
   slice.forEach(function(c){
     var ci=S.clients.indexOf(c),score=calcScore(c),band=hl(score),col=lpBandColor(band),fu=fuSt(c);
     var d=getDaysWithoutContact(c);
-    var ini=String(c.slug||c.name||'?').slice(0,2).toUpperCase();
     var pend=clientPendingCount(c);
     html+='<div class="lp-cli-r">';
-    html+='<div class="lp-cli-who"><span class="lp-cli-ini">'+e(ini)+'</span><span style="min-width:0">'
+    // Sem circulo de iniciais: a sigla ja e a identificacao do cliente, e duas
+    // letras cortadas dentro de uma bolinha so imitavam uma foto que nao existe.
+    html+='<div class="lp-cli-who"><span style="min-width:0">'
       +'<span class="lp-cli-name">'+e((c.slug||c.name).toUpperCase())+'</span>'
       +'<span class="lp-cli-sub">'+e(c.name)+'</span></span></div>';
     html+='<div>'+(catBdg(c)||'<span class="muted">—</span>')+'</div>';
@@ -5696,9 +6330,12 @@ function lpClientTable(cs,oid,mode){
     html+='<div style="font-weight:600;font-size:12.5px">'+formatMRR(c.mrr)+'</div>';
     html+='<div style="font-size:12.5px;font-weight:600;color:'+(d!==null&&d>=30?'var(--rd600)':'var(--t2)')+'">'+(d===null?'—':d+' dias')+'</div>';
     html+='<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>';
+    // "Gerenciar" abre transferir/excluir. Some junto com a reforma do layout: o
+    // codigo continuou inteiro, o que faltava era o botao que chama esta janela.
     html+='<div style="display:flex;justify-content:flex-end;gap:5px;align-items:center">'
       +(pend?'<span class="pend-badge" title="'+pend+' pergunta(s) pendente(s)">'+pend+'</span>':'')
       +(isLoopOpen(c)?'<span class="lp-chip lp-chip-amber">loop</span>':'')
+      +(canManageClientOwner()?'<button class="btn btn-sm press" title="Transferir para outro analista ou excluir" onclick="lpOpenClientActions(\''+jsq(c.id)+'\')">Gerenciar</button>':'')
       +'<button class="btn btn-sm press" onclick="openClient('+ci+')">Abrir</button></div>';
     html+='</div>';
   });
@@ -5961,6 +6598,15 @@ function sfChannels(a){
     return nome+': quantidade não informada';
   }).join(' | ');
 }
+// Periodos de temporada de uma cidade. Dois detalhes que faziam o texto sair
+// como "?–?, ?–?": o wizard salva os campos como start/end (nao from/to), e o
+// valor ja e o mes escrito ("Jan"), nao um numero pra converter. Periodo sem os
+// dois meses preenchidos e ignorado, em vez de virar interrogacao no texto.
+function sfSeasonPeriods(list){
+  var ok=(list||[]).filter(function(p){return p&&p.start&&p.end;});
+  if(!ok.length)return'periodo não informado';
+  return ok.map(function(p){return p.start+'–'+p.end;}).join(', ');
+}
 function sfCities(a){
   var list=a.cities||[];
   if(!list.length)return'Não informado';
@@ -5969,8 +6615,8 @@ function sfCities(a){
     if(ct.units)partes.push(ct.units+' unidade'+(+ct.units===1?'':'s'));
     var s=ct.seasons||{};
     var temp=[];
-    if(s.alta&&s.alta.length)temp.push('alta: '+s.alta.map(function(p){return monthName(p.from)+'–'+monthName(p.to);}).join(', '));
-    if(s.baixa&&s.baixa.length)temp.push('baixa: '+s.baixa.map(function(p){return monthName(p.from)+'–'+monthName(p.to);}).join(', '));
+    if(s.alta&&s.alta.length)temp.push('alta: '+sfSeasonPeriods(s.alta));
+    if(s.baixa&&s.baixa.length)temp.push('baixa: '+sfSeasonPeriods(s.baixa));
     if(temp.length)partes.push(temp.join(' / '));
     if(ct.principal)partes.push('principal');
     return partes.join(' — ');
@@ -6000,6 +6646,7 @@ function sfStepText(k,a,c){
     case'notifs':return sfOpt(SF_OPT.notifs,a.notifs_option)+(a.notifs_note?' — '+a.notifs_note:'');
     case'ch_perf':return sfOpt(SF_OPT.chperf,a.chperf_option)+(a.chperf_note?' — '+a.chperf_note:'');
     case'ch_usab':
+      if(usabIsV2(a))return usabTextV2(a)+(a.usab_note?' — '+a.usab_note:'');
       var itens=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
       if(!itens.length)return'Não avaliado';
       return itens.map(function(it){return it.label+': '+(it.opts[a['usab_'+it.key]]||'?');}).join(' | ')+(a.usab_note?' — '+a.usab_note:'');
