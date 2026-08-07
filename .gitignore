@@ -1,2 +1,8 @@
 .claude/
 index_old_backup.html
+
+# Chave de conta de servico do Firebase — nunca versionar.
+# Ela vive nas Propriedades do Script do Apps Script, nao em arquivo.
+*service-account*.json
+*serviceaccount*.json
+dashboard-de-cs-stays-*.json
