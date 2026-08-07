@@ -2932,7 +2932,7 @@ var sb='<div class="sidebar-strip"><div class="sb-content"><div class="sb-logo">
   +'<button class="sb-item'+(S.view==="settings"?" sb-act":"")+'" onclick="goSettings()">Configurações</button>'
   +(canGeral?'<button class="sb-item'+(S.view==="leaderpanel"?" sb-act":"")+'" onclick="goLeaderPanel()">Painel do líder</button>':"")
   +'</div></div>'
-var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page'+(S.view==="leaderpanel"?" page-wide":"")+'" style="margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="settings"?settingsView():(S.view==="leaderpanel"?leaderPanelView():(S.view==="import-clients"?clientImportView():(S.view==="import-follow"?followImportView():adminView())))))))))+"</div>"+(S.modal?modal():"")+(S.lpClientMenu?'<div class="modal-ov" onclick="if(event.target===this)lpCloseClientActions()">'+mLpClientActions()+'</div>':"")+lpToastHTML()+undo;}
+var spOverlay=S.slidePanel!==null?'<div style="position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.18)" onclick="closeSlidePanel()"></div>':'';return sb+nav()+spOverlay+slidePanelHTML()+'<div class="page'+(S.view==="leaderpanel"?" page-wide":"")+'" style="margin:0 auto;padding:1.5rem 2.5rem;box-sizing:border-box;width:100%">'+(S.view==="dashboard"?dashView():(S.view==="client"?clientView():(S.view==="follow-charts"?followChartsView():(S.view==="follow-view"?followWizardView():(S.view==="follow-wizard"?(S.wiz.step>=getWizOrder(S.wiz.type).length?wizSummaryView():wizView()):(S.view==="settings"?settingsView():(S.view==="leaderpanel"?leaderPanelView():(S.view==="import-clients"?clientImportView():(S.view==="import-follow"?followImportView():adminView())))))))))+"</div>"+(S.modal?modal():"")+(S.lpClientMenu?'<div class="modal-ov" onclick="if(event.target===this)lpCloseClientActions()">'+mLpClientActions()+'</div>':"")+lpToastHTML()+busyOverlayHTML()+undo;}
 // ============================================================
 // LOGIN / PENDING
 // ============================================================
@@ -6497,7 +6497,8 @@ function canaisDaPlanilha(lista){
 function modeloDaPlanilha(tipo){
   var t=nomeKey(tipo).replace(/[^a-z0-9]/g,'');
   if(t==='flexible')return'flexivel';
-  if(t==='perlisting'||t==='perlistingv2')return'fixo';
+  // `fixed` e `per_listing` são a mesma coisa: cobrança fixa por listing.
+  if(t==='perlisting'||t==='perlistingv2'||t==='fixed')return'fixo';
   return null;
 }
 // Quem é o analista desta conta, a partir do nome escrito na planilha.
@@ -6647,6 +6648,14 @@ function lpSheetCard(){
     +'<div class="lp-sheet-num'+(plano.pendencias.length?' alerta':'')+'"><b>'+plano.pendencias.length+'</b><span>pendências</span></div>'
     +'<div class="lp-sheet-num"><b>'+plano.semMudanca+'</b><span>em dia</span></div>'
     +'</div>';
+  // Linhas que o script da planilha nem enviou (sem analista na coluna C). Sem
+  // esta linha aqui, a diferença entre "a planilha tem 814" e "o espelho tem 811"
+  // ficava invisível e parecia que o dashboard tinha perdido contas.
+  if(st.linhasLidas&&st.contas&&st.linhasLidas>st.contas){
+    var fora=st.linhasLidas-st.contas;
+    html+='<div class="lp-note" style="margin-top:8px">'+svgIcon('info_triangle',12)+' '
+      +fora+' linha'+(fora===1?'':'s')+' da planilha fora do espelho — sem analista na coluna C.</div>';
+  }
   if(plano.criar.length||plano.atualizar.length){
     html+='<button class="lp-pop-apply press" style="width:100%;margin:2px 0 0" onclick="rodarSheetSync(this)">Aplicar planilha</button>';
   }
@@ -6794,6 +6803,18 @@ function clienteNovoDaPlanilha(sa,ownerId){
   aplicarSheetNoCliente(c,sa,[]);
   return c;
 }
+// Aviso de operação longa em curso. S.busyMsg existia mas nunca era desenhado em
+// lugar nenhum: quem clicava em "Aplicar planilha" via a tela parada e não tinha
+// como saber se estava rodando. Cobre a tela de propósito, pra ninguém recarregar
+// no meio de uma gravação de centenas de clientes.
+function busyOverlayHTML(){
+  if(!S.busyMsg)return'';
+  return'<div class="busy-ov"><div class="busy-box glass">'
+    +'<div class="spinner" style="width:26px;height:26px"></div>'
+    +'<div class="busy-txt">'+e(S.busyMsg)+'</div>'
+    +'<div class="busy-sub">Não feche nem recarregue a página.</div>'
+    +'</div></div>';
+}
 // Roda o sync de verdade: grava o que é inequívoco e deixa o resto pendente.
 async function rodarSheetSync(btn){
   if(!syncPodeRodar()){alert('Sem permissão para rodar a importação.');return;}
@@ -6807,28 +6828,53 @@ async function rodarSheetSync(btn){
     +plano.atualizar.length+' cliente(s) vão ter dados atualizados\n'
     +plano.pendencias.length+' pendência(s) ficam pra você decidir'))return;
   if(btn){btn.disabled=true;btn.textContent='Aplicando...';}
-  S.busyMsg='Aplicando a planilha...';render();
-  var criados=0,atualizados=0;
+  // Lote pequeno de propósito. Antes eram 350 e a tela ficava muda o tempo todo,
+  // então dava pra achar que travou e recarregar no meio — o que abortava os
+  // lotes seguintes e deixava só o primeiro gravado. Agora cada lote acende o
+  // progresso na tela, e reclicar continua de onde parou (o casamento é por
+  // sigla, então quem já entrou não duplica).
+  var LOTE=100;
+  var totalEscritas=plano.criar.length+plano.atualizar.length;
+  var feitas=0,criados=0,atualizados=0;
+  function progresso(){
+    S.busyMsg='Aplicando a planilha… '+feitas+' de '+totalEscritas
+      +' ('+Math.round(feitas/Math.max(1,totalEscritas)*100)+'%)';
+    render();
+  }
+  progresso();
   try{
-    // Em lotes: o Firestore aceita 500 escritas por commit, e 800 contas passam disso.
     var novos=plano.criar.map(function(it){return clienteNovoDaPlanilha(it.sheet,it.ownerId);});
-    for(var i=0;i<novos.length;i+=350){
+    for(var i=0;i<novos.length;i+=LOTE){
       var b=db.batch();
-      novos.slice(i,i+350).forEach(function(c){
-        b.set(db.collection('clients').doc(c.id),JSON.parse(JSON.stringify(c)));criados++;
+      var lote=novos.slice(i,i+LOTE);
+      lote.forEach(function(c){
+        b.set(db.collection('clients').doc(c.id),JSON.parse(JSON.stringify(c)));
       });
       await b.commit();
+      // Só conta depois que o lote realmente gravou. Contar antes fazia a mensagem
+      // de erro dizer que entraram mais clientes do que de fato entraram.
+      criados+=lote.length;
+      feitas+=lote.length;
+      progresso();
+      // Devolve o controle pro navegador entre lotes: sem isso a tela congela e
+      // o texto de progresso nunca chega a ser pintado.
+      await new Promise(function(r){setTimeout(r,0);});
     }
-    for(var j=0;j<plano.atualizar.length;j+=350){
+    for(var j=0;j<plano.atualizar.length;j+=LOTE){
       var b2=db.batch();
-      plano.atualizar.slice(j,j+350).forEach(function(it){
+      var lote2=plano.atualizar.slice(j,j+LOTE);
+      lote2.forEach(function(it){
         aplicarSheetNoCliente(it.cliente,it.sheet,it.mudancas);
         b2.set(db.collection('clients').doc(it.cliente.id),JSON.parse(JSON.stringify(it.cliente)));
-        atualizados++;
       });
       await b2.commit();
+      atualizados+=lote2.length;
+      feitas+=lote2.length;
+      progresso();
+      await new Promise(function(r){setTimeout(r,0);});
     }
     addAdminLog('sheet_sync_applied',{criados:criados,atualizados:atualizados,pendencias:plano.pendencias.length});
+    S.busyMsg='Recarregando a base…';render();
     await loadClients();
     S.busyMsg='';
     alert('Pronto.\n\n'+criados+' cliente(s) criados\n'+atualizados+' cliente(s) atualizados\n'
@@ -6837,7 +6883,12 @@ async function rodarSheetSync(btn){
   }catch(err){
     console.error('rodarSheetSync:',err);
     S.busyMsg='';
-    alert('Erro ao aplicar: '+err.message+'\n\nNada ficou pela metade: o que já entrou está salvo, o resto não foi tocado.');
+    // Recarrega a base mesmo com erro: o que já foi gravado precisa aparecer na
+    // tela, senão o card mostra número velho e ninguém sabe onde parou.
+    try{await loadClients();}catch(e2){}
+    alert('Parou no meio: '+err.message
+      +'\n\nJá entraram '+(criados+atualizados)+' de '+totalEscritas+'.'
+      +'\nClique em "Aplicar planilha" outra vez pra continuar de onde parou — quem já entrou não duplica.');
     if(btn){btn.disabled=false;btn.textContent='Aplicar planilha';}
     render();
   }
