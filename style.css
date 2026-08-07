@@ -856,3 +856,37 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 /* Link do site do cliente no cabeçalho do perfil */
 .cli-site-link{display:inline-flex;align-items:center;gap:4px;color:var(--b600);text-decoration:none;font-weight:500}
 .cli-site-link:hover{text-decoration:underline}
+
+/* ── Card da planilha do Salesforce no painel do líder ── */
+.lp-sheet-nums{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:2px}
+.lp-sheet-num{display:flex;flex-direction:column;gap:1px;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--surf2)}
+.lp-sheet-num b{font-size:17px;font-weight:700;font-family:"Roboto Slab",serif;color:var(--t);line-height:1.1}
+.lp-sheet-num span{font-size:10px;color:var(--t3)}
+.lp-sheet-num.alerta{border-color:var(--am600);background:var(--am50)}
+.lp-sheet-num.alerta b{color:var(--am700)}
+/* ── Pendências da planilha (overlay) ── */
+.lp-pend-grupo{margin-bottom:18px}
+.lp-pend-hd{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.lp-pend-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;letter-spacing:.02em}
+.lp-pend-am{background:var(--am50);color:var(--am700)}
+.lp-pend-rd{background:var(--rd50);color:var(--rd700)}
+.lp-pend-na{background:var(--badge-na-bg);color:var(--badge-na-t)}
+.lp-pend-n{font-size:11px;font-weight:700;color:var(--t3)}
+.lp-pend-why{font-size:11.5px;color:var(--t3);line-height:1.5;margin-bottom:9px}
+.lp-pend-r{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(0,1.4fr) auto;gap:12px;align-items:center;padding:9px 2px;border-top:1px solid var(--bd)}
+.lp-pend-cli{display:flex;flex-direction:column;min-width:0}
+.lp-pend-cli b{font-size:12.5px;font-weight:700;color:var(--t)}
+.lp-pend-cli span{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-pend-det{font-size:12px;color:var(--t2);min-width:0;line-height:1.5}
+.lp-pend-act{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.lp-pend-act select.narrow{max-width:150px}
+@media(max-width:820px){.lp-pend-r{grid-template-columns:1fr}.lp-pend-act{justify-content:flex-start}}
+
+/* ── Aviso de dado que mudou entre um follow e o próximo ── */
+.wiz-delta{border:1px solid var(--am600);background:var(--am50);border-radius:9px;padding:9px 12px;margin-bottom:12px}
+.wiz-delta-tag{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--am700);margin-bottom:5px}
+.wiz-delta-linhas{display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.55}
+.wiz-delta-old{color:var(--t3)}
+.wiz-delta-old b{color:var(--t2);font-weight:600}
+.wiz-delta-new{color:var(--t)}
+.wiz-delta-new b{color:var(--t2);font-weight:600}

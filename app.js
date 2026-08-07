@@ -175,6 +175,10 @@ auth.onAuthStateChanged(async function(fbUser){clearTimeout(_authTimer);
       await loadCustomQuestions();
       // Depois das perguntas customizadas, senão elas ficariam de fora do texto.
       refreshAllSFTexts();
+      // O espelho da planilha vem depois dos usuários: a conciliação precisa da
+      // lista de gente pra casar o nome do analista de CS. Só lê, não aplica —
+      // aplicar é sempre por decisão de alguém, no painel do líder.
+      await loadSheetAccounts();
       S.appReady=true;
       migrateFromLocalStorage();
       applyRoute(location.hash);
@@ -624,6 +628,44 @@ var WIZ_CHANNELS=[
   {key:'homesvillas',name:'H&Villas',color:'#c084fc',abbr:'HV',textColor:'#4c1d95',main:false}
 ];
 
+// Banner "isso mudou no meio do caminho".
+// Entre um follow e o próximo, a planilha do Salesforce pode ter mudado o dado.
+// Sem esse aviso, o analista abriria o recorrente vendo só a foto do último follow
+// e responderia em cima de informação vencida. Só aparece quando os dois valores
+// realmente diferem — se nada mudou, não polui a tela.
+function wizSheetDeltaBanner(campo,rotulo,txtFollow,txtAtual){
+  if(!hasBeta()||S.wiz.type!=='recurring')return'';
+  var c=S.clients[S.sel];
+  if(!c||!c.sheetFieldDates)return'';
+  var quando=c.sheetFieldDates[campo];
+  if(!quando)return'';
+  if(txtFollow===null||txtFollow===undefined||txtFollow==='')return'';
+  if(String(txtFollow)===String(txtAtual))return'';
+  var dtFollow=S.wiz.prevFollowDate?formatDate(S.wiz.prevFollowDate):'follow anterior';
+  return'<div class="wiz-delta">'
+    +'<div class="wiz-delta-tag">'+svgIcon('alert',12)+' Mudou depois do último follow</div>'
+    +'<div class="wiz-delta-linhas">'
+    +'<span class="wiz-delta-old"><b>'+e(dtFollow)+'</b> no follow: '+e(String(txtFollow))+'</span>'
+    +'<span class="wiz-delta-new"><b>'+e(formatDate(quando))+'</b> '+e(rotulo)+': <strong>'+e(String(txtAtual))+'</strong></span>'
+    +'</div></div>';
+}
+// Canais que a planilha diz estarem ativos já nascem marcados, no primeiro follow
+// e no recorrente. A QUANTIDADE de anúncios continua com o analista: a planilha
+// não traz esse número, então marcar o canal é tudo o que dá pra afirmar.
+function canaisIniciais(c,existentes){
+  var out=(existentes||[]).map(function(x){return Object.assign({},x);});
+  if(!hasBeta()||!c||!c.sheetCanais||!c.sheetCanais.length)return out;
+  c.sheetCanais.forEach(function(k){
+    var achou=out.filter(function(x){return x.key===k;})[0];
+    if(achou)achou.active=true;
+    else out.push({key:k,active:true,qty:'',all:false,fromSheet:true});
+  });
+  return out;
+}
+function wizModeloLabel(m){return m==='fixo'?'Fixo (per listing)':(m==='flexivel'?'Flexível':'');}
+function wizCanaisLabel(keys){
+  return(keys||[]).map(wizChannelName).join(', ');
+}
 function wizQ1(){
   var a=S.wiz.answers;
   var isRec=S.wiz.type==='recurring';
@@ -656,6 +698,10 @@ function wizQ1(){
   html+='<div class="wiz-q">Quantas unidades o cliente tem atualmente?</div>';
   html+='<div class="wiz-q-sub">Coloque o número ATUAL de unidades (já considerando o que foi adicionado ou removido).</div>';
   html+=prevBanner;
+  var _cli=S.clients[S.sel]||{};
+  html+=wizSheetDeltaBanner('units','na planilha',
+    prevCount?prevCount+' unidades':'',
+    (_cli.units||_cli.units===0)?_cli.units+' unidades':'');
   html+='<input class="wiz-input wiz-input-sm" type="number" placeholder="Ex: 40" value="'+(a.units_count||'')+'" oninput="wizAText(\'units_count\',+this.value)" onchange="wizUnitsChanged()" style="margin-bottom:1.25rem">';
   if(isRec){
     // On recurring, show auto-detected change (read-only info)
@@ -917,6 +963,10 @@ function wizQ3(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Modelo de precificação</div>';
   html+='<div class="wiz-q-sub">Qual o modelo atual? Sem score — mas o sistema avisa se estiver desalinhado com a temporada.</div>';
+  var _c3=S.clients[S.sel]||{};
+  html+=wizSheetDeltaBanner('pricingModel','na planilha',
+    wizModeloLabel(S.wiz.prevAnswers&&S.wiz.prevAnswers.pricing_model),
+    wizModeloLabel(_c3.pricingModel));
   html+='<div class="wiz-opts">';
   html+='<div class="wiz-opt'+(model==='fixo'?' sel':'')+'" onclick="wizA(\'pricing_model\',\'fixo\')"><span class="wiz-opt-ico">'+svgIcon('lock',16)+'</span><span class="wiz-opt-lbl">Fixo (per listing)</span></div>';
   html+='<div class="wiz-opt'+(model==='flexivel'?' sel':'')+'" onclick="wizA(\'pricing_model\',\'flexivel\')"><span class="wiz-opt-ico">'+svgIcon('chart_pie',16)+'</span><span class="wiz-opt-lbl">Flexível</span></div>';
@@ -953,6 +1003,12 @@ function wizQ4(){
   html+='<div class="wiz-q">Listings e canais conectados</div>';
   html+='<div class="wiz-q-sub">Clique nos canais ativos. Informe quantos anúncios estão conectados em cada um.</div>';
   if(S.wiz.type==='recurring'&&S.wiz.prevAnswers&&S.wiz.prevAnswers.channels){var CN={airbnb:'Airbnb',booking:'Booking',decolar:'Decolar',expedia:'Expedia',vrbo:'VRBO',website:'Website',googlevr:'Google VR',homesvillas:'H&Villas'};var prevChs=(S.wiz.prevAnswers.channels.filter(function(x){return x.active;}).map(function(x){return CN[x.key]+(x.qty?' ('+x.qty+')':'');})).join(', ');if(prevChs)html+='<div class="wiz-info-banner">'+svgIcon('chart',14)+' No último follow: <strong>'+prevChs+'</strong> — os dados abaixo já vêm pré-preenchidos, ajuste conforme mudou.</div>';}
+  // A planilha diz QUAIS canais estão ativos, mas não quantos anúncios em cada —
+  // então o aviso compara só a lista de canais, e a quantidade segue com o analista.
+  var _c4=S.clients[S.sel]||{};
+  html+=wizSheetDeltaBanner('sheetCanais','na planilha',
+    wizCanaisLabel(((S.wiz.prevAnswers&&S.wiz.prevAnswers.channels)||[]).filter(function(x){return x.active;}).map(function(x){return x.key;})),
+    wizCanaisLabel(_c4.sheetCanais));
   html+='<div class="wiz-ch-grid">';
   WIZ_CHANNELS.filter(function(c){return c.main;}).forEach(function(ch){
     var active=chActive(ch.key);
@@ -2699,7 +2755,7 @@ function openWizard(type,resumeDraft){
       carried.prev_units_count=prevA.units_count;
       carried.cities=JSON.parse(JSON.stringify(prevA.cities||[]));
       carried.pricing_model=prevA.pricing_model;
-      carried.channels=JSON.parse(JSON.stringify(prevA.channels||[]));
+      carried.channels=canaisIniciais(c,JSON.parse(JSON.stringify(prevA.channels||[])));
       carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
       carried.domain_migration=prevA.domain_migration;
       carried.domain_website=prevA.domain_website||c.website;
@@ -2713,9 +2769,18 @@ function openWizard(type,resumeDraft){
       carried.units_count=c.units;
     }
     if(!carried.domain_website&&c&&c.website)carried.domain_website=c.website;
+    if(!carried.channels)carried.channels=canaisIniciais(c,[]);
+    if(!carried.pricing_model&&c&&c.pricingModel)carried.pricing_model=c.pricingModel;
     S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow?prevFollow.date:null,prevHumors:prevFollow?Object.assign({},prevFollow.humors||{}):{}};
   }else{
-    S.wiz={step:0,type:type||'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
+    // Primeiro follow tambem nasce com o que a planilha ja sabe do cliente.
+    var iniciais={};
+    var ch0=canaisIniciais(c,[]);
+    if(ch0.length)iniciais.channels=ch0;
+    if(c&&c.pricingModel)iniciais.pricing_model=c.pricingModel;
+    if(c&&c.website)iniciais.domain_website=c.website;
+    if(c&&(c.units||c.units===0))iniciais.units_count=c.units;
+    S.wiz={step:0,type:type||'first',answers:iniciais,humors:{},autoHumors:{},prevAnswers:null};
   }
   S.view='follow-wizard';
   render();
@@ -2735,9 +2800,9 @@ function render(){
   var app=document.getElementById("app");if(!app)return;
   var root=document.documentElement;
   var viewChanged=S._lastView!==S.view;
-  var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig||S.lpCovBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':''));
+  var modalOpened=!!(S.modal||S.lpClientMenu||S.lpChurnBig||S.lpCovBig||S.lpSheetBig)&&S._lastModal!==(S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':'')||(S.lpSheetBig?'sheetbig':''));
   S._lastView=S.view;
-  var mkNow=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':'');
+  var mkNow=S.modal||(S.lpClientMenu?'lpmenu':'')||(S.lpChurnBig?'churnbig':'')||(S.lpCovBig?'covbig':'')||(S.lpSheetBig?'sheetbig':'');
   if(mkNow!==S._lastModal)S.modalDirty=false; // abriu/trocou de modal: nada mexido ainda
   S._lastModal=mkNow;
   root.classList.toggle('quiet-view',!viewChanged);
@@ -5080,10 +5145,11 @@ function leaderVisaoGeral(){
   }
   html+='</div>';
   html+='</section>';
-  html+='<aside class="lp-side2">'+lpQueueCard(teamClients)+lpCoverageCard(teamClients)+'</aside>';
+  html+='<aside class="lp-side2">'+lpSheetCard()+lpQueueCard(teamClients)+lpCoverageCard(teamClients)+'</aside>';
   html+='</div>';
   html+=lpChurnBigOverlay(teamClients);
   html+=lpCovBigOverlay(teamClients);
+  html+=lpSheetBigOverlay();
   return html;
 }
 function leaderPanelView(){
@@ -6375,6 +6441,444 @@ function lpClientTable(cs,oid,mode){
   }
   html+='</div>';
   return html;
+}
+// ============================================================
+// RECEPÇÃO DA PLANILHA DO SALESFORCE
+// ============================================================
+// A planilha alimenta a coleção `sheet_accounts` (só leitura pra todo mundo; quem
+// escreve lá é o Apps Script, ver sheets-sync/). Aqui do lado do dashboard a gente
+// CONCILIA esse espelho com os clientes de verdade: o que é inequívoco entra
+// sozinho, o que é ambíguo vira pendência pra alguém decidir.
+//
+// A guarda de papel abaixo não é firula. loadClients() filtra a base por dono
+// quando o papel é analista ou supervisor — numa sessão dessas o dashboard só
+// conhece parte dos clientes, então o sync acharia que os outros não existem e
+// criaria centenas de duplicatas. Só roda pra quem carrega a base inteira.
+function syncPodeRodar(){
+  if(!hasBeta())return false;
+  return['admin','gerente','testuser'].indexOf(S.appUser&&S.appUser.role)>=0;
+}
+async function loadSheetAccounts(){
+  if(!syncPodeRodar()){S.sheetAccounts=null;S.sheetStatus=null;return;}
+  try{
+    var snap=await db.collection('sheet_accounts').get();
+    S.sheetAccounts=snap.docs.map(function(d){return Object.assign({sigla:d.id},d.data());});
+    var st=await db.collection('sheet_sync').doc('status').get();
+    S.sheetStatus=st.exists?st.data():null;
+  }catch(e){
+    console.error('loadSheetAccounts:',e);
+    S.sheetAccounts=null;S.sheetStatus=null;
+  }
+}
+// Sigla é a chave do casamento. Normaliza pra não perder o par por causa de
+// espaço sobrando ou caixa diferente.
+function siglaKey(s){return String(s||'').trim().toUpperCase().replace(/\s+/g,'');}
+// Nome de pessoa: sem acento, minúsculo, espaços colapsados.
+function nomeKey(s){
+  return String(s||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/\s+/g,' ');
+}
+// Canais: a planilha usa os nomes do App Center, o wizard usa as chaves dele.
+var SHEET_CANAL_MAP={airbnb:'airbnb',bookingcom:'booking',booking:'booking',
+  decolar:'decolar',expedia:'expedia',vrbo:'vrbo',googlevr:'googlevr',
+  website:'website',homesvillas:'homesvillas'};
+function canaisDaPlanilha(lista){
+  var out=[];
+  (lista||[]).forEach(function(nome){
+    var k=SHEET_CANAL_MAP[nomeKey(nome).replace(/[^a-z0-9]/g,'')];
+    if(k&&out.indexOf(k)<0)out.push(k);
+  });
+  return out;
+}
+// A planilha diz `flexible` / `per_listing` / `per_listing_v2` / `fixed`. O wizard
+// só conhece dois modelos. `fixed` ainda não foi esclarecido pelo Pedro, então
+// fica sem tradução em vez de virar um palpite que mexeria no score.
+function modeloDaPlanilha(tipo){
+  var t=nomeKey(tipo).replace(/[^a-z0-9]/g,'');
+  if(t==='flexible')return'flexivel';
+  if(t==='perlisting'||t==='perlistingv2')return'fixo';
+  return null;
+}
+// Quem é o analista desta conta, a partir do nome escrito na planilha.
+// Devolve o que achou E o que não achou — a ambiguidade é informação, não erro.
+function acharAnalista(nomePlanilha){
+  var alvo=nomeKey(nomePlanilha);
+  if(!alvo)return{estado:'vazio'};
+  var candidatos=(S.allUsers||[]).filter(function(u){
+    return u.role!=='pending'&&nomeKey(u.name)===alvo;
+  });
+  if(candidatos.length===1)return{estado:'ok',uid:candidatos[0].uid,nome:candidatos[0].name};
+  if(candidatos.length>1)return{estado:'ambiguo',opcoes:candidatos};
+  // Não casou exato. Em vez de adivinhar por semelhança (e correr o risco de
+  // entregar a conta pro analista errado), sugere e deixa a decisão pra pessoa.
+  var partes=alvo.split(' ');
+  var primeiro=partes[0],ultimo=partes[partes.length-1];
+  var parecidos=(S.allUsers||[]).filter(function(u){
+    if(u.role==='pending')return false;
+    var k=nomeKey(u.name),p=k.split(' ');
+    return p[0]===primeiro||(partes.length>1&&p[p.length-1]===ultimo);
+  });
+  return{estado:'desconhecido',sugestoes:parecidos};
+}
+// ── O plano de conciliação ──
+// Nada é gravado aqui. Esta função só olha os dois lados e diz o que faria.
+function sheetReconcile(){
+  var espelho=S.sheetAccounts||[];
+  var plano={criar:[],atualizar:[],pendencias:[],semMudanca:0};
+  if(!espelho.length)return plano;
+
+  // Índice dos clientes por sigla. Sigla repetida no dashboard é ambiguidade:
+  // não dá pra saber qual dos dois a planilha está descrevendo.
+  var porSigla={};
+  (S.clients||[]).forEach(function(c){
+    if(c.archived)return;
+    var k=siglaKey(c.slug);
+    if(!k)return;
+    if(!porSigla[k])porSigla[k]=[];
+    porSigla[k].push(c);
+  });
+
+  espelho.forEach(function(sa){
+    var k=siglaKey(sa.sigla);
+    if(!k)return;
+    var achados=porSigla[k]||[];
+    var an=acharAnalista(sa.analistaNome);
+    var mexeu=false;   // esta conta gerou alguma coisa nesta rodada?
+
+    if(achados.length>1){
+      plano.pendencias.push({tipo:'sigla_duplicada',sigla:k,sheet:sa,
+        clientes:achados.map(function(c){return{id:c.id,nome:c.name,ownerId:c.ownerId};})});
+      return;
+    }
+
+    if(!achados.length){
+      // Cliente novo. Só entra sozinho se souber de quem é: um cliente sem
+      // analista não aparece em carteira nenhuma e viraria órfão silencioso.
+      if(an.estado==='ok')plano.criar.push({sheet:sa,ownerId:an.uid,ownerNome:an.nome});
+      else plano.pendencias.push({tipo:'analista_'+an.estado,sigla:k,sheet:sa,analista:an,novo:true});
+      return;
+    }
+
+    var c=achados[0];
+    // Analista diferente do que está no dashboard = transferência de carteira.
+    // Isso nunca entra sozinho: precisa do aval de quem lidera.
+    if(an.estado==='ok'&&c.ownerId!==an.uid&&!c.sheetOwnerLocked){
+      plano.pendencias.push({tipo:'troca_analista',sigla:k,sheet:sa,cliente:c,
+        deUid:c.ownerId,paraUid:an.uid,paraNome:an.nome});
+      mexeu=true;
+    }else if(an.estado!=='ok'&&an.estado!=='vazio'&&c.ownerId){
+      // Já tem dono no dashboard e o nome da planilha não casa: só avisa, não
+      // propõe troca — o dono atual continua valendo.
+      plano.pendencias.push({tipo:'analista_'+an.estado,sigla:k,sheet:sa,analista:an,cliente:c,novo:false});
+      mexeu=true;
+    }
+    var mud=diffCliente(c,sa);
+    if(mud.length){plano.atualizar.push({cliente:c,sheet:sa,mudancas:mud});mexeu=true;}
+    if(!mexeu)plano.semMudanca++;
+  });
+
+  // Cliente que existe no dashboard e não aparece mais na planilha. Pode ter sido
+  // descarteirizado, pode ter dado churn, pode ser sigla digitada diferente.
+  // Nenhuma dessas hipóteses justifica apagar nada — só sinalizar.
+  var noEspelho={};
+  espelho.forEach(function(sa){noEspelho[siglaKey(sa.sigla)]=true;});
+  (S.clients||[]).forEach(function(c){
+    if(c.archived)return;
+    var k=siglaKey(c.slug);
+    if(!k){
+      plano.pendencias.push({tipo:'cliente_sem_sigla',cliente:c});
+      return;
+    }
+    if(!noEspelho[k]&&c.sheet)plano.pendencias.push({tipo:'fora_da_planilha',sigla:k,cliente:c});
+  });
+
+  return plano;
+}
+// Campos que a planilha manda no cadastro, e o que mudaria em cada um.
+// Só entram aqui os que o Pedro definiu como automáticos.
+function diffCliente(c,sa){
+  var mud=[];
+  function cmp(campo,label,atual,novo){
+    if(novo===null||novo===undefined||novo==='')return;
+    if(String(atual===undefined||atual===null?'':atual)===String(novo))return;
+    mud.push({campo:campo,label:label,de:atual,para:novo});
+  }
+  cmp('name','Nome da conta',c.name,sa.nome);
+  cmp('mrr','MRR',c.mrr,sa.mrr);
+  cmp('units','Unidades',c.units,sa.unidades);
+  var modelo=modeloDaPlanilha(sa.tipoPlano);
+  if(modelo)cmp('pricingModel','Tipo de plano',c.pricingModel,modelo);
+  var canais=canaisDaPlanilha(sa.canais);
+  if(canais.length){
+    var atuais=(c.sheetCanais||[]).slice().sort().join(',');
+    if(atuais!==canais.slice().sort().join(','))
+      mud.push({campo:'sheetCanais',label:'Canais ativos',de:c.sheetCanais||[],para:canais});
+  }
+  return mud;
+}
+// ── Card da planilha no painel do líder ──
+// Duas coisas no mesmo lugar: o botão que aplica o que é inequívoco e a lista do
+// que não é. Cada pendência traz o que a planilha diz, o que o dashboard tem, e
+// o botão que resolve — em vez de só apontar que existe um problema.
+function lpSheetCard(){
+  if(!syncPodeRodar())return'';
+  if(!S.sheetAccounts){
+    return'<div class="lp-card"><div class="lp-card-head"><span class="lp-eyebrow">Planilha do Salesforce</span></div>'
+      +'<div class="lp-note" style="padding:4px 0">Sem acesso ao espelho da planilha ainda. Se o sync já foi configurado, recarregue a página.</div></div>';
+  }
+  var plano=sheetReconcile();
+  var st=S.sheetStatus||{};
+  var html='<div class="lp-card">';
+  html+='<div class="lp-card-head"><span class="lp-eyebrow">Planilha do Salesforce</span>'
+    +'<span class="lp-note">'+(S.sheetAccounts.length)+' contas</span></div>';
+  // Quando o espelho foi atualizado pela última vez. Se estiver velho, o sync parou.
+  if(st.rodadaEm){
+    var horas=Math.floor((Date.now()-new Date(st.rodadaEm).getTime())/3600000);
+    var velho=horas>=6;
+    html+='<div class="lp-note" style="margin-bottom:9px;color:'+(velho?'var(--rd600)':'var(--t3)')+'">'
+      +(velho?svgIcon('alert',12)+' ':'')+'Espelho atualizado '
+      +(horas<1?'há menos de 1 hora':('há '+horas+'h'))
+      +(velho?' — o sync pode ter parado':'')+'</div>';
+  }
+  html+='<div class="lp-sheet-nums">'
+    +'<div class="lp-sheet-num"><b>'+plano.criar.length+'</b><span>novos</span></div>'
+    +'<div class="lp-sheet-num"><b>'+plano.atualizar.length+'</b><span>com mudança</span></div>'
+    +'<div class="lp-sheet-num'+(plano.pendencias.length?' alerta':'')+'"><b>'+plano.pendencias.length+'</b><span>pendências</span></div>'
+    +'<div class="lp-sheet-num"><b>'+plano.semMudanca+'</b><span>em dia</span></div>'
+    +'</div>';
+  if(plano.criar.length||plano.atualizar.length){
+    html+='<button class="lp-pop-apply press" style="width:100%;margin:2px 0 0" onclick="rodarSheetSync(this)">Aplicar planilha</button>';
+  }
+  if(plano.pendencias.length){
+    html+='<button class="btn btn-sm press" style="width:100%;margin-top:7px" onclick="lpToggleSheetBig()">'
+      +svgIcon('alert',12)+' Ver '+plano.pendencias.length+' pendência'+(plano.pendencias.length===1?'':'s')+'</button>';
+  }
+  html+='</div>';
+  return html;
+}
+function lpToggleSheetBig(){if(S.lpSheetBig){lpCloseSheetBig();return;}S.lpSheetBig=true;render();}
+function lpCloseSheetBig(){dismissOverlay(function(){S.lpSheetBig=false;render();});}
+// Cada tipo de pendência tem uma explicação do PORQUÊ e uma ação. Sem isso, a
+// lista viraria um monte de aviso que ninguém sabe resolver.
+var SHEET_PEND_INFO={
+  troca_analista:{titulo:'Troca de analista',cor:'am',
+    porque:'A planilha aponta outro analista. Transferir carteira nunca é automático.'},
+  analista_desconhecido:{titulo:'Analista não encontrado',cor:'rd',
+    porque:'O nome que está na planilha não corresponde a nenhum usuário cadastrado.'},
+  analista_ambiguo:{titulo:'Mais de um analista com esse nome',cor:'rd',
+    porque:'Há dois usuários com o mesmo nome — não dá pra saber qual é.'},
+  analista_vazio:{titulo:'Sem analista na planilha',cor:'na',
+    porque:'A coluna de analista está vazia, então a conta não é carteirizada.'},
+  sigla_duplicada:{titulo:'Sigla repetida no dashboard',cor:'rd',
+    porque:'Dois clientes têm a mesma sigla. Não dá pra saber qual a planilha descreve.'},
+  fora_da_planilha:{titulo:'Não está mais na planilha',cor:'am',
+    porque:'A conta saiu da planilha. Pode ter sido descarteirizada, pode ter dado churn — nada é apagado por conta disso.'},
+  cliente_sem_sigla:{titulo:'Cliente sem sigla',cor:'na',
+    porque:'Sem sigla, este cliente nunca vai casar com a planilha.'}
+};
+function lpSheetBigOverlay(){
+  if(!S.lpSheetBig)return'';
+  var plano=sheetReconcile();
+  var grupos={};
+  plano.pendencias.forEach(function(p){(grupos[p.tipo]=grupos[p.tipo]||[]).push(p);});
+  var html='<div class="modal-ov" onclick="if(event.target===this)lpCloseSheetBig()">';
+  html+='<div class="modal-box lp-big-box" style="max-width:900px">';
+  html+='<div class="modal-hdr"><div><h2 class="modal-title" style="margin:0">Pendências da planilha</h2>'
+    +'<div class="muted" style="font-size:12px;margin-top:2px">O que o sistema não decidiu sozinho — cada item explica o motivo</div></div>'
+    +'<button class="modal-close press" onclick="lpCloseSheetBig()">Fechar</button></div>';
+  if(!plano.pendencias.length){
+    html+='<div class="lp-empty-box">Nenhuma pendência. Planilha e dashboard estão de acordo.</div>';
+  }
+  Object.keys(grupos).forEach(function(tipo){
+    var info=SHEET_PEND_INFO[tipo]||{titulo:tipo,cor:'na',porque:''};
+    var itens=grupos[tipo];
+    html+='<div class="lp-pend-grupo">';
+    html+='<div class="lp-pend-hd"><span class="lp-pend-tag lp-pend-'+info.cor+'">'+e(info.titulo)+'</span>'
+      +'<span class="lp-pend-n">'+itens.length+'</span></div>';
+    html+='<div class="lp-pend-why">'+e(info.porque)+'</div>';
+    itens.slice(0,40).forEach(function(p,i){html+=lpSheetPendRow(tipo,p,i);});
+    if(itens.length>40)html+='<div class="lp-note" style="padding:8px 2px">+ '+(itens.length-40)+' além destes. Resolva os de cima e os próximos aparecem.</div>';
+    html+='</div>';
+  });
+  html+='</div></div>';
+  return html;
+}
+function lpSheetPendRow(tipo,p,i){
+  var sa=p.sheet||{};
+  var sigla=e(String(p.sigla||sa.sigla||(p.cliente&&(p.cliente.slug||p.cliente.name))||'—').toUpperCase());
+  var nome=e(sa.nome||(p.cliente&&p.cliente.name)||'');
+  var h='<div class="lp-pend-r"><div class="lp-pend-cli"><b>'+sigla+'</b><span>'+nome+'</span></div>';
+  h+='<div class="lp-pend-det">';
+  if(tipo==='troca_analista'){
+    var de=(S.allUsers||[]).find(function(u){return u.uid===p.deUid;});
+    h+='<span>'+e(de?de.name:'sem analista')+'</span> &rarr; <strong>'+e(p.paraNome)+'</strong>';
+    h+='</div><div class="lp-pend-act">'
+      +'<button class="btn btn-sm press" onclick="sheetRecusarTroca(\''+jsq(p.cliente.id)+'\')">Manter atual</button>'
+      +'<button class="btn-primary btn-sm press" onclick="sheetAprovarTroca(\''+jsq(p.cliente.id)+'\',\''+jsq(p.paraUid)+'\')">Transferir</button></div>';
+  }else if(tipo==='analista_desconhecido'||tipo==='analista_ambiguo'){
+    var selId='sheet-an-'+tipo+'-'+i;
+    h+='Planilha diz: <strong>'+e(sa.analistaNome||'—')+'</strong>';
+    var sug=(p.analista&&(p.analista.sugestoes||p.analista.opcoes))||[];
+    if(sug.length)h+='<span class="lp-note"> · parecidos: '+e(sug.map(function(u){return u.name;}).join(', '))+'</span>';
+    h+='</div><div class="lp-pend-act">';
+    if(p.novo){
+      h+='<select class="narrow" id="'+selId+'">'+analystOptionsHTML('')+'</select>'
+        +'<button class="btn-primary btn-sm press" onclick="sheetCriarComAnalista(\''+jsq(p.sigla)+'\',\''+selId+'\')">Criar cliente</button>';
+    }else{
+      h+='<span class="lp-note">cliente já existe — o analista atual continua valendo</span>';
+    }
+    h+='</div>';
+  }else if(tipo==='sigla_duplicada'){
+    h+=(p.clientes||[]).map(function(x){return e(x.nome);}).join('  ·  ');
+    h+='</div><div class="lp-pend-act">'
+      +(p.clientes||[]).map(function(x){
+        var ci=(S.clients||[]).findIndex(function(c){return c.id===x.id;});
+        return ci>=0?'<button class="btn btn-sm press" onclick="lpCloseSheetBig();openClient('+ci+')">Abrir '+e(x.nome.slice(0,18))+'</button>':'';
+      }).join('')+'</div>';
+  }else if(tipo==='fora_da_planilha'){
+    var ci2=(S.clients||[]).findIndex(function(c){return c.id===p.cliente.id;});
+    h+='Existe no dashboard, não está mais na planilha';
+    h+='</div><div class="lp-pend-act">'
+      +(ci2>=0?'<button class="btn btn-sm press" onclick="lpCloseSheetBig();openClient('+ci2+')">Abrir cliente</button>':'')+'</div>';
+  }else if(tipo==='cliente_sem_sigla'){
+    var ci3=(S.clients||[]).findIndex(function(c){return c.id===p.cliente.id;});
+    h+='Cadastrado sem sigla';
+    h+='</div><div class="lp-pend-act">'
+      +(ci3>=0?'<button class="btn btn-sm press" onclick="lpCloseSheetBig();openClient('+ci3+')">Preencher sigla</button>':'')+'</div>';
+  }else{
+    h+=e(sa.analistaNome||'—')+'</div><div class="lp-pend-act"></div>';
+  }
+  h+='</div>';
+  return h;
+}
+// ── Aplicar o plano ──
+// Cada campo que a planilha mexe fica datado em c.sheetFieldDates. É essa data que
+// o follow recorrente usa depois pra dizer "no último follow era X, e mudou pra Y
+// em tal dia" — sem ela, o analista não teria como saber que algo mudou no meio.
+function hojeISO(){
+  var d=new Date(),m=d.getMonth()+1,dd=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;
+}
+function aplicarSheetNoCliente(c,sa,mudancas){
+  var hoje=hojeISO();
+  if(!c.sheetFieldDates)c.sheetFieldDates={};
+  (mudancas||[]).forEach(function(m){
+    c[m.campo]=m.para;
+    c.sheetFieldDates[m.campo]=hoje;
+  });
+  // Espelho cru da linha, guardado inteiro. Serve de referência e evita ter que
+  // ir ao Firestore de novo pra ler um campo que a planilha já trouxe.
+  c.sheet={sigla:sa.sigla,nome:sa.nome,analistaNome:sa.analistaNome,plano:sa.plano,
+    tipoPlano:sa.tipoPlano,pais:sa.pais,paisOperacao:sa.paisOperacao,mrr:sa.mrr,
+    unidades:sa.unidades,canais:sa.canais||[],etapa:sa.etapa,lifetimeMeses:sa.lifetimeMeses,
+    diasSemAtividade:sa.diasSemAtividade,ultimoLogin:sa.ultimoLogin,
+    faturaNaoPaga:sa.faturaNaoPaga,vencimentoFatura:sa.vencimentoFatura,
+    inadimplente:sa.inadimplente,atrasoDias:sa.atrasoDias,financeBan:sa.financeBan,
+    website:sa.website,syncedAt:sa.syncedAt};
+  c.sheetSyncedAt=Date.now();
+}
+function clienteNovoDaPlanilha(sa,ownerId){
+  var c={id:uid(),name:sa.nome||sa.sigla,slug:sa.sigla,ownerId:ownerId,
+    keyContacts:[],contacts:[],follows:[],activities:[],reminders:[],
+    inadimplencia:[],churnHistory:[],
+    createdFromSheet:true,importedAt:Date.now(),importedBy:S.appUser.uid};
+  if(sa.pais)c.clientCountry=sa.pais;
+  if(sa.plano)c.plan=sa.plano;
+  if(sa.mrr!==null&&sa.mrr!==undefined)c.mrr=sa.mrr;
+  if(sa.unidades!==null&&sa.unidades!==undefined)c.units=sa.unidades;
+  var modelo=modeloDaPlanilha(sa.tipoPlano);
+  if(modelo)c.pricingModel=modelo;
+  var canais=canaisDaPlanilha(sa.canais);
+  if(canais.length)c.sheetCanais=canais;
+  aplicarSheetNoCliente(c,sa,[]);
+  return c;
+}
+// Roda o sync de verdade: grava o que é inequívoco e deixa o resto pendente.
+async function rodarSheetSync(btn){
+  if(!syncPodeRodar()){alert('Sem permissão para rodar a importação.');return;}
+  var plano=sheetReconcile();
+  if(!plano.criar.length&&!plano.atualizar.length){
+    alert('Nada novo pra aplicar.\n\n'+plano.pendencias.length+' pendência(s) aguardando decisão.');
+    return;
+  }
+  if(!confirm('Aplicar a planilha?\n\n'
+    +plano.criar.length+' cliente(s) novos vão ser criados\n'
+    +plano.atualizar.length+' cliente(s) vão ter dados atualizados\n'
+    +plano.pendencias.length+' pendência(s) ficam pra você decidir'))return;
+  if(btn){btn.disabled=true;btn.textContent='Aplicando...';}
+  S.busyMsg='Aplicando a planilha...';render();
+  var criados=0,atualizados=0;
+  try{
+    // Em lotes: o Firestore aceita 500 escritas por commit, e 800 contas passam disso.
+    var novos=plano.criar.map(function(it){return clienteNovoDaPlanilha(it.sheet,it.ownerId);});
+    for(var i=0;i<novos.length;i+=350){
+      var b=db.batch();
+      novos.slice(i,i+350).forEach(function(c){
+        b.set(db.collection('clients').doc(c.id),JSON.parse(JSON.stringify(c)));criados++;
+      });
+      await b.commit();
+    }
+    for(var j=0;j<plano.atualizar.length;j+=350){
+      var b2=db.batch();
+      plano.atualizar.slice(j,j+350).forEach(function(it){
+        aplicarSheetNoCliente(it.cliente,it.sheet,it.mudancas);
+        b2.set(db.collection('clients').doc(it.cliente.id),JSON.parse(JSON.stringify(it.cliente)));
+        atualizados++;
+      });
+      await b2.commit();
+    }
+    addAdminLog('sheet_sync_applied',{criados:criados,atualizados:atualizados,pendencias:plano.pendencias.length});
+    await loadClients();
+    S.busyMsg='';
+    alert('Pronto.\n\n'+criados+' cliente(s) criados\n'+atualizados+' cliente(s) atualizados\n'
+      +plano.pendencias.length+' pendência(s) aguardando você');
+    render();
+  }catch(err){
+    console.error('rodarSheetSync:',err);
+    S.busyMsg='';
+    alert('Erro ao aplicar: '+err.message+'\n\nNada ficou pela metade: o que já entrou está salvo, o resto não foi tocado.');
+    if(btn){btn.disabled=false;btn.textContent='Aplicar planilha';}
+    render();
+  }
+}
+// ── Decisões sobre as pendências ──
+async function sheetAprovarTroca(cid,paraUid){
+  var c=(S.clients||[]).find(function(x){return x.id===cid;});
+  if(!c)return;
+  var de=(S.allUsers||[]).find(function(u){return u.uid===c.ownerId;});
+  var para=(S.allUsers||[]).find(function(u){return u.uid===paraUid;});
+  if(!confirm('Transferir '+String(c.slug||c.name).toUpperCase()+' de '+(de?de.name:'sem analista')+' para '+(para?para.name:'?')+'?'))return;
+  c.ownerId=paraUid;
+  delete c.sheetOwnerLocked;
+  await saveClient(c);
+  addAdminLog('client_transferred',Object.assign(logClient(c),
+    {fromName:de?de.name:'—',targetName:para?para.name:'—',viaPlanilha:true}));
+  lpToast(String(c.slug||c.name).toUpperCase()+' agora é de '+(para?para.name:'—')+'.');
+}
+// Recusar trava o campo pro sync: a planilha pode continuar dizendo outra coisa,
+// mas o dashboard não volta a propor. Só transferência manual muda daqui pra frente.
+async function sheetRecusarTroca(cid){
+  var c=(S.clients||[]).find(function(x){return x.id===cid;});
+  if(!c)return;
+  if(!confirm('Manter o analista atual e parar de sugerir essa troca?\n\nA planilha continua com o outro nome, mas o dashboard não vai mais pedir. Só transferência manual muda daqui pra frente.'))return;
+  c.sheetOwnerLocked=true;
+  await saveClient(c);
+  addAdminLog('sheet_owner_locked',logClient(c));
+  lpToast('Analista de '+String(c.slug||c.name).toUpperCase()+' travado.');
+}
+// Conta nova cujo analista o sistema não soube identificar: a pessoa escolhe.
+async function sheetCriarComAnalista(sigla,selId){
+  var sel=document.getElementById(selId);
+  var ownerId=sel&&sel.value;
+  if(!ownerId){alert('Escolha um analista.');return;}
+  var sa=(S.sheetAccounts||[]).find(function(x){return siglaKey(x.sigla)===siglaKey(sigla);});
+  if(!sa)return;
+  var c=clienteNovoDaPlanilha(sa,ownerId);
+  await saveClient(c);
+  S.clients.push(c);
+  addAdminLog('client_created_from_sheet',Object.assign(logClient(c),{sigla:sa.sigla}));
+  lpToast(String(sa.sigla).toUpperCase()+' criado.');
 }
 // ============================================================
 // OVERLAYS — fechar com animação, clique fora e botão "Fechar"
