@@ -6319,7 +6319,12 @@ function lpClientTable(cs,oid,mode){
     var ci=S.clients.indexOf(c),score=calcScore(c),band=hl(score),col=lpBandColor(band),fu=fuSt(c);
     var d=getDaysWithoutContact(c);
     var pend=clientPendingCount(c);
-    html+='<div class="lp-cli-r">';
+    // Linha inteira clicavel (so pra supervisor/gerente/admin): abre transferir e
+    // excluir, como era antes da reforma do layout. Quem nao gerencia carteira de
+    // outro analista ve a linha normal, sem clique.
+    var gerencia=canManageClientOwner();
+    html+='<div class="lp-cli-r'+(gerencia?' lp-cli-clickable':'')+'"'
+      +(gerencia?' title="Clique para transferir ou excluir" onclick="lpOpenClientActions(\''+jsq(c.id)+'\')"':'')+'>';
     // Sem circulo de iniciais: a sigla ja e a identificacao do cliente, e duas
     // letras cortadas dentro de uma bolinha so imitavam uma foto que nao existe.
     html+='<div class="lp-cli-who"><span style="min-width:0">'
@@ -6330,13 +6335,12 @@ function lpClientTable(cs,oid,mode){
     html+='<div style="font-weight:600;font-size:12.5px">'+formatMRR(c.mrr)+'</div>';
     html+='<div style="font-size:12.5px;font-weight:600;color:'+(d!==null&&d>=30?'var(--rd600)':'var(--t2)')+'">'+(d===null?'—':d+' dias')+'</div>';
     html+='<div><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></div>';
-    // "Gerenciar" abre transferir/excluir. Some junto com a reforma do layout: o
-    // codigo continuou inteiro, o que faltava era o botao que chama esta janela.
+    // "Abrir" precisa parar o clique aqui, senao abriria a janela de transferir
+    // junto com o cliente.
     html+='<div style="display:flex;justify-content:flex-end;gap:5px;align-items:center">'
       +(pend?'<span class="pend-badge" title="'+pend+' pergunta(s) pendente(s)">'+pend+'</span>':'')
       +(isLoopOpen(c)?'<span class="lp-chip lp-chip-amber">loop</span>':'')
-      +(canManageClientOwner()?'<button class="btn btn-sm press" title="Transferir para outro analista ou excluir" onclick="lpOpenClientActions(\''+jsq(c.id)+'\')">Gerenciar</button>':'')
-      +'<button class="btn btn-sm press" onclick="openClient('+ci+')">Abrir</button></div>';
+      +'<button class="btn btn-sm press" onclick="event.stopPropagation();openClient('+ci+')">Abrir</button></div>';
     html+='</div>';
   });
   if(!slice.length)html+='<div style="padding:16px" class="muted">Nenhum cliente com os filtros atuais.</div>';
