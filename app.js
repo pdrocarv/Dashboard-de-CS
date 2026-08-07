@@ -1010,6 +1010,15 @@ function wizQ5(){
   html+='<div class="wiz-opt'+(val==='sim'?' sel':'')+'" onclick="wizA(\'domain_migration\',\'sim\')"><span class="wiz-opt-ico">'+svgIcon('check',16)+'</span><span class="wiz-opt-lbl">Sim, tem domínio próprio ativo</span></div>';
   html+='<div class="wiz-opt'+(val==='nao'?' sel':'')+'" onclick="wizA(\'domain_migration\',\'nao\')"><span class="wiz-opt-ico">'+svgIcon('cancel',16)+'</span><span class="wiz-opt-lbl">Não tem domínio próprio</span></div>';
   html+='</div>';
+  // Site do cliente: cadastrado uma vez aqui, some pra frente. Alimenta a
+  // pergunta de personalização (link direto pra abrir e julgar) e o perfil
+  // do cliente — sem precisar digitar de novo em cada follow.
+  if(hasBeta()){
+    html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Site do cliente (opcional)</label>'
+      +'<div class="wiz-row" style="margin-top:4px"><input class="wiz-input" type="text" placeholder="https://..." value="'+e(a.domain_website||'')+'" style="flex:1" onchange="wizA(\'domain_website\',this.value.trim())">'
+      +(a.domain_website?'<a href="'+e(a.domain_website)+'" target="_blank" rel="noopener" class="btn btn-sm">'+svgIcon('share',12)+' Abrir</a>':'')
+      +'</div></div>';
+  }
   html+=wizFaces('domain',auto,true);
   html+='</div>';
   return html;
@@ -1029,6 +1038,12 @@ function wizQ6(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Personalização de site</div>';
   html+='<div class="wiz-q-sub">Como está o nível de personalização do site do cliente?</div>';
+  // Link direto pro site, vindo do que foi cadastrado na pergunta de migração
+  // de domínio — abre o site pra julgar a personalização de olho, sem sair do
+  // follow pra procurar o link em outro lugar.
+  if(hasBeta()&&a.domain_website){
+    html+='<div class="wiz-info-banner">'+svgIcon('share',14)+' Site do cliente: <a href="'+e(a.domain_website)+'" target="_blank" rel="noopener" style="font-weight:600">'+e(a.domain_website)+'</a></div>';
+  }
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){
     html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'site_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
@@ -1602,6 +1617,7 @@ function saveEditFollowQ(){
     followPendingList(f).forEach(function(p){var hk=STEP_HUMOR_KEY[p.step];if(hk)delete f.humors[hk];});
     // Sincroniza unidades se a pergunta editada foi de unidades
     if(S.wiz.answers.units_count!==undefined&&S.wiz.answers.units_count!=='')S.clients[S.editFollow.ci].units=+S.wiz.answers.units_count;
+    if(S.wiz.answers.domain_website)S.clients[S.editFollow.ci].website=S.wiz.answers.domain_website;
   }
   S.editFollow=null;S.editFollowDirty=false;
   saveState();render();
@@ -1676,7 +1692,7 @@ function followWizardView(){
         if(usabIsV2(a))return e(usabTextV2(a))+(a.usab_note?' — '+e(a.usab_note):'');
         var _uCount=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;}).length;
         return _uCount+' de '+WIZ_USAB_ITEMS.length+' itens avaliados'+(a.usab_note?' — '+e(a.usab_note):'');
-      case'domain':return a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—');
+      case'domain':return(a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'—'))+(a.domain_website?' · '+e(a.domain_website):'');
       case'tz_check':return a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'—');
       case'site':return a.site_option!==undefined&&a.site_option!==null?SITE[a.site_option]+(a.site_other?' — '+e(a.site_other):''):'—';
       case'photos':return(a.photos_option!==undefined?PHOTOS[a.photos_option]:'—')+' / '+(a.description_option!==undefined?DESC[a.description_option]:'—');
@@ -2650,6 +2666,7 @@ function wizFinish(){
   if(!c.follows)c.follows=[];
   // Sync units to client profile
   if(S.wiz.answers.units_count!==undefined&&S.wiz.answers.units_count!=='')c.units=+S.wiz.answers.units_count;
+  if(S.wiz.answers.domain_website)c.website=S.wiz.answers.domain_website;
   c.follows.push(newFollow);
   c.wizDraft=null;
   saveState();
@@ -2685,6 +2702,7 @@ function openWizard(type,resumeDraft){
       carried.channels=JSON.parse(JSON.stringify(prevA.channels||[]));
       carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
       carried.domain_migration=prevA.domain_migration;
+      carried.domain_website=prevA.domain_website||c.website;
       carried.site_option=prevA.site_option;
       carried.lastminute=prevA.lastminute;
       carried.lastminute_time=prevA.lastminute_time;
@@ -2694,6 +2712,7 @@ function openWizard(type,resumeDraft){
       // Sem follow anterior, a única referência confiável é o cadastro do cliente.
       carried.units_count=c.units;
     }
+    if(!carried.domain_website&&c&&c.website)carried.domain_website=c.website;
     S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow?prevFollow.date:null,prevHumors:prevFollow?Object.assign({},prevFollow.humors||{}):{}};
   }else{
     S.wiz={step:0,type:type||'first',answers:{},humors:{},autoHumors:{},prevAnswers:null};
@@ -3141,6 +3160,9 @@ var header=
   +(c.clientCountry?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'+e(c.clientCountry)+(c.clientCity?" · "+e(c.clientCity):""):"")
   +(clientTZ?'<span class="client-clock-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span id="clock-client" style="font-variant-numeric:tabular-nums">--:--:--</span><span style="font-size:9px;color:#1d9fbf;font-weight:500">horário do cliente</span></span>':"")
   +(c.categoria?'<span style="color:var(--bd)">·</span>'+catBdg(c):"")+(c.plan?'<span style="color:var(--bd)">·</span>'+planBdg(c.plan):"")+(c.onboardingStatus?'<span style="color:var(--bd)">·</span>'+statusBdg(c.onboardingStatus):"")+(clientAlertBadges(c)?'<span style="color:var(--bd)">·</span>'+clientAlertBadges(c):"")
+  // Site do cliente, cadastrado no follow. Fica aqui pra não precisar abrir um
+  // follow só pra achar o link quando alguém quiser conferir o site.
+  +(hasBeta()&&c.website?'<span style="color:var(--bd)">·</span><a href="'+e(c.website)+'" target="_blank" rel="noopener" class="cli-site-link">'+svgIcon('share',10)+e(String(c.website).replace(/^https?:\/\//,''))+'</a>':"")
   +'</div>'
   // Row 3: 3 KPI cards
   +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
@@ -6027,6 +6049,7 @@ function fiSave(btn){
   // Follows sempre ordenados por data: mais novo em cima, mais antigo embaixo.
   c.follows.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
   if(S.wiz.answers.units_count!==undefined&&S.wiz.answers.units_count!=='')c.units=+S.wiz.answers.units_count;
+  if(S.wiz.answers.domain_website)c.website=S.wiz.answers.domain_website;
   saveClient(c);
   addAdminLog('follow_imported',Object.assign(logClient(c),{followType:st.type,pending:pendingData.length}));
   S.impFollow=null;
@@ -6654,7 +6677,7 @@ function sfStepText(k,a,c){
       var itens=WIZ_USAB_ITEMS.filter(function(it){return a['usab_'+it.key]!==undefined&&a['usab_'+it.key]!==null;});
       if(!itens.length)return'Não avaliado';
       return itens.map(function(it){return it.label+': '+(it.opts[a['usab_'+it.key]]||'?');}).join(' | ')+(a.usab_note?' — '+a.usab_note:'');
-    case'domain':return a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'Não informado');
+    case'domain':return(a.domain_migration==='sim'?'Sim':(a.domain_migration==='nao'?'Não':'Não informado'))+(a.domain_website?' | Site: '+a.domain_website:'');
     case'tz_check':return a.tz_confirmed==='sim'?'Confirmado':(a.tz_confirmed==='nao'?'Incorreto / não confirmado':'Não avaliado');
     case'site':return sfOpt(SF_OPT.site,a.site_option)+(a.site_other?' — '+a.site_other:'');
     case'photos':return'Fotos: '+sfOpt(SF_OPT.photos,a.photos_option,'Não avaliado')+' | Descrição: '+sfOpt(SF_OPT.desc,a.description_option,'Não avaliado');

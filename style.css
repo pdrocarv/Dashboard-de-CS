@@ -853,3 +853,6 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 .lp-cov-log-n{color:var(--t3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Marca o follow antigo, salvo antes de o sistema gravar quem respondeu */
 .lp-cov-inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:5px;border-radius:50%;background:var(--surf3);color:var(--t3);font-size:9px;font-weight:700;cursor:help;vertical-align:middle}
+/* Link do site do cliente no cabeçalho do perfil */
+.cli-site-link{display:inline-flex;align-items:center;gap:4px;color:var(--b600);text-decoration:none;font-weight:500}
+.cli-site-link:hover{text-decoration:underline}
