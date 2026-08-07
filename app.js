@@ -544,6 +544,13 @@ function svgIcon(name,size,cls){
   return '<svg class="'+cls+'" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:middle;flex-shrink:0">'+p+'</svg>';
 }
 
+// O humor deixou de ser editável por quem responde o follow. Com o score virando
+// meta do time, um clique aqui seria a forma mais fácil de melhorar o próprio
+// número — a nota tem que sair da resposta, não da vontade de quem responde.
+// Quem calibra a escala é a liderança, fora do follow.
+function podeEditarHumor(){
+  return!!(S.appUser&&['admin','gerente','leader','testuser'].indexOf(S.appUser.role)>=0);
+}
 function wizFaces(qkey,auto,score){
   if(!score)return '';
   if(!S.wiz.autoHumors)S.wiz.autoHumors={};
@@ -551,14 +558,26 @@ function wizFaces(qkey,auto,score){
   var cur=S.wiz.humors[qkey];
   var hasOverride=(cur!==undefined&&cur!==null);
   var active=hasOverride?cur:auto;
-  var html='<div class="wiz-humor"><div class="wiz-humor-lbl">Humor desta pergunta <span style="color:var(--t3);font-weight:400">(automático · clique para alterar)</span></div><div class="wiz-faces">';
+  var editavel=podeEditarHumor();
+  var html='<div class="wiz-humor"><div class="wiz-humor-lbl">Humor desta pergunta '
+    +'<span style="color:var(--t3);font-weight:400">'
+    +(editavel?'(automático · clique para alterar)':'(definido pela resposta acima)')
+    +'</span></div><div class="wiz-faces'+(editavel?'':' wiz-faces-lock')+'">';
   FKEYS.forEach(function(k,i){
     var fc=FCOLORS[k];
     var isActive=active===i;
     var isAuto=!hasOverride&&auto===i;
-    var style='background:'+fc.bg+';border-color:'+fc.bd+';color:'+fc.tx+';'+(isActive?'border-width:2px':'');
-    var cls='wiz-face-btn'+(isAuto?' wf-auto':'');
-    html+='<div class="'+cls+'" style="'+style+'" onclick="wizSetH(\''+qkey+'\','+i+')">'+face(k,18)+' '+FLABELS[i]+(isAuto?'<span style="font-size:9px;opacity:.6;margin-left:3px;border:1px dashed currentColor;padding:0 4px;border-radius:3px">auto</span>':'')+'</div>';
+    // Travado: só o nível vigente fica colorido, o resto apaga. A escala inteira
+    // continua visível pra dar a noção de onde a resposta caiu.
+    var style=(!editavel&&!isActive)
+      ?'background:var(--surf2);border-color:var(--bd);color:var(--t3)'
+      :'background:'+fc.bg+';border-color:'+fc.bd+';color:'+fc.tx+';'+(isActive?'border-width:2px':'');
+    var cls='wiz-face-btn'+(isAuto&&editavel?' wf-auto':'');
+    html+='<div class="'+cls+'" style="'+style+'"'
+      +(editavel?' onclick="wizSetH(\''+qkey+'\','+i+')"':'')+'>'
+      +face(k,18)+' '+FLABELS[i]
+      +(isAuto&&editavel?'<span style="font-size:9px;opacity:.6;margin-left:3px;border:1px dashed currentColor;padding:0 4px;border-radius:3px">auto</span>':'')
+      +'</div>';
   });
   return html+'</div></div>';
 }
@@ -661,6 +680,22 @@ function canaisIniciais(c,existentes){
     else out.push({key:k,active:true,qty:'',all:false,fromSheet:true});
   });
   return out;
+}
+// O analista digita 'eleva.stays.net' sem protocolo. Sem completar, o navegador
+// trata como caminho relativo e o link cai dentro do proprio dashboard em vez de
+// abrir o site do cliente.
+function urlCompleta(u){
+  var t=String(u||'').trim();
+  if(!t)return'';
+  if(t.toLowerCase().indexOf('http://')===0||t.toLowerCase().indexOf('https://')===0)return t;
+  while(t.charAt(0)==='/')t=t.slice(1);
+  return'https://'+t;
+}
+// Bloco com o link do site, reaproveitado nas perguntas que precisam olhar o site.
+function wizSiteLinkHTML(a){
+  var u=urlCompleta(a&&a.domain_website);
+  if(!hasBeta()||!u)return'';
+  return'<div class="wiz-info-banner">'+svgIcon('share',14)+' Site do cliente: <a href="'+e(u)+'" target="_blank" rel="noopener" style="font-weight:600">'+e(a.domain_website)+'</a></div>';
 }
 function wizModeloLabel(m){return m==='fixo'?'Fixo (per listing)':(m==='flexivel'?'Flexível':'');}
 function wizCanaisLabel(keys){
@@ -780,12 +815,16 @@ function citySeasonMemory(){
 }
 // Cidades ja registradas que combinam com o que esta sendo digitado. Cidade que
 // ja esta neste follow nao aparece de novo.
+// Sem termo digitado nao ha sugestao: a lista completa aparecendo sozinha ocupava
+// a tela toda e virava ruido. Ela so responde ao que o analista escreve —
+// "rio" traz Rio de Janeiro e Rio Grande, "rio de j" ja isola um.
 function citySuggestions(termo){
   var t=cityKey(termo);
+  if(!t)return[];
   var mem=citySeasonMemory();
   var jaTem=((S.wiz&&S.wiz.answers&&S.wiz.answers.cities)||[]).map(function(c){return cityKey(c.name);});
   return Object.keys(mem)
-    .filter(function(k){return jaTem.indexOf(k)<0&&(!t||k.indexOf(t)>=0);})
+    .filter(function(k){return jaTem.indexOf(k)<0&&k.indexOf(t)>=0;})
     .sort(function(x,y){
       var ax=t&&x.indexOf(t)===0?0:1,ay=t&&y.indexOf(t)===0?0:1;
       if(ax!==ay)return ax-ay;                          // quem comeca com o termo vem antes
@@ -837,8 +876,37 @@ function wizPickCitySuggestion(nome){
 function wizConfirmCitySeason(i){
   var c=((S.wiz.answers||{}).cities||[])[i];if(!c)return;
   delete c.seasonSuggested;
+  c.seasonOk=true;
   if(S.editFollow)S.editFollowDirty=true;
   render();
+}
+// Fecha o editor de temporada marcando como conferida. Os selects já salvam a
+// cada mudança, mas sem um "pronto" explícito o analista não tem como saber que
+// salvou — e a dúvida faz ele mexer de novo achando que perdeu o que preencheu.
+function wizCitySeasonDone(i){
+  var c=((S.wiz.answers||{}).cities||[])[i];if(!c)return;
+  delete c.seasonSuggested;
+  c.seasonOk=true;
+  S.wiz.editingCityIdx=null;
+  if(S.editFollow)S.editFollowDirty=true;
+  render();
+}
+// Cidade que veio pronta (do follow anterior) mas sem temporada, e que o time já
+// registrou em outro cliente: nasce com a temporada conhecida, marcada como
+// sugestão pra ser conferida. Sem isso, o Cartagena da tela vinha vazio mesmo
+// existindo Cartagena registrado em outra carteira.
+function preencherTemporadasConhecidas(cities){
+  if(!hasBeta())return cities;
+  var mem=citySeasonMemory();
+  (cities||[]).forEach(function(ct){
+    var s=ct.seasons||{};
+    if((s.alta&&s.alta.length)||(s.baixa&&s.baixa.length))return;
+    var m=mem[cityKey(ct.name)];
+    if(!m)return;
+    ct.seasons={alta:JSON.parse(JSON.stringify(m.alta)),baixa:JSON.parse(JSON.stringify(m.baixa))};
+    ct.seasonSuggested=true;
+  });
+  return cities;
 }
 // "Todas": copia o total de unidades do cliente pra esta cidade, igual ao atalho
 // que ja existe em cada canal de venda.
@@ -882,6 +950,12 @@ function wizQ2(){
     }
     if(isOpen){
       html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">'+periodsHTML(i,'alta','Alta temporada','sun')+periodsHTML(i,'baixa','Baixa temporada','moon')+'</div>';
+      if(hasBeta()){
+        var vazio=!(((c.seasons&&c.seasons.alta)||[]).length||((c.seasons&&c.seasons.baixa)||[]).length);
+        html+='<div class="wiz-city-done">'
+          +'<span class="lp-note">'+(vazio?'Nenhum período definido ainda.':'Cada mudança já fica salva.')+'</span>'
+          +'<button class="btn-primary btn-sm press" onclick="wizCitySeasonDone('+i+')">'+svgIcon('check',12)+' Confirmar temporada</button></div>';
+      }
     }else{
       var altaC=((c.seasons&&c.seasons.alta)||[]).length,baixaC=((c.seasons&&c.seasons.baixa)||[]).length;
       html+='<div style="font-size:11px;color:var(--t3);margin-top:4px;cursor:pointer" onclick="wizOpenCity('+i+')">'+((altaC||baixaC)?altaC+' período(s) de alta · '+baixaC+' período(s) de baixa':'Clique para definir a temporada')+'</div>';
@@ -890,7 +964,7 @@ function wizQ2(){
   });
   if(hasBeta()){
     html+='<div class="wiz-row" style="margin-bottom:.4rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Buscar ou escrever a cidade..." autocomplete="off" style="flex:1" oninput="wizCityInput(this.value)"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar cidade</button></div>';
-    html+='<div class="wiz-city-sug-box" id="wiz-city-sug">'+wizCitySugHTML('')+'</div>';
+    html+='<div class="wiz-city-sug-box" id="wiz-city-sug"></div>';
   }else{
     html+='<div class="wiz-row" style="margin-bottom:.5rem"><input class="wiz-input" id="wiz-city-inp" type="text" placeholder="Nome da cidade..." style="flex:1"><button class="btn btn-sm" onclick="wizAddCity()">+ Adicionar cidade</button></div>';
   }
@@ -908,9 +982,26 @@ function wizRecalcPrincipal(){
   cities.forEach(function(c,i){c.principal=(i===maxI);});
 }
 function wizAddCity(){
-  if(S.editFollow)S.editFollowDirty=true;
   var inp=document.getElementById('wiz-city-inp');var v=inp?inp.value.trim():'';if(!v)return;
   var a=S.wiz.answers;if(!a.cities)a.cities=[];
+  if(hasBeta()){
+    var k=cityKey(v);
+    // Mesma cidade duas vezes no mesmo follow não faz sentido.
+    if(a.cities.some(function(c){return cityKey(c.name)===k;})){
+      alert('"'+v+'" já está na lista deste follow.');
+      return;
+    }
+    // Nome idêntico a uma cidade que o time já registrou: em vez de criar uma
+    // cópia solta (que ia dividir a memória de temporada em duas), usa a que já
+    // existe e traz a temporada dela junto.
+    var jaExiste=citySeasonMemory()[k];
+    if(jaExiste){
+      wizPickCitySuggestion(jaExiste.nome);
+      lpToast('"'+jaExiste.nome+'" já era conhecida — trouxe a temporada registrada junto.');
+      return;
+    }
+  }
+  if(S.editFollow)S.editFollowDirty=true;
   a.cities.push({name:v,units:'',principal:false,seasons:{alta:[],baixa:[]}});
   wizRecalcPrincipal();
   S.wiz.editingCityIdx=a.cities.length-1;
@@ -1072,7 +1163,7 @@ function wizQ5(){
   if(hasBeta()){
     html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Site do cliente (opcional)</label>'
       +'<div class="wiz-row" style="margin-top:4px"><input class="wiz-input" type="text" placeholder="https://..." value="'+e(a.domain_website||'')+'" style="flex:1" onchange="wizA(\'domain_website\',this.value.trim())">'
-      +(a.domain_website?'<a href="'+e(a.domain_website)+'" target="_blank" rel="noopener" class="btn btn-sm">'+svgIcon('share',12)+' Abrir</a>':'')
+      +(a.domain_website?'<a href="'+e(urlCompleta(a.domain_website))+'" target="_blank" rel="noopener" class="btn btn-sm">'+svgIcon('share',12)+' Abrir</a>':'')
       +'</div></div>';
   }
   html+=wizFaces('domain',auto,true);
@@ -1097,9 +1188,7 @@ function wizQ6(){
   // Link direto pro site, vindo do que foi cadastrado na pergunta de migração
   // de domínio — abre o site pra julgar a personalização de olho, sem sair do
   // follow pra procurar o link em outro lugar.
-  if(hasBeta()&&a.domain_website){
-    html+='<div class="wiz-info-banner">'+svgIcon('share',14)+' Site do cliente: <a href="'+e(a.domain_website)+'" target="_blank" rel="noopener" style="font-weight:600">'+e(a.domain_website)+'</a></div>';
-  }
+  html+=wizSiteLinkHTML(a);
   html+='<div class="wiz-opts">';
   opts.forEach(function(o,i){
     html+='<div class="wiz-opt'+(sel===i?' sel':'')+'" onclick="wizA(\'site_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';
@@ -1108,8 +1197,10 @@ function wizQ6(){
   if(sel===4){
     html+='<div style="margin-top:.75rem"><label style="font-size:13px;color:var(--t2)">Descreva a situação:</label><textarea class="wiz-note" rows="2" oninput="wizAText(\'site_other\',this.value)" placeholder="Ex: Cliente usa WordPress próprio bem personalizado...">'+(a.site_other||'')+'</textarea></div>';
   }
-  html+=wizFaces('site',sel===4?2:auto,sel!==4);
-  if(sel===4){html+='<div style="margin-top:.5rem;font-size:12px;color:var(--t3)">'+svgIcon('alert',14)+' Humor obrigatório para esta opção — selecione acima.</div>';}
+  // "Outro" não tem nota própria, então vale Neutro. Antes o humor sumia da tela
+  // e a mensagem mandava escolher acima — onde não havia nada pra escolher.
+  html+=wizFaces('site',sel===4?2:auto,true);
+  if(sel===4){html+='<div style="margin-top:.5rem;font-size:12px;color:var(--t3)">'+svgIcon('info_triangle',14)+' Situação fora do padrão entra como <strong>Neutro</strong>: descreva acima pra o líder avaliar.</div>';}
   html+='</div>';
   return html;
 }
@@ -1139,6 +1230,35 @@ function dateTripletHTML(key,field,parts){
   return '<select class="wiz-input wiz-input-sm" style="width:62px" onchange="wizSetDatePart(\''+key+'\',\''+field+'\',\'d\',this.value)">'+dayOpts+'</select>'
     +'<select class="wiz-input wiz-input-sm" style="width:68px" onchange="wizSetDatePart(\''+key+'\',\''+field+'\',\'m\',this.value)">'+monthOpts+'</select>'
     +'<select class="wiz-input wiz-input-sm" style="width:80px" onchange="wizSetDatePart(\''+key+'\',\''+field+'\',\'y\',this.value)">'+yearOpts+'</select>';
+}
+// Preço fora do mercado com ocupação fraca: a pergunta de preço vem logo antes
+// justamente pra este cruzamento existir. Não afirma causa — levanta a hipótese,
+// porque quem sabe se é isso mesmo é o analista olhando o cliente.
+function wizPrecoOcupacaoAlerta(a){
+  var p=a.price_option;                        // 2 = um pouco fora do ideal, 3 = muito fora
+  var o=a.occ_current&&a.occ_current.option;   // 2 = neutro, 3 = ruim, 4 = péssimo
+  if(p!==2&&p!==3)return'';
+  if(o!==2&&o!==3&&o!==4)return'';
+  if(a.preco_ocupacao_alerta_ignorado)return'';
+  var forte=p===3;
+  var faixa=o===2?'na média':(o===3?'baixa':'muito baixa');
+  return'<div class="wiz-alert">'+svgIcon('alert',14)+' Você marcou o preço como <strong>'
+    +(forte?'muito fora do mercado':'um pouco fora do ideal')+'</strong> e a ocupação está <strong>'+faixa+'</strong>. '
+    +'Vale investigar se uma coisa explica a outra antes de fechar o follow: '
+    +'preço desalinhado costuma aparecer primeiro como queda de ocupação. '
+    +'Se for o caso, o ganho está em ajustar a precificação — não em mexer no anúncio. '
+    +'<button class="btn btn-sm" style="margin-left:8px" onclick="wizCreateReminderPreco()">Criar lembrete (2 dias)</button> '
+    +'<button class="btn btn-sm" onclick="wizA(\'preco_ocupacao_alerta_ignorado\',true)">Já verifiquei</button></div>';
+}
+function wizCreateReminderPreco(){
+  var ci=S.sel;
+  var dueDate=new Date(Date.now()+2*24*60*60*1000).toISOString().split('T')[0];
+  if(!S.clients[ci].reminders)S.clients[ci].reminders=[];
+  S.clients[ci].reminders.push({id:uid(),type:'proativo',title:'Preço fora do mercado x ocupação fraca',
+    dueDate:dueDate,note:'No último follow o preço ficou fora do mercado e a ocupação estava fraca. Revisar a precificação com o cliente e acompanhar se a ocupação reage.',
+    done:false,doneAt:null,archived:false,createdBy:S.appUser.uid,createdByName:S.appUser.name,createdAt:Date.now()});
+  saveState();
+  wizA('preco_ocupacao_alerta_ignorado',true);
 }
 var OCC_OPT_AUTO=[4,3,2,1,0,2];
 var OCC_OPT_SEMDADOS=5;
@@ -1183,6 +1303,7 @@ function wizQ7(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Ocupação</div>';
   if(season)html+='<div class="wiz-info-banner">'+svgIcon('calendar',14)+' Temporada atual: <strong>'+(isHigh?'Alta':'Baixa')+'</strong> — os percentuais de referência foram ajustados automaticamente.</div>';
+  html+=wizPrecoOcupacaoAlerta(a);
   html+='<div class="wiz-q-sub">Avalie a ocupação atual e a do mesmo período no ano passado, para comparação.</div>';
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">Ocupação atual</div>';
   html+='<div class="wiz-opts">';
@@ -1281,6 +1402,7 @@ function wizQ10(){
   var html='<div class="wiz-card">';
   html+='<div class="wiz-q">Boas fotos? Boa descrição?</div>';
   html+='<div class="wiz-q-sub">Avalie separadamente a qualidade visual e textual dos anúncios. O humor final é a média das duas avaliações.</div>';
+  html+=wizSiteLinkHTML(a);
   html+='<div class="wiz-sub-section"><div class="wiz-sub-q">'+svgIcon('camera',14)+' Fotos dos anúncios</div><div class="wiz-opts">';
   pOpts.forEach(function(o,i){html+='<div class="wiz-opt'+(sp===i?' sel':'')+'" onclick="wizA(\'photos_option\','+i+')"><span class="wiz-opt-ico">'+svgIcon(o.ico,16)+'</span><span class="wiz-opt-lbl">'+o.label+'</span></div>';});
   html+='</div></div>';
@@ -1575,10 +1697,10 @@ function wizSetCustomAnswer(qid,idx){
   render();
 }
 
-var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','tz_check','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
+var WIZ_STEPS_FIRST=['units','cities','pricing','channels','domain','tz_check','site','photos','price','occupation','lastminute','financial','operational','appcenter','openapi','payment','inadimplencia','nps_churn','cases','upgrade'];
 var WIZ_TOTAL_FIRST=20;
 // ── RECORRENTE: 19 perguntas existentes + 6 novas exclusivas (wizR1..wizR6) ──
-var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','tz_check','site','photos','occupation','price','lastminute','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
+var WIZ_STEPS_REC=['units','cities','pricing','channels','notifs','ch_perf','ch_usab','domain','tz_check','site','photos','price','occupation','lastminute','financial','operational','appcenter','openapi','prod_sug','payment','inadimplencia','nego','nps_churn','cases','upgrade','acct_plan'];
 var WIZ_TOTAL_REC=26;
 var WIZ_RENDERERS={units:wizQ1,cities:wizQ2,pricing:wizQ3,channels:wizQ4,notifs:wizR1,ch_perf:wizR2,ch_usab:wizR3,domain:wizQ5,tz_check:wizQ20,site:wizQ6,occupation:wizQ7,price:wizQ8,lastminute:wizQ9,photos:wizQ10,financial:wizQ11,operational:wizQ12,appcenter:wizQ13,openapi:wizQ14,prod_sug:wizR4,payment:wizQ15,inadimplencia:wizQ16,nego:wizR5,nps_churn:wizQ17,cases:wizQ18,upgrade:wizQ19,acct_plan:wizR6};
 var STEP_HUMOR_KEY={units:'units',cities:null,pricing:null,channels:'channels',notifs:'notifs',ch_perf:'chperf',ch_usab:'usab',domain:'domain',tz_check:null,site:'site',photos:'photos_desc',occupation:'occupation',price:'price',lastminute:null,financial:'financial',operational:'operational',appcenter:'appcenter',openapi:null,prod_sug:null,payment:'payment',inadimplencia:null,nego:'nego',nps_churn:'nps',cases:'cases',upgrade:'upgrade',acct_plan:null};
@@ -2740,7 +2862,17 @@ function openWizard(type,resumeDraft){
   // uma cidade nova enquanto isto rodava, a sugestao ja nasce atualizada.
   invalidateCitySeasonMemory();
   if(resumeDraft&&c&&c.wizDraft){
-    S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',answers:Object.assign({},c.wizDraft.answers),humors:Object.assign({},c.wizDraft.humors),autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),prevAnswers:null};
+    // Retomar um follow em andamento tem que trazer o histórico junto. Antes isso
+    // vinha nulo, e os avisos de "no último follow" e "mudou na planilha" sumiam
+    // assim que o analista saía e voltava — logo quando ele mais precisa deles.
+    var pfR=(c.wizDraft.type==='recurring')?getLastWizardFollow(c):null;
+    S.wiz={step:c.wizDraft.step||0,type:c.wizDraft.type||'first',
+      answers:Object.assign({},c.wizDraft.answers),
+      humors:Object.assign({},c.wizDraft.humors),
+      autoHumors:Object.assign({},c.wizDraft.autoHumors||{}),
+      prevAnswers:pfR?(pfR.answers||{}):null,
+      prevFollowDate:pfR?pfR.date:null,
+      prevHumors:pfR?Object.assign({},pfR.humors||{}):{}};
   }else if(type==='recurring'){
     // Follow recorrente não exige um follow anterior: quem já acompanha o cliente
     // há tempo, fora do dashboard, começa direto no recorrente. Sem histórico, os
@@ -2753,7 +2885,7 @@ function openWizard(type,resumeDraft){
       // Carry forward reference data
       carried.units_count=prevA.units_count;
       carried.prev_units_count=prevA.units_count;
-      carried.cities=JSON.parse(JSON.stringify(prevA.cities||[]));
+      carried.cities=preencherTemporadasConhecidas(JSON.parse(JSON.stringify(prevA.cities||[])));
       carried.pricing_model=prevA.pricing_model;
       carried.channels=canaisIniciais(c,JSON.parse(JSON.stringify(prevA.channels||[])));
       carried.prev_channels=JSON.parse(JSON.stringify(prevA.channels||[]));
@@ -2771,6 +2903,10 @@ function openWizard(type,resumeDraft){
     if(!carried.domain_website&&c&&c.website)carried.domain_website=c.website;
     if(!carried.channels)carried.channels=canaisIniciais(c,[]);
     if(!carried.pricing_model&&c&&c.pricingModel)carried.pricing_model=c.pricingModel;
+    // O campo nasce com o número ATUAL, não com o do último follow: é ele que o
+    // analista vai confirmar. O valor do follow anterior continua guardado em
+    // prevAnswers, que é o que alimenta o "ganhou/perdeu X unidades".
+    if(hasBeta()&&c&&(c.units||c.units===0))carried.units_count=c.units;
     S.wiz={step:0,type:'recurring',answers:carried,humors:{},autoHumors:{},prevAnswers:prevA,prevFollowDate:prevFollow?prevFollow.date:null,prevHumors:prevFollow?Object.assign({},prevFollow.humors||{}):{}};
   }else{
     // Primeiro follow tambem nasce com o que a planilha ja sabe do cliente.
@@ -3916,6 +4052,29 @@ function settingsFollowQuestionsView(){
   }
   return html;
 }
+// ── Pares de perguntas que não podem trocar de ordem ──
+// Não é preferência de layout. Cada par existe porque a segunda pergunta LÊ a
+// resposta da primeira pra decidir o que mostrar. Invertidas, o aviso que depende
+// disso simplesmente não tem como acontecer — e ninguém percebe que sumiu.
+// Qualquer outra pergunta pode ser movida livremente entre elas.
+var WIZ_DEPENDENCIAS=[
+  {antes:'price',depois:'occupation',
+   porque:'A pergunta de ocupação lê a resposta de preço pra avisar quando uma ocupação baixa pode ser efeito de um preço fora do mercado. Se a ocupação vier primeiro, o preço ainda não foi respondido e o aviso nunca aparece.'},
+  {antes:'cities',depois:'occupation',
+   porque:'As faixas de ocupação são diferentes em temporada alta e baixa, e a temporada sai da cidade principal. Sem a cidade respondida antes, a ocupação é avaliada pela faixa errada e o score sai torto.'},
+  {antes:'cities',depois:'pricing',
+   porque:'O aviso de modelo de precificação (sugerir Flexível em temporada baixa, Fixo em alta) depende de saber em que temporada o cliente está — e isso vem da cidade.'}
+];
+function checarOrdemDependencias(lista){
+  for(var i=0;i<WIZ_DEPENDENCIAS.length;i++){
+    var d=WIZ_DEPENDENCIAS[i];
+    var ia=lista.indexOf(d.antes),ib=lista.indexOf(d.depois);
+    if(ia<0||ib<0)continue;
+    if(ia>ib)return d;
+  }
+  return null;
+}
+function wizOrderFecharErro(){S.wizOrderErro=null;render();}
 function saveWizOrderChanges(){
   saveWizOrderList('first',S.wizOrderDraft.first);
   saveWizOrderList('recurring',S.wizOrderDraft.recurring);
@@ -3929,8 +4088,19 @@ function wizOrderDraftDrop(ev,type,idx){
   S.wizOrderDrag=null;
   if(from===idx)return;
   var list=S.wizOrderDraft[type];
+  // Testa a ordem resultante ANTES de aplicar. Deixar mover e desfazer depois
+  // seria pior: a lista pularia de volta sem explicação nenhuma.
+  var teste=list.slice();
+  teste.splice(idx,0,teste.splice(from,1)[0]);
+  var quebra=checarOrdemDependencias(teste);
+  if(quebra){
+    S.wizOrderErro=quebra;
+    render();
+    return;
+  }
   var moved=list.splice(from,1)[0];
   list.splice(idx,0,moved);
+  S.wizOrderErro=null;
   S.wizOrderDirty=true;
   render();
 }
@@ -3939,6 +4109,15 @@ function settingsFollowOrderView(){
   var type=S.wizOrderTab==='recurring'?'recurring':'first';
   var order=S.wizOrderDraft[type];
   var html='';
+  if(S.wizOrderErro){
+    var q=S.wizOrderErro;
+    html+='<div class="wiz-order-erro">'
+      +'<div class="wiz-order-erro-hd">'+svgIcon('alert',14)+' Essa ordem não é possível</div>'
+      +'<p><strong>'+e(wizOrderLabel(q.antes))+'</strong> precisa vir antes de <strong>'+e(wizOrderLabel(q.depois))+'</strong>.</p>'
+      +'<p>'+e(q.porque)+'</p>'
+      +'<p class="wiz-order-erro-ok">Você pode mover qualquer outra pergunta livremente, inclusive entre essas duas — só não dá pra inverter a ordem delas.</p>'
+      +'<button class="btn btn-sm" onclick="wizOrderFecharErro()">Entendi</button></div>';
+  }
   if(S.wizOrderDirty){
     html+='<div class="alert alert-green" style="justify-content:space-between"><span>Você tem alterações não salvas na ordem.</span><button class="btn-save" onclick="saveWizOrderChanges()">Salvar alterações</button></div>';
   }
