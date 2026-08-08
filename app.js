@@ -213,6 +213,13 @@ function trashDaysLeft(c){
   return left>0?left:0;
 }
 function purgeExpiredDeleted(){
+  // Follows arquivados também vencem em LIXEIRA_DIAS, igual aos clientes.
+  (S.clients||[]).forEach(function(c){
+    if(!c.deletedFollows||!c.deletedFollows.length)return;
+    var antes=c.deletedFollows.length;
+    c.deletedFollows=c.deletedFollows.filter(function(f){return followTrashDaysLeft(f)!==0;});
+    if(c.deletedFollows.length!==antes)saveClient(c);
+  });
   var expired=S.clients.filter(function(c){return c.deletedAt&&trashDaysLeft(c)===0;});
   if(!expired.length)return;
   expired.forEach(function(c){
@@ -622,9 +629,16 @@ function wizExitConfirm(){
   }
 }
 function delInProgressFollow(){
-  if(!confirm('Tem certeza que deseja excluir este follow-up em andamento? O progresso será perdido.'))return;
+  if(!confirm('Excluir este follow-up em andamento?\n\nEle vai para Arquivados e pode ser restaurado por '+LIXEIRA_DIAS+' dias.'))return;
   var ci=S.sel,c=S.clients[ci];
-  if(c&&c.wizDraft){c.wizDraft=null;saveState();}
+  if(c&&c.wizDraft){
+    // O rascunho também vai pra Arquivados: é trabalho já feito, mesmo sem estar
+    // concluído, e antes ele simplesmente evaporava.
+    var d=c.wizDraft;
+    if(!d.date)d.date=new Date().toISOString().split('T')[0];
+    arquivarFollow(c,d,true);
+    c.wizDraft=null;saveState();
+  }
   S.editFollow=null;
   goBackToClient();
   S.clientTab='follows';
@@ -2989,7 +3003,7 @@ function applyRoute(hash){
   if(parts[0]==='configuracoes'){
     S.view='settings';
     if(parts[1]==='follow-up'){S.settingsCat='followup';if(parts[2]==='ordem'){S.settingsSub='order';if(!S.wizOrderDraft)initWizOrderDraft();}else if(parts[2]==='perguntas'){S.settingsSub='questions';}else{S.settingsSub=null;}}
-    else if(parts[1]==='arquivados'){S.settingsCat='archived';S.settingsSub=null;}
+    else if(parts[1]==='arquivados'){S.settingsCat='archived';S.settingsSub=null;loadAdminLog().then(function(){render();});}
     else if(parts[1]==='log-auditoria'){S.settingsCat='adminlog';S.settingsSub=null;loadAdminLog();}
     else{S.settingsCat=null;S.settingsSub=null;}
     return;
@@ -3128,17 +3142,89 @@ var tbl=filt.length===0?'<div class="card" style="padding:3rem;text-align:center
 :'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th title="Dias sem o cliente logar no sistema">Inatividade</th><th>Lem.</th><th></th></tr></thead><tbody>'
 +filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td>'+(h==="risk"?'<span style="display:inline-block;border-left:3px solid #dc2626;background:#fde8e8;padding:1px 8px;border-radius:4px">':'<span>')+'<button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px;color:'+hC+'">'+e((c.slug||c.name).toUpperCase())+'</button></span><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+(clientHasPending(c)?' <span class="pend-badge" style="cursor:pointer" title="Resolver pendências de follow-ups importados" onclick="resolvePendencies('+ci+')">'+svgIcon('alert',11)+' '+clientPendingCount(c)+' pendente(s)</span>':'')+'</td><td>'+hB+'<div class="hrow" style="margin-top:6px"><div class="htrack" style="height:9px"><div class="hfill score-bar-live" data-score="'+score+'" data-ci="'+ci+'" style="width:'+score+'%;background:'+hC+'"></div></div><span class="score-num-live" data-score="'+score+'" data-ci="'+ci+'" style="font-size:18px;font-weight:700;color:'+hC+';min-width:28px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td>'+inactivityHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">'+svgIcon('clipboard',14)+'</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">'+svgIcon('notification',14)+'</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">'+svgIcon('document',14)+' Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">'+svgIcon('trash',13)+' Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
 return'<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>'+filters+'<div style="margin-top:1.25rem"><div class="kpi-group"><div class="kpi-group-lbl">Saude da carteira</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"><div class="metric"><div class="metric-lbl">Total</div><div class="metric-val mv-d">'+all.length+'</div></div><div class="metric"><div class="metric-lbl">Alto risco</div><div class="metric-val mv-r">'+alto+'</div></div><div class="metric"><div class="metric-lbl">Atencao</div><div class="metric-val mv-a">'+med+'</div></div><div class="metric"><div class="metric-lbl">Estaveis</div><div class="metric-val mv-g">'+ok+'</div></div><div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(mrrTotal)+'</div></div></div></div><div class="kpi-group" style="margin-top:10px"><div class="kpi-group-lbl">Follow-ups</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="metric"><div class="metric-lbl">FU urgente</div><div class="metric-val mv-a">'+urg+'</div></div><div class="metric"><div class="metric-lbl">FU vencido</div><div class="metric-val mv-r">'+ven+'</div></div></div></div></div>'+tbl;}
+// Follow-ups excluídos de todos os clientes, do mais recente pro mais antigo.
+function todosFollowsArquivados(){
+  var out=[];
+  (S.clients||[]).forEach(function(c){
+    (c.deletedFollows||[]).forEach(function(f,i){
+      out.push({cliente:c,follow:f,idx:i});
+    });
+  });
+  out.sort(function(a,b){return(b.follow._del&&b.follow._del.at||0)-(a.follow._del&&a.follow._del.at||0);});
+  return out;
+}
+// Registros de follows apagados ANTES desta tela existir. O conteúdo deles não
+// foi guardado em lugar nenhum — o que sobrou é a linha do histórico de
+// atividades, que diz de quem era e quando. Aparece pra não dar a impressão de
+// que nunca houve exclusão, deixando claro que aqui não há o que restaurar.
+function followsPerdidosHTML(){
+  var log=(S.adminLog||[]).filter(function(l){return l.action==='follow_deleted';});
+  if(!log.length)return'';
+  var arquivadosAgora={};
+  todosFollowsArquivados().forEach(function(x){
+    arquivadosAgora[(x.cliente.id||'')+'|'+formatDate(x.follow.date)]=true;
+  });
+  var perdidos=log.filter(function(l){
+    return!arquivadosAgora[(l.clientId||'')+'|'+(l.followDate||'')];
+  });
+  if(!perdidos.length)return'';
+  var html='<div class="section-hdr" style="margin-top:1.75rem"><span>Excluídos antes desta tela existir ('+perdidos.length+')</span></div>';
+  html+='<div class="alert alert-amber" style="margin-bottom:.75rem">'+svgIcon('info_triangle',14)+' Estes follow-ups foram apagados quando o sistema ainda não guardava cópia — o conteúdo não existe mais e não há como restaurar. Ficam listados só como registro de que existiram.</div>';
+  html+='<div class="card" style="padding:0">';
+  perdidos.slice(0,50).forEach(function(l){
+    var quando=l.at?new Date(l.at).toLocaleDateString('pt-BR'):'—';
+    html+='<div class="user-row"><div style="flex:1">'
+      +'<div style="font-weight:500;font-size:13px">'+e(String(l.clientSlug||l.clientName||'—').toUpperCase())
+      +' <span style="color:var(--t3);font-weight:400">· follow de '+e(l.followDate||'—')+'</span></div>'
+      +'<div class="muted" style="font-size:11px">Excluído em '+e(quando)+' por '+e(l.byName||'—')+'</div>'
+      +'</div><span class="badge b-na">Não recuperável</span></div>';
+  });
+  if(perdidos.length>50)html+='<div style="padding:10px 14px" class="muted">+ '+(perdidos.length-50)+' registros mais antigos.</div>';
+  html+='</div>';
+  return html;
+}
+function followsArquivadosHTML(){
+  var lista=todosFollowsArquivados();
+  if(!lista.length)return'';
+  var html='<div class="section-hdr" style="margin-top:1.75rem"><span>Follow-ups excluídos ('+lista.length+')</span></div>';
+  html+='<div class="card" style="padding:0">';
+  lista.forEach(function(x){
+    var f=x.follow,c=x.cliente,d=f._del||{};
+    var left=followTrashDaysLeft(f);
+    var tipo=d.rascunho?'Em andamento':(f.type==='recurring'?'Recorrente':'Primeiro follow');
+    var nResp=f.answers?Object.keys(f.answers).filter(function(k){return k!=='sf_text';}).length:0;
+    html+='<div class="user-row"><div style="flex:1">'
+      +'<div style="font-weight:600;font-size:13px">'+e(String(c.slug||c.name).toUpperCase())
+      +' <span style="color:var(--bd);font-weight:300">|</span> <span style="font-weight:400">'+e(formatDate(f.date))+'</span>'
+      +' <span class="lp-chip">'+tipo+'</span>'
+      +(left!==null?' <span class="badge b-risk">Removido em '+left+' dia'+(left===1?'':'s')+'</span>':'')
+      +'</div>'
+      +'<div class="muted" style="font-size:11px;margin-top:2px">'
+      +nResp+' resposta'+(nResp===1?'':'s')+' guardada'+(nResp===1?'':'s')
+      +' · excluído em '+e(d.atBR||'—')+' por '+e(d.byName||'—')+'</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="restoreFollow(\''+jsq(c.id)+'\','+x.idx+')">Restaurar</button>'
+      +(iAmAdminLike()||S.appUser.role==='gerente'
+        ?'<button class="btn btn-sm btn-danger" onclick="permanentDeleteFollow(\''+jsq(c.id)+'\','+x.idx+')">Excluir permanentemente</button>':'')
+      +'</div>';
+  });
+  html+='</div>';
+  return html;
+}
 function archivedView(){
 var archived=S.clients.filter(function(c){return c.archived;});
+var fArq=followsArquivadosHTML();
+var fPerd=followsPerdidosHTML();
 var html='<div class="flex-between" style="margin-bottom:1.25rem">'
   +'<h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Arquivados</h1>'
   +'</div>';
 html+='<div class="alert alert-amber" style="margin-bottom:1rem">'+svgIcon('alert',14)+' Itens excluídos ficam aqui por '+LIXEIRA_DIAS+' dias e depois são removidos permanentemente. Restaure antes desse prazo se precisar recuperar. Clientes arquivados por churn não têm prazo e ficam guardados até você decidir.</div>';
 if(!archived.length){
-  return html+'<div class="card" style="padding:3rem;text-align:center">'
+  html+='<div class="card" style="padding:2.5rem;text-align:center">'
     +'<div style="font-size:36px;margin-bottom:1rem">'+svgIcon('folder',36)+'</div>'
     +'<p style="color:var(--t2)">Nenhum cliente arquivado.</p>'
     +'</div>';
+  return html+fArq+fPerd;
 }
 html+=archived.map(function(c){
   var ci=S.clients.indexOf(c);
@@ -3158,7 +3244,7 @@ html+=archived.map(function(c){
     :'')
     +'</div>';
 }).join('');
-return html;}
+return html+fArq+fPerd;}
 function permanentDelete(ci){
 var c=S.clients[ci];
 if(!confirm('EXCLUSÃO PERMANENTE\n\nVocê está prestes a excluir permanentemente "'+c.name+'".\n\nEsta ação é IRREVERSÍVEL. Os dados serão removidos para sempre.\n\nDigite "CONFIRMAR" para prosseguir:'))return;
@@ -3215,6 +3301,8 @@ var ACTIONS={
   gerente_assigned:{cat:'acessos',label:'definiu o gerente responsável de'},
   client_deleted:{cat:'exclusoes',label:'excluiu o cliente'},
   follow_deleted:{cat:'exclusoes',label:'excluiu um follow-up de'},
+  follow_restored:{cat:'exclusoes',label:'restaurou um follow-up de'},
+  follow_permanent_delete:{cat:'exclusoes',label:'excluiu permanentemente um follow-up de'},
   reminder_deleted:{cat:'exclusoes',label:'excluiu um lembrete de'},
   permanent_delete:{cat:'exclusoes',label:'excluiu permanentemente'}
 };
@@ -3783,7 +3871,10 @@ function goBackToClient(){if(S.editFollow&&S.editFollowDirty&&!confirm("Você te
 function goLeaderPanel(){if(!confirmDiscardIfDirty())return;if(!S.allUsers||!S.allUsers.length){loadAllUsers().then(function(){S.view="leaderpanel";render();});}else{S.view="leaderpanel";render();}}
 function goAdmin(){if(!confirmDiscardIfDirty())return;S.view="admin";if(S.appUser.role==="admin")loadAllUsers().then(function(){render();});else render();}
 function goSettings(){if(!confirmDiscardIfDirty())return;S.view="settings";render();}
-function selectSettingsCat(cat){if(!confirmDiscardIfDirty())return;S.settingsCat=cat;S.settingsSub=null;if(cat==='adminlog'){loadAdminLog().then(function(){render();});}else{render();}}
+function selectSettingsCat(cat){if(!confirmDiscardIfDirty())return;S.settingsCat=cat;S.settingsSub=null;
+  // Arquivados tambem le o historico: e de la que sai a lista dos follows apagados
+  // antes de existir copia de seguranca.
+  if(cat==='adminlog'||cat==='archived'){loadAdminLog().then(function(){render();});}else{render();}}
 function selectSettingsSub(sub){if(!confirmDiscardIfDirty())return;S.settingsSub=sub;if(sub==='order')initWizOrderDraft();render();}
 function initWizOrderDraft(){S.wizOrderDraft={first:getWizOrder('first'),recurring:getWizOrder('recurring')};S.wizOrderDirty=false;S.wizOrderTab='first';}
 function openClient(i){S.sel=i;S.view="client";S.clientTab="info";S.genText="";S.importMsg="";S.citiesOpen=false;render();}
@@ -3864,13 +3955,64 @@ function restoreClient(ci){
   addAdminLog('client_restored',logClient(c));
   render();
 }
+// Follow excluído vai pra uma lista à parte do cliente, não some do banco. Antes
+// a única cópia vivia 10 segundos na memória (o "Desfazer" da barra); passado
+// isso, o follow estava perdido pra sempre — e um follow é meia hora de trabalho
+// do analista mais o histórico do cliente.
+// Fica em `deletedFollows` em vez de `follows` marcado: assim nenhum cálculo de
+// score, contagem ou gráfico precisa aprender a ignorá-lo.
+function arquivarFollow(c,f,eraRascunho){
+  if(!c.deletedFollows)c.deletedFollows=[];
+  var copia=JSON.parse(JSON.stringify(f));
+  copia._del={at:Date.now(),atBR:new Date().toLocaleDateString('pt-BR'),
+    byUid:S.appUser&&S.appUser.uid,byName:S.appUser&&S.appUser.name,rascunho:!!eraRascunho};
+  c.deletedFollows.push(copia);
+}
 function delFollow(ci,fi){
   var c=S.clients[ci],f=c.follows[fi];
-  if(!confirm("Tem certeza que deseja excluir este Follow-Up de "+formatDate(f.date)+"?"))return;
+  if(!confirm("Excluir este Follow-Up de "+formatDate(f.date)+"?\n\nEle vai para Arquivados e pode ser restaurado por "+LIXEIRA_DIAS+" dias."))return;
   S.undoFollow=JSON.parse(JSON.stringify(f));S.undoFollowIdx=fi;S.undoCI=ci;S.undoMsg="Follow-Up de "+formatDate(f.date)+" excluido.";
   addAdminLog('follow_deleted',Object.assign(logClient(c),{followDate:formatDate(f.date)}));
+  arquivarFollow(c,f,false);
   c.follows.splice(fi,1);saveState();goBackToClient();S.clientTab="follows";render();
   setTimeout(function(){if(S.undoMsg){S.undoMsg="";S.undoFollow=null;render();}},10000);
+}
+// Quantos dias faltam pro follow arquivado sumir de vez.
+function followTrashDaysLeft(f){
+  if(!f||!f._del||!f._del.at)return null;
+  var left=LIXEIRA_DIAS-Math.floor((Date.now()-f._del.at)/86400000);
+  return left>0?left:0;
+}
+function restoreFollow(cid,delIdx){
+  var c=(S.clients||[]).find(function(x){return x.id===cid;});
+  if(!c||!c.deletedFollows||!c.deletedFollows[delIdx])return;
+  var f=c.deletedFollows[delIdx];
+  var rascunho=f._del&&f._del.rascunho;
+  if(!confirm('Restaurar o follow-up de '+formatDate(f.date)+'?'))return;
+  var limpo=JSON.parse(JSON.stringify(f));
+  delete limpo._del;
+  if(rascunho){
+    // Rascunho volta pro lugar de rascunho, não pra lista de follows concluídos.
+    if(c.wizDraft&&!confirm('Este cliente já tem um follow em andamento. Restaurar vai substituir o que está aberto agora. Continuar?'))return;
+    c.wizDraft=limpo;
+  }else{
+    if(!c.follows)c.follows=[];
+    c.follows.push(limpo);
+  }
+  c.deletedFollows.splice(delIdx,1);
+  saveClient(c);
+  addAdminLog('follow_restored',Object.assign(logClient(c),{followDate:formatDate(f.date)}));
+  render();
+}
+function permanentDeleteFollow(cid,delIdx){
+  var c=(S.clients||[]).find(function(x){return x.id===cid;});
+  if(!c||!c.deletedFollows||!c.deletedFollows[delIdx])return;
+  var f=c.deletedFollows[delIdx];
+  if(!confirm('EXCLUSÃO PERMANENTE\n\nO follow-up de '+formatDate(f.date)+' será apagado para sempre.\n\nNão tem como voltar atrás. Continuar?'))return;
+  addAdminLog('follow_permanent_delete',Object.assign(logClient(c),{followDate:formatDate(f.date)}));
+  c.deletedFollows.splice(delIdx,1);
+  saveClient(c);
+  render();
 }
 function undoDelete(){if(!S.undoFollow||S.undoCI===null)return;S.clients[S.undoCI].follows.splice(S.undoFollowIdx,0,S.undoFollow);saveState();S.undoFollow=null;S.undoFollowIdx=null;S.undoCI=null;S.undoMsg="";render();}
 function clearUndo(){S.undoMsg="";S.undoFollow=null;S.undoCI=null;render();}
