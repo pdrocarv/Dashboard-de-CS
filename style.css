@@ -910,3 +910,61 @@ select.narrow{width:auto;font-size:12px;padding:4px 8px;border-radius:6px;border
 /* Humor travado: escala visível, sem clique */
 .wiz-faces-lock .wiz-face-btn{cursor:default;opacity:.95}
 .wiz-faces-lock .wiz-face-btn:hover{transform:none;box-shadow:none}
+
+/* ══════════════════════════════════════════════════
+   PROTÓTIPO — variantes da página principal (em prova)
+   ══════════════════════════════════════════════════ */
+/* Barra flutuante de troca — visualmente bem distinta do resto, pra ninguém
+   confundir com parte real do design sendo avaliado. */
+.proto-switcher{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:150;
+  display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:9999px;
+  background:#1c383d;color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.28);font-size:12.5px;
+  animation:busy-pop 220ms var(--e-out) both}
+.proto-sw-arrow{background:rgba(255,255,255,.14);border:0;color:#fff;width:26px;height:26px;
+  border-radius:50%;cursor:pointer;font-size:14px;line-height:1;transition:background var(--e-hover)}
+.proto-sw-arrow:hover{background:rgba(255,255,255,.28)}
+.proto-sw-lbl{font-weight:600;white-space:nowrap}
+.proto-sw-lbl b{color:#7fd8ec}
+
+/* Tira de números compacta (variantes A e B) — mesmo dado do grid de KPI de
+   hoje, só que numa linha só em vez de cartões grandes. */
+.proto-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;
+  padding:11px 16px;border-radius:10px;background:var(--surf2);border:1px solid var(--bd);
+  font-size:13px;color:var(--t2)}
+.proto-strip b{color:var(--t);font-family:"Roboto Slab",serif}
+.proto-strip-sep{color:var(--bd)}
+
+/* Variante A — fila de prioridade */
+.proto-pri-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--bd)}
+.proto-pri-row:last-child{border-bottom:0}
+.proto-pri-score{font-size:22px;font-weight:700;font-family:"Roboto Slab",serif;min-width:38px;text-align:center}
+.proto-pri-info{flex:1;min-width:0;font-size:13px}
+.proto-pri-info b{font-weight:700;color:var(--t)}
+.proto-pri-motivos{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+
+/* Variante B — cards de carteira */
+.proto-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:14px}
+.proto-cli-card{background:var(--surf);border:1px solid var(--bd);border-top:3px solid var(--bd);
+  border-radius:10px;padding:13px 14px;cursor:pointer;transition:transform var(--e-hover),box-shadow var(--e-hover)}
+.proto-cli-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.1)}
+.proto-cli-hd{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:13px}
+.proto-cli-hd b{font-weight:700;color:var(--t)}
+.proto-cli-sub{font-size:11px;color:var(--t3);margin:2px 0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proto-cli-nums{display:flex;gap:18px;margin-bottom:10px}
+.proto-cli-nums>div{display:flex;flex-direction:column}
+.proto-cli-n{font-size:19px;font-weight:700;font-family:"Roboto Slab",serif;color:var(--t)}
+.proto-cli-lbl{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+.proto-cli-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px}
+
+/* Variante C — painel dividido */
+.proto-split{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start;margin-top:4px}
+@media(max-width:900px){.proto-split{grid-template-columns:1fr}}
+.proto-split-side{position:sticky;top:70px;background:var(--surf);border:1px solid var(--bd);
+  border-radius:12px;padding:16px}
+@media(max-width:900px){.proto-split-side{position:static}}
+.proto-split-main .card{margin-top:0}
+.proto-split-bar{display:flex;height:9px;border-radius:9999px;overflow:hidden;background:var(--surf3);margin-top:6px}
+.proto-split-legend{display:flex;flex-direction:column;gap:4px;margin-top:9px;font-size:11.5px;color:var(--t2)}
+.proto-split-legend span{display:flex;align-items:center;gap:6px}
+.proto-split-legend i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.proto-split-legend b{color:var(--t);margin-left:auto}

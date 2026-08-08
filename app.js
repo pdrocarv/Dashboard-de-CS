@@ -3121,7 +3121,10 @@ var f=c.follows[S.selFollow];return'<nav class="nav"><button class="btn btn-sm" 
 // ============================================================
 // DASHBOARD VIEW
 // ============================================================
-function dashView(){
+// Dados e filtros compartilhados por TODA variante da página principal — mudou
+// aqui, muda pra todo mundo (produção e protótipo). Só a forma de MOSTRAR isso
+// varia entre as variantes; os dados e a lógica de filtro são um só lugar.
+function dashData(){
 var all=S.clients.filter(function(c){return !c.archived;});
 var filt=all.filter(function(c){if(S.filterCountry&&getListingCountry(c)!==S.filterCountry)return false;if(S.filterRisk&&hl(calcScore(c))!==S.filterRisk)return false;if(S.filterPlan&&(c.plan||"")!==S.filterPlan)return false;if(S.filterFollowUp){var fu=fuSt(c);if(S.filterFollowUp==="overdue"&&(fu.days===null||fu.days>=0))return false;if(S.filterFollowUp==="soon"&&(fu.days===null||fu.days<0||fu.days>15))return false;}if(S.filterAnalyst&&c.ownerId!==S.filterAnalyst)return false;if(S.filterStatus&&(c.onboardingStatus||'')!==S.filterStatus)return false;if(S.filterCategoria&&(c.categoria||'')!==S.filterCategoria)return false;
 if(S.filterAlertStatus){if(S.filterAlertStatus==='churn'&&!isChurnAlert(c))return false;if(S.filterAlertStatus==='inadimplente'&&!isInadimplente(c))return false;if(S.filterAlertStatus==='ativo'&&(isChurnAlert(c)||isInadimplente(c)||isInRecovery(c)))return false;if(S.filterAlertStatus==='recuperacao'&&!isInRecovery(c))return false;}return true;});
@@ -3138,10 +3141,26 @@ var countries=[...new Set(all.map(function(c){return getListingCountry(c);}).fil
 var pOpts=Object.entries(PLAN_L).map(function(e){return'<option value="'+e[0]+'"'+(S.filterPlan===e[0]?" selected":"")+'>'+e[1]+'</option>';}).join("");
 var mrrOpts='<option value=""'+(S.sortMrr===""?" selected":"")+'>Ordenar por MRR</option><option value="desc"'+(S.sortMrr==="desc"?" selected":"")+'>MRR: maior primeiro</option><option value="asc"'+(S.sortMrr==="asc"?" selected":"")+'>MRR: menor primeiro</option>';
 var hasActiveFilter=!!(S.filterCountry||S.filterRisk||S.filterPlan||S.filterFollowUp||S.sortMrr||S.filterAnalyst||S.filterStatus||S.filterCategoria||S.filterAlertStatus);var filters='<div style="margin-top:1rem">'+'<div class="flex" style="gap:8px;margin-bottom:6px">'+'<button class="ver-filtros-btn'+(S.showFilters?' active':'')+'" onclick="S.showFilters=!S.showFilters;render()">'+'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>'+(S.showFilters?'Ocultar filtros':'Ver filtros')+'</button>'+(hasActiveFilter?'<span style="font-size:11px;color:var(--b600);font-weight:600;background:var(--b50);padding:3px 8px;border-radius:9999px">'+[S.filterCountry,S.filterRisk,S.filterPlan,S.filterFollowUp,S.filterStatus,S.filterCategoria].filter(Boolean).length+' ativo(s)</span>':'')+(hasActiveFilter?'<button class="btn btn-sm" onclick="S.filterCountry=S.filterRisk=S.filterPlan=S.filterFollowUp=S.sortMrr=S.filterAnalyst=S.filterStatus=S.filterCategoria=S.filterAlertStatus=\'\';render()">Limpar tudo</button>':'')+'</div>'+'<div class="filter-panel'+(S.showFilters?' fp-open':'')+'">'+'<div class="flex" style="flex-wrap:wrap;gap:8px;padding:10px 0">'+'<select style="width:auto" onchange="S.filterCountry=this.value;render()"><option value="">Todos os paises</option>'+countries.map(function(c){return'<option'+(S.filterCountry===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>'+'<select style="width:auto" onchange="S.filterCategoria=this.value;render()"><option value="">Todas as categorias</option><option value="elite"'+(S.filterCategoria==="elite"?' selected':'')+'>Elite</option><option value="gold"'+(S.filterCategoria==="gold"?' selected':'')+'>Gold / High Value</option><option value="silver"'+(S.filterCategoria==="silver"?' selected':'')+'>Silver / Core A-B</option><option value="bronze"'+(S.filterCategoria==="bronze"?' selected':'')+'>Bronze / Pareto</option></select>'+'<select style="width:auto" onchange="S.filterAlertStatus=this.value;render()"><option value="">Status: todos</option><option value="ativo"'+(S.filterAlertStatus==="ativo"?' selected':'')+'>Ativos</option><option value="churn"'+(S.filterAlertStatus==="churn"?' selected':'')+'>Alerta de Churn</option><option value="inadimplente"'+(S.filterAlertStatus==="inadimplente"?' selected':'')+'>Inadimplentes</option><option value="recuperacao"'+(S.filterAlertStatus==="recuperacao"?' selected':'')+'>Em recuperação</option></select>'+'<select style="width:auto" onchange="S.filterStatus=this.value;render()"><option value="">Onboarding: todos</option><option value="Em andamento"'+(S.filterStatus==="Em andamento"?' selected':'')+'>Em andamento</option><option value="Completed"'+(S.filterStatus==="Completed"?' selected':'')+'>Completed</option></select>'+'<select style="width:auto" onchange="S.filterFollowUp=this.value;render()"><option value="">Follow-up: todos</option><option value="overdue"'+(S.filterFollowUp==="overdue"?' selected':'')+'>Atrasado</option><option value="soon"'+(S.filterFollowUp==="soon"?' selected':'')+'>Proximos 15d</option></select>'+'<select style="width:auto" onchange="S.filterPlan=this.value;render()"><option value="">Todos os planos</option>'+pOpts+'</select>'+'<select style="width:auto" onchange="S.filterRisk=this.value;render()"><option value="">Todos os riscos</option><option value="risk"'+(S.filterRisk==="risk"?' selected':'')+'>Alto risco</option><option value="warn"'+(S.filterRisk==="warn"?' selected':'')+'>Atencao</option><option value="ok"'+(S.filterRisk==="ok"?' selected':'')+'>Estaveis</option></select>'+'<select style="width:auto" onchange="S.sortMrr=this.value;render()">'+mrrOpts+'</select>'+(S.appUser.role==="admin"||S.appUser.role==="leader"?'+'+'<select style="width:auto" onchange="S.filterAnalyst=this.value;render()"><option value="">Todos os analistas</option>'+analystUsers().map(function(u){return'<option value="'+u.uid+'"'+(S.filterAnalyst===u.uid?' selected':'')+'>'+e(String(u.name||'').split(' ')[0])+'</option>';}).join('')+'</select>':"")+'</div></div></div>'+'</div>';
-var tbl=filt.length===0?'<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><p style="color:var(--t2);margin-bottom:1.5rem">Nenhum cliente encontrado.</p><button class="btn-primary" onclick="openM(\'add-client\')">+ Primeiro cliente</button></div>'
-:'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th title="Dias sem o cliente logar no sistema">Inatividade</th><th>Lem.</th><th></th></tr></thead><tbody>'
-+filt.map(function(c){var ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td>'+(h==="risk"?'<span style="display:inline-block;border-left:3px solid #dc2626;background:#fde8e8;padding:1px 8px;border-radius:4px">':'<span>')+'<button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px;color:'+hC+'">'+e((c.slug||c.name).toUpperCase())+'</button></span><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+(clientHasPending(c)?' <span class="pend-badge" style="cursor:pointer" title="Resolver pendências de follow-ups importados" onclick="resolvePendencies('+ci+')">'+svgIcon('alert',11)+' '+clientPendingCount(c)+' pendente(s)</span>':'')+'</td><td>'+hB+'<div class="hrow" style="margin-top:6px"><div class="htrack" style="height:9px"><div class="hfill score-bar-live" data-score="'+score+'" data-ci="'+ci+'" style="width:'+score+'%;background:'+hC+'"></div></div><span class="score-num-live" data-score="'+score+'" data-ci="'+ci+'" style="font-size:18px;font-weight:700;color:'+hC+';min-width:28px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td>'+inactivityHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">'+svgIcon('clipboard',14)+'</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">'+svgIcon('notification',14)+'</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">'+svgIcon('document',14)+' Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">'+svgIcon('trash',13)+' Excluir conta</button></div></div></td></tr>';}).join("")+'</tbody></table></div></div>';
-return'<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>'+filters+'<div style="margin-top:1.25rem"><div class="kpi-group"><div class="kpi-group-lbl">Saude da carteira</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"><div class="metric"><div class="metric-lbl">Total</div><div class="metric-val mv-d">'+all.length+'</div></div><div class="metric"><div class="metric-lbl">Alto risco</div><div class="metric-val mv-r">'+alto+'</div></div><div class="metric"><div class="metric-lbl">Atencao</div><div class="metric-val mv-a">'+med+'</div></div><div class="metric"><div class="metric-lbl">Estaveis</div><div class="metric-val mv-g">'+ok+'</div></div><div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(mrrTotal)+'</div></div></div></div><div class="kpi-group" style="margin-top:10px"><div class="kpi-group-lbl">Follow-ups</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="metric"><div class="metric-lbl">FU urgente</div><div class="metric-val mv-a">'+urg+'</div></div><div class="metric"><div class="metric-lbl">FU vencido</div><div class="metric-val mv-r">'+ven+'</div></div></div></div></div>'+tbl;}
+return{all:all,filt:filt,alto:alto,med:med,ok:ok,urg:urg,ven:ven,mrrTotal:mrrTotal,filters:filters};
+}
+function dashRow(c){
+  var ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c),fu=fuSt(c);var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");var lf=getLatestFollow(c);var hB=(lf&&lf.doingWell)?'<span class="badge b-blue">Sem necessidade</span>':bdg(h,h==="ok"?"Estavel":(h==="warn"?"Atencao":"Alto risco"));var mrrV=c.mrr?'<span style="font-weight:600;color:var(--t)">'+formatMRR(c.mrr)+'</span>':'<span class="muted">—</span>';return'<tr><td>'+(h==="risk"?'<span style="display:inline-block;border-left:3px solid #dc2626;background:#fde8e8;padding:1px 8px;border-radius:4px">':'<span>')+'<button class="btn-link" onclick="openClient('+ci+')" style="text-transform:uppercase;font-weight:700;letter-spacing:.3px;color:'+hC+'">'+e((c.slug||c.name).toUpperCase())+'</button></span><div class="sub" style="font-size:11px;color:var(--t3)">'+e(c.name)+'</div><div class="sub">'+e(getListingCountry(c))+'</div>'+planBdg(c.plan)+(clientHasPending(c)?' <span class="pend-badge" style="cursor:pointer" title="Resolver pendências de follow-ups importados" onclick="resolvePendencies('+ci+')">'+svgIcon('alert',11)+' '+clientPendingCount(c)+' pendente(s)</span>':'')+'</td><td>'+hB+'<div class="hrow" style="margin-top:6px"><div class="htrack" style="height:9px"><div class="hfill score-bar-live" data-score="'+score+'" data-ci="'+ci+'" style="width:'+score+'%;background:'+hC+'"></div></div><span class="score-num-live" data-score="'+score+'" data-ci="'+ci+'" style="font-size:18px;font-weight:700;color:'+hC+';min-width:28px">'+score+'</span></div></td><td>'+mrrV+'</td>'+["crescimento","digital"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+["financeiro"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td>'+(catSt(c,"risco")==="risk"?'<span class="badge b-risk">Risco de churn</span>':catSt(c,"risco")==="warn"?'<span class="badge b-warn">Atencao</span>':'<span class="badge b-ok">Sem risco</span>')+'</td>'+["engajamento"].map(function(cat){return"<td>"+bdg(catSt(c,cat))+"</td>";}).join("")+'<td><span class="fu-badge '+fu.cls+'">'+fu.label+'</span></td>'+'<td>'+thermoHTML(c)+'</td>'+'<td>'+inactivityHTML(c)+'</td>'+'<td style="text-align:center">'+reminderDots(ci,c)+'</td>'+'<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" style="padding:4px 8px" title="Atividades" data-ci='+ci+' data-tab="activities" onclick="openPanel(this)">'+svgIcon('clipboard',14)+'</button> <button class="btn btn-sm" style="padding:4px 8px" title="Lembretes" data-ci='+ci+' data-tab="reminders" onclick="openPanel(this)">'+svgIcon('notification',14)+'</button> <button class="btn btn-sm" onclick="openClient('+ci+')">Abrir</button> <div style="display:inline-block;position:relative"><button class="btn btn-sm" onclick="toggleDropdown(\'dd-'+ci+'\',event)" style="padding:4px 10px;font-size:15px;letter-spacing:2px" title="Mais opcoes">···</button><div id="dd-'+ci+'" class="dd-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surf);border:1px solid var(--bd);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:99;min-width:170px;overflow:hidden"><button onclick="openClientFollows('+ci+')" class="dd-item">'+svgIcon('document',14)+' Ver Follow Ups</button><button onclick="delClient('+ci+')" class="dd-item dd-danger">'+svgIcon('trash',13)+' Excluir conta</button></div></div></td></tr>';
+}
+function dashTableHTML(filt){
+  if(!filt.length)return'<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><p style="color:var(--t2);margin-bottom:1.5rem">Nenhum cliente encontrado.</p><button class="btn-primary" onclick="openM(\'add-client\')">+ Primeiro cliente</button></div>';
+  return'<div class="card" style="margin-top:1rem"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th data-tip="'+TOOLTIPS.saude+'">Saude</th><th data-tip="'+TOOLTIPS.mrr+'">MRR</th><th data-tip="'+TOOLTIPS.crescimento+'">Crescimento</th><th data-tip="'+TOOLTIPS.digital+'">Digital</th><th data-tip="'+TOOLTIPS.financeiro+'">Financeiro</th><th data-tip="'+TOOLTIPS.risco+'">Risco</th><th data-tip="'+TOOLTIPS.engajamento+'">Engajamento</th><th data-tip="'+TOOLTIPS.followup+'">Follow-up</th><th>Sem contato</th><th title="Dias sem o cliente logar no sistema">Inatividade</th><th>Lem.</th><th></th></tr></thead><tbody>'
+    +filt.map(dashRow).join("")+'</tbody></table></div></div>';
+}
+function dashView(){
+  var d=dashData();
+  var v=hasBeta()?dashProtoVariant():'atual';
+  var body=(v==='A')?dashProtoA(d):(v==='B')?dashProtoB(d):(v==='C')?dashProtoC(d):dashAtualHTML(d);
+  return body+(hasBeta()?dashProtoSwitcherHTML(v):'');
+}
+// A tela de sempre, inalterada — quem não tem hasBeta() nunca sai daqui.
+function dashAtualHTML(d){
+  return'<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>'+d.filters+'<div style="margin-top:1.25rem"><div class="kpi-group"><div class="kpi-group-lbl">Saude da carteira</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"><div class="metric"><div class="metric-lbl">Total</div><div class="metric-val mv-d">'+d.all.length+'</div></div><div class="metric"><div class="metric-lbl">Alto risco</div><div class="metric-val mv-r">'+d.alto+'</div></div><div class="metric"><div class="metric-lbl">Atencao</div><div class="metric-val mv-a">'+d.med+'</div></div><div class="metric"><div class="metric-lbl">Estaveis</div><div class="metric-val mv-g">'+d.ok+'</div></div><div class="metric"><div class="metric-lbl">MRR Total</div><div class="metric-val mv-b" style="font-size:18px">'+formatMRR(d.mrrTotal)+'</div></div></div></div><div class="kpi-group" style="margin-top:10px"><div class="kpi-group-lbl">Follow-ups</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="metric"><div class="metric-lbl">FU urgente</div><div class="metric-val mv-a">'+d.urg+'</div></div><div class="metric"><div class="metric-lbl">FU vencido</div><div class="metric-val mv-r">'+d.ven+'</div></div></div></div></div>'+dashTableHTML(d.filt);
+}
 // Follow-ups excluídos de todos os clientes, do mais recente pro mais antigo.
 function todosFollowsArquivados(){
   var out=[];
@@ -3512,6 +3531,164 @@ function infoTab(c,ci){var html="";html+='<div class="section-hdr"><span>Princip
 html+=npsHistoryHTML(c);var cts=[...(c.contacts||[])].reverse();html+='<div class="section-hdr"><span>Contatos externos</span><button class="btn btn-sm" onclick="openM(\'add-contact\')">+ Registrar</button></div>';if(!cts.length){html+='<p class="muted">Nenhum contato registrado ainda.</p>';}else{cts.forEach(function(ct,idx){var ri=(c.contacts.length-1)-idx;var tl={meeting:"Reuniao",whatsapp:"WhatsApp",email:"E-mail",churn:"Churn Alert"}[ct.type];var il={positive:"+ Positivo",neutral:"Neutro",negative:"- Negativo"}[ct.impact];html+='<div class="contact-entry"><div class="ce-hdr"><span class="ctb ctb-'+ct.type+'">'+tl+'</span><span class="ct-date">'+formatDate(ct.date)+'</span><span class="impb imp-'+ct.impact+'">'+il+'</span><button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="delContact('+ci+','+ri+')">Remover</button></div><div class="ct-summary">'+e(ct.summary)+'</div></div>';});}return html;}
 
 function followsTab(c,ci){var sorted=getFollowsSorted(c);var draftBanner=(c.wizDraft?'<div class="card" style="padding:12px 16px;margin-bottom:1rem;border-color:var(--b600);background:var(--b50);display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--b600)">'+svgIcon('edit',14)+' Você tem um follow-up em andamento (salvo em '+formatDate(c.wizDraft.savedAt?c.wizDraft.savedAt.split("T")[0]:"")+', pergunta '+((c.wizDraft.step||0)+1)+'/'+getWizOrder(c.wizDraft.type).length+'</div><button class="btn-primary btn-sm" onclick="resumeDraft('+ci+')">Continuar →</button></div>':'');var pendBanner=pendingBannerHTML(c,ci);var html=draftBanner+pendBanner+'<div class="flex-between" style="margin-bottom:1rem"><div class="muted">'+sorted.length+' follow-up(s)</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow</button><button class="btn-primary" style="background:var(--gn600)" onclick="openWizard(\'recurring\')">↺ Follow recorrente</button><button class="btn" onclick="openFollowImport(\'first\')">'+svgIcon('clipboard',14)+' Importar follow</button><button class="btn-primary" style="background:#8b5cf6" onclick="openFollowCharts()">'+svgIcon('arrow_up',14)+' Acompanhamento em gráficos</button></div></div>';if(!sorted.length)return html+'<div class="card" style="padding:3rem;text-align:center"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Nenhum follow-up ainda</div><button class="btn-primary" onclick="openWizard(\'first\')">+ Primeiro follow-up</button></div>';html+='<div style="display:flex;flex-direction:column;gap:10px">';sorted.forEach(function(f){var ri=c.follows.indexOf(f),isF=f.type==="first";var np=followPendingList(f).length;html+='<div class="follow-card '+(isF?"follow-card-first":"follow-card-recurring")+(np?' follow-card-pend':'')+'" onclick="openFollow('+ri+')"><div class="flex-between"><div><div style="font-family:\'Roboto Slab\',serif;font-size:15px;font-weight:700">Follow Up — '+formatDate(f.date)+'</div><div class="sub" style="margin-top:3px">'+(isF?"Primeira analise":"Analise recorrente")+(f.imported?' · importado':'')+'</div></div><div class="flex" style="gap:8px;align-items:center">'+(np?'<span class="pend-badge">'+svgIcon('alert',11)+' '+np+' pendente(s)</span>':'')+followScoreBadge(f)+'<span style="color:var(--b600);font-size:13px;font-weight:600">Ver →</span></div></div></div>';});return html+'</div>';}
+// ══════════════════════════════════════════════════
+// PROTÓTIPO — 3 variantes da página principal (em prova)
+// ══════════════════════════════════════════════════
+// Descartável de propósito: existe pra você decidir entre as 3, não pra ficar
+// no ar. Depois de escolher, a vencedora vira a real e as outras duas + esta
+// seção inteira saem do app.js. Só aparece com hasBeta() — nenhum analista vê.
+var PROTO_VARIANTS=[
+  {key:'atual',nome:'Hoje'},
+  {key:'A',nome:'Fila de prioridade'},
+  {key:'B',nome:'Cards de carteira'},
+  {key:'C',nome:'Painel dividido'}
+];
+function dashProtoVariant(){
+  if(!S._protoVariant){
+    try{S._protoVariant=localStorage.getItem('proto_dash_variant')||'atual';}catch(e){S._protoVariant='atual';}
+  }
+  return S._protoVariant;
+}
+function dashSetProtoVariant(k){
+  S._protoVariant=k;
+  try{localStorage.setItem('proto_dash_variant',k);}catch(e){}
+  render();
+}
+function dashCycleProtoVariant(dir){
+  var keys=PROTO_VARIANTS.map(function(v){return v.key;});
+  var i=keys.indexOf(dashProtoVariant());
+  var next=keys[(i+dir+keys.length)%keys.length];
+  dashSetProtoVariant(next);
+}
+function dashProtoSwitcherHTML(current){
+  var info=PROTO_VARIANTS.find(function(v){return v.key===current;})||PROTO_VARIANTS[0];
+  return'<div class="proto-switcher">'
+    +'<button class="proto-sw-arrow" onclick="dashCycleProtoVariant(-1)" title="Variante anterior">&larr;</button>'
+    +'<span class="proto-sw-lbl">PROTÓTIPO · <b>'+info.key+'</b> — '+e(info.nome)+'</span>'
+    +'<button class="proto-sw-arrow" onclick="dashCycleProtoVariant(1)" title="Próxima variante">&rarr;</button>'
+    +'</div>';
+}
+document.addEventListener('keydown',function(ev){
+  if(!(S.appReady&&S.view==='dashboard'&&hasBeta()))return;
+  var tag=(ev.target&&ev.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||ev.target&&ev.target.isContentEditable)return;
+  if(ev.key==='ArrowLeft')dashCycleProtoVariant(-1);
+  else if(ev.key==='ArrowRight')dashCycleProtoVariant(1);
+});
+
+// ── Variante A — Fila de prioridade ──
+// Pergunta que ela responde: "em vez de uma tabela ordenada por score, e se a
+// primeira coisa que a tela mostrasse fosse literalmente só quem precisa de
+// alguém HOJE?" A tabela cheia continua embaixo, como referência — só deixou de
+// ser a primeira coisa que os olhos encontram.
+function dashProtoA(d){
+  var fila=d.all.filter(function(c){
+    var f=fuSt(c);
+    return(f.days!==null&&f.days<0)||hl(calcScore(c))==='risk'||isChurnAlert(c);
+  }).map(function(c){
+    var f=fuSt(c);
+    var urgencia=(f.days!==null&&f.days<0?-f.days*10:0)+(hl(calcScore(c))==='risk'?50:0)+(isChurnAlert(c)?100:0);
+    return{c:c,urgencia:urgencia,fu:f};
+  }).sort(function(a,b){return b.urgencia-a.urgencia;});
+  var top=fila.slice(0,8);
+  var html='<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>';
+  html+='<div class="proto-strip">'
+    +'<span><b>'+d.all.length+'</b> clientes</span><span class="proto-strip-sep">·</span>'
+    +'<span>'+formatMRR(d.mrrTotal)+' de MRR</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--rd600)"><b>'+d.alto+'</b> em alto risco</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--rd600)"><b>'+d.ven+'</b> follow vencido</span>'
+    +'</div>';
+  html+='<div class="section-hdr" style="margin-top:1.25rem"><span>Precisa de você agora ('+fila.length+')</span></div>';
+  if(!top.length){
+    html+='<div class="lp-empty-box">Ninguém em risco, vencido ou com alerta de churn agora. Carteira em dia.</div>';
+  }else{
+    html+='<div class="card" style="padding:0">';
+    top.forEach(function(x){
+      var c=x.c,ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c);
+      var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");
+      var motivos=[];
+      if(x.fu.days!==null&&x.fu.days<0)motivos.push('<span class="badge b-risk">Follow vencido '+(-x.fu.days)+'d</span>');
+      if(isChurnAlert(c))motivos.push('<span class="badge b-risk">Alerta de churn</span>');
+      if(hl(score)==='risk')motivos.push('<span class="badge b-risk">Score em risco</span>');
+      html+='<div class="proto-pri-row">'
+        +'<div class="proto-pri-score" style="color:'+hC+'">'+score+'</div>'
+        +'<div class="proto-pri-info"><b>'+e(String(c.slug||c.name).toUpperCase())+'</b> <span class="muted">'+e(c.name)+'</span>'
+        +'<div class="proto-pri-motivos">'+motivos.join(' ')+'</div></div>'
+        +'<button class="btn btn-sm press" onclick="openClient('+ci+')">Abrir</button>'
+        +'</div>';
+    });
+    if(fila.length>top.length)html+='<div class="lp-note" style="padding:10px 14px">+ '+(fila.length-top.length)+' outro(s) com pendência — na tabela completa abaixo.</div>';
+    html+='</div>';
+  }
+  html+='<div class="section-hdr" style="margin-top:1.75rem"><span>Carteira completa</span></div>'+d.filters+dashTableHTML(d.filt);
+  return html;
+}
+
+// ── Variante B — Cards de carteira ──
+// Pergunta que ela responde: "e se, em vez de ler uma planilha, o analista
+// pudesse escanear a carteira pela COR?" Tira a tabela, cada cliente vira um
+// cartão com borda colorida pela saúde — bom pra reconhecer padrão rápido,
+// pior pra comparar número exato lado a lado (é exatamente essa a troca).
+function dashProtoB(d){
+  var html='<div class="flex-between"><h1 style="font-size:20px;font-family:\'Roboto Slab\',serif">Minha carteira</h1><button class="btn-primary" onclick="openM(\'add-client\')">+ Novo cliente</button></div>';
+  html+='<div class="proto-strip">'
+    +'<span><b>'+d.all.length+'</b> total</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--rd600)"><b>'+d.alto+'</b> risco</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--am700)"><b>'+d.med+'</b> atenção</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--gn700)"><b>'+d.ok+'</b> estáveis</span><span class="proto-strip-sep">·</span>'
+    +'<span>'+formatMRR(d.mrrTotal)+'</span><span class="proto-strip-sep">·</span>'
+    +'<span style="color:var(--rd600)"><b>'+d.ven+'</b> FU vencido</span>'
+    +'</div>'+d.filters;
+  if(!d.filt.length){
+    html+='<div class="card" style="padding:3rem;text-align:center;margin-top:1rem"><div style="font-size:36px;margin-bottom:1rem">'+svgIcon('clipboard',36)+'</div><p style="color:var(--t2)">Nenhum cliente encontrado.</p></div>';
+    return html;
+  }
+  html+='<div class="proto-card-grid">';
+  d.filt.forEach(function(c){
+    var ci=S.clients.indexOf(c),score=calcScore(c),h=healthColor(c),fu=fuSt(c);
+    var hC=h==="risk"?"#dc2626":(h==="warn"?"#d97706":"#16a34a");
+    var dsc=getDaysWithoutContact?getDaysWithoutContact(c):null;
+    html+='<div class="proto-cli-card" style="border-top-color:'+hC+'" onclick="openClient('+ci+')">'
+      +'<div class="proto-cli-hd"><b>'+e(String(c.slug||c.name).toUpperCase())+'</b>'+(catBdg(c)||'')+'</div>'
+      +'<div class="proto-cli-sub">'+e(c.name)+'</div>'
+      +'<div class="proto-cli-nums">'
+      +'<div><span class="proto-cli-n" style="color:'+hC+'">'+score+'</span><span class="proto-cli-lbl">saúde</span></div>'
+      +'<div><span class="proto-cli-n">'+formatMRR(c.mrr)+'</span><span class="proto-cli-lbl">MRR</span></div>'
+      +'</div>'
+      +'<div class="proto-cli-foot"><span class="fu-badge '+fu.cls+'">'+fu.label+'</span>'
+      +(dsc!==null?'<span class="muted">'+dsc+'d sem contato</span>':'')+'</div>'
+      +'</div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+// ── Variante C — Painel dividido ──
+// Pergunta que ela responde: "e se a visão geral e a lista de trabalho fossem
+// duas colunas separadas, em vez de empilhadas?" Mesma ideia do trilho lateral
+// que o Painel do líder já usa — aplicada aqui na carteira de um analista só.
+function dashProtoC(d){
+  var html='<div class="proto-split">';
+  html+='<aside class="proto-split-side">';
+  html+='<h1 style="font-size:18px;font-family:\'Roboto Slab\',serif;margin-bottom:2px">Minha carteira</h1>';
+  html+='<button class="btn-primary btn-sm" style="width:100%;margin-bottom:14px" onclick="openM(\'add-client\')">+ Novo cliente</button>';
+  var tot=Math.max(1,d.alto+d.med+d.ok);
+  html+='<div class="lp-eyebrow">Saúde da carteira</div>';
+  html+='<div class="proto-split-bar"><i style="width:'+(d.alto/tot*100)+'%;background:var(--rd600)"></i><i style="width:'+(d.med/tot*100)+'%;background:var(--am600)"></i><i style="width:'+(d.ok/tot*100)+'%;background:var(--gn600)"></i></div>';
+  html+='<div class="proto-split-legend">'
+    +'<span><i style="background:var(--rd600)"></i>Risco <b>'+d.alto+'</b></span>'
+    +'<span><i style="background:var(--am600)"></i>Atenção <b>'+d.med+'</b></span>'
+    +'<span><i style="background:var(--gn600)"></i>Estável <b>'+d.ok+'</b></span>'
+    +'</div>';
+  html+='<div class="lp-kv" style="margin-top:14px"><span>MRR total</span><strong>'+formatMRR(d.mrrTotal)+'</strong></div>';
+  html+='<div class="lp-kv"><span>Follow urgente</span><strong style="color:var(--am700)">'+d.urg+'</strong></div>';
+  html+='<div class="lp-kv"><span>Follow vencido</span><strong style="color:var(--rd600)">'+d.ven+'</strong></div>';
+  html+='<div class="lp-eyebrow" style="margin-top:18px">Filtros</div>'+d.filters;
+  html+='</aside>';
+  html+='<div class="proto-split-main">'+dashTableHTML(d.filt)+'</div>';
+  html+='</div>';
+  return html;
+}
 // ============================================================
 // ADMIN VIEW
 // ============================================================
